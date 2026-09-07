@@ -1,0 +1,40 @@
+x-dev-base: &dev-base
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  image: loglensai/loglens-dev:latest
+  volumes:
+    - .:/app                       
+    - loglens-cache:/home/dev/.cache
+  working_dir: /app
+  environment:
+    - PYTHONPATH=/app/src
+
+services:
+  dev:
+    <<: *dev-base
+    stdin_open: true
+    tty: true
+    command: bash
+
+  test:
+    <<: *dev-base
+    command: pytest -q
+
+  bench:
+    <<: *dev-base
+    command: >
+      bash -c "bash scripts/fetch_benchmark.sh &&
+               loglens benchmark benchmarks/BGL_2k.log --format bgl --grid --supervised"
+
+  analyze:
+    <<: *dev-base
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+      - loglens-cache:/home/dev/.cache
+    command: analyze --source logs/app.log
+    entrypoint: ["loglens"]
+
+volumes:
+  loglens-cache:

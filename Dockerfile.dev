@@ -1,0 +1,33 @@
+
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential gcc g++ git curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g "${GID}" dev 2>/dev/null || true \
+ && useradd -m -u "${UID}" -g "${GID}" -s /bin/bash dev 2>/dev/null || true
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    # persist HF/torch model downloads (deep mode) on a named volume
+    XDG_CACHE_HOME=/home/dev/.cache \
+    LOGLENS_IN_DOCKER=1
+
+WORKDIR /app
+
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+RUN pip install --upgrade pip \
+ && pip install -e ".[dev]"
+ 
+ARG INSTALL_DEEP=0
+RUN if [ "$INSTALL_DEEP" = "1" ]; then pip install -e ".[deep]"; fi
+
+RUN chown -R dev:dev /app /home/dev
+USER dev
+
+CMD ["bash"]

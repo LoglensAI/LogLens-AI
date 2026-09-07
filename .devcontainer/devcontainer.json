@@ -1,0 +1,21 @@
+{
+  "name": "LogLens AI (dev)",
+  "dockerComposeFile": ["../docker-compose.dev.yml"],
+  "service": "dev",
+  "workspaceFolder": "/app",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["tests"]
+      }
+    }
+  },
+  "postCreateCommand": "loglens version"
+}
