@@ -2,7 +2,7 @@
 
 Complete guide to every LogLens command, flag, and workflow.
 
-> **Note on syntax:** `analyze` and `ask` take the log source via the `--source` option (a file path, URL, or `-` for stdin). `benchmark` and `bench` take the file as a positional argument.
+> **Note on syntax:** `analyze` and `ask` take the log source via the `--source` option (a file path or URL). `benchmark` and `bench` take the file as a positional argument.
 
 ---
 
@@ -28,10 +28,10 @@ Complete guide to every LogLens command, flag, and workflow.
 ## Installation
 
 ```bash
-pip install loglens
+pip install loglensai
 
 # for deep (neural) mode
-pip install sentence-transformers
+pip install "loglensai[deep]"
 ```
 
 Verify:
@@ -50,7 +50,7 @@ loglens --help
 loglens [COMMAND] --help
 ```
 
-Available commands: `version`, `hello`, `analyze`, `ask`, `benchmark`, `bench`.
+Available commands: `version`, `hello`, `analyze`, `watch`, `ask`, `benchmark`, `bench`.
 
 ---
 
@@ -86,11 +86,11 @@ loglens analyze --source <PATH|URL|-> [OPTIONS]
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--source` | string | *(required)* | Log source: file path, URL, or `-` for stdin. |
+| `--source` | string | *(required)* | Log source: file path or URL. |
 | `--dry-run` | flag | off | Stop after ingestion; show stats only (no detection). |
 | `--verbose` | flag | off | Show a sample parsed entry (field breakdown). |
 | `--workers` | int | 4 | Number of parallel workers. |
-| `--deep` | flag | off | Use neural (transformer) embeddings -most accurate, slower. Requires `sentence-transformers`. |
+| `--deep` | flag | off | Use neural (transformer) embeddings -most accurate, slower. Requires the `deep` extra (`pip install "loglensai[deep]"`). |
 | `--turbo` | flag | off | Fast multiprocess scan for huge files (byte-range + template dedup, skips embeddings). |
 | `--limit` | int | 20 | Max anomaly **families** to display. |
 | `--sort-by` | string | `severity` | Sort anomalies by `severity`, `time`, or `service`. |
@@ -127,9 +127,6 @@ loglens analyze --source app.log --limit 5 --sort-by service
 
 # Debug why something almost got flagged
 loglens analyze --source app.log --explain 15
-
-# Read from stdin
-cat app.log | loglens analyze --source -
 
 # Just count/ingest, no detection
 loglens analyze --source app.log --dry-run
@@ -436,7 +433,7 @@ loglens benchmark <DATASET> [OPTIONS]
 | `--format` | string | `bgl` | Label format: `bgl`, `jsonl`, or `labeled`. |
 | `--limit` | int | all | Max lines to load. |
 | `--grid` | flag | off | Grid-search `feature_weight × threshold` for the best F1. |
-| `--supervised` | flag | off | Train + evaluate a logistic-regression head. |
+| `--supervised` | flag | off | Train + evaluate a supervised RandomForest head. |
 | `--min-f1` | float | -| Fail (exit 1) if baseline F1 falls below this -useful in CI. |
 
 ### Examples
@@ -566,4 +563,4 @@ loglens analyze --source app.log --explain 20
 
 ---
 
-*For architecture and reproducible accuracy details, see [README.md](README.md) and [BENCHMARK.md](BENCHMARK.md).*
+*For architecture and reproducible accuracy details, see [README.md](../README.md) and [BENCHMARK.md](BENCHMARK.md).*

@@ -10,8 +10,8 @@
 [![Python](https://img.shields.io/pypi/pyversions/loglensai?color=3776ab&logo=python&logoColor=white)](https://pypi.org/project/loglensai/)
 [![Docker](https://img.shields.io/badge/docker-loglensai%2Floglens-2496ed?logo=docker&logoColor=white)](https://hub.docker.com/r/loglensai/loglens)
 [![License: MIT](https://img.shields.io/badge/License-MIT-3fb950.svg)](LICENSE)
-[![F1 Score](https://img.shields.io/badge/BGL%20F1-0.957-8957e5)](BENCHMARK.md)
-[![Recall](https://img.shields.io/badge/recall-1.000%20(0%20missed)-3fb950)](BENCHMARK.md)
+[![F1 Score](https://img.shields.io/badge/BGL%20F1-0.957-8957e5)](docs/BENCHMARK.md)
+[![Recall](https://img.shields.io/badge/recall-1.000%20(0%20missed)-3fb950)](docs/BENCHMARK.md)
 
 ```bash
 pip install loglensai
@@ -19,7 +19,7 @@ pip install loglensai
 
 **→ first real insight in seconds. No account. No agent. No cloud. No bill.**
 
-[Website](https://loglensai.com) · [Documentation](https://loglensai.com/docs) · [Benchmarks](BENCHMARK.md) · [Docker Hub](https://hub.docker.com/r/loglensai/loglens)
+[Website](https://loglensai.com) · [Documentation](https://loglensai.com/docs) · [Benchmarks](docs/BENCHMARK.md) · [Docker Hub](https://hub.docker.com/r/loglensai/loglens)
 
 </div>
 
@@ -97,13 +97,13 @@ import loglens
 loglens.init(app_name="checkout-api")   # → Slack / Teams / Email on serious events
 ```
 
-📖 Full command & SDK reference → **[loglensai.com/docs](https://loglensai.com/docs)** and [DOCUMENTATION.md](DOCUMENTATION.md).
+📖 Full command & SDK reference → **[loglensai.com/docs](https://loglensai.com/docs)** and [DOCUMENTATION.md](docs/DOCUMENTATION.md).
 
 ---
 
 ## 📊 Benchmarks - measured, reproducible, honest
 
-All numbers on real labeled datasets from [Loghub](https://github.com/logpai/loghub). Reproduce them yourself → [BENCHMARK.md](BENCHMARK.md).
+All numbers on real labeled datasets from [Loghub](https://github.com/logpai/loghub). Reproduce them yourself → [BENCHMARK.md](docs/BENCHMARK.md).
 
 ### Accuracy - Loghub BGL (500,000 lines, 206,847 labeled alerts)
 
@@ -137,7 +137,7 @@ Kernel panic, OOM, disk failure, security breach and data corruption injected in
 - **Incident families** - repeated anomalies collapse into one incident with an `×N` count. No scrolling through 200 identical errors.
 - **Explainable by default** - every flag ships with a plain-language reason (rare + severe + burst context), not just a number.
 - **10+ log formats auto-detected** - Apache, Linux, Mac, HDFS, Spark, Zookeeper, OpenStack, Thunderbird, BGL, HealthApp & generic. No config, ever.
-- **Flexible ingestion** - files, stdin, HTTP, and live commands.
+- **Flexible ingestion** - files, URLs, and live commands.
 
 ### 📡 Live & always-on
 - **`loglens watch`** - point it at `docker logs -f`, `kubectl logs -f`, or `journalctl -f` and it prints **only the problems**, instantly. CRITICAL/FATAL surface immediately; Ctrl-C prints a summary (optionally with AI root-cause + HTML dashboard).
@@ -193,7 +193,7 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro \
   loglensai/loglens watch "docker logs -f my-api" --rca
 ```
 
-Tags: `latest`, `0.3`, `0.3.1` (slim), and `deep` (adds neural mode).
+Tags: `latest`, `0.3`, `0.3.3` (slim), and `deep` (adds neural mode).
 
 ---
 
@@ -212,7 +212,7 @@ Tags: `latest`, `0.3`, `0.3.1` (slim), and `deep` (adds neural mode).
 - Deep mode embeds unique templates only - a real optimization, disclosed.
 - `--rca`, `ask`, and alert cause-hints send only grouped anomaly summaries to the LLM, never the full log.
 - Alerting works fully offline with built-in cause hints; an LLM key only enriches the narrative.
-- All results reproducible with the included harness. See [BENCHMARK.md](BENCHMARK.md).
+- All results reproducible with the included harness. See [BENCHMARK.md](docs/BENCHMARK.md).
 
 ---
 

@@ -133,7 +133,7 @@ LOGLENS_LLM_API_KEY
 
 | Tag | Contents | Best for |
 |-----|----------|----------|
-| `latest`, `0.3`, `0.3.1` | fast + turbo detection, live watch, alerts, SDK, ask, RCA, HTML reports | **most users** |
+| `latest`, `0.3`, `0.3.3` | fast + turbo detection, live watch, alerts, SDK, ask, RCA, HTML reports | **most users** |
 | `deep` | everything above **+ neural (transformer) semantic mode** for best precision | highest accuracy |
 
 Every image is **multi-architecture** - `linux/amd64` and `linux/arm64` (Apple Silicon, AWS Graviton, Raspberry Pi).
