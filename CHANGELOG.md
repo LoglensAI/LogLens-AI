@@ -3,7 +3,13 @@
 All notable changes to LogLens AI are documented here.
 This project adheres to [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [0.3.4] - 2026-09-07
+
+### Chores
+- Sync version to 0.3.3 to match latest tag (8b0725b)
+
+### Documentation
+- Add changelog and fix backfill range logic (295f19a)
 
 ### Other
 - Updated documentation (82c4fe4)
