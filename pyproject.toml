@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "loglensai"
-version = "0.3.1"
+dynamic = ["version"]
 description = "AI-powered log anomaly detection & incident grouping: local, fast, and explainable."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -67,6 +67,9 @@ dev = [
 
 [project.scripts]
 loglens = "loglens.cli:app"
+
+[tool.hatch.version]
+path = "src/loglens/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/loglens"]

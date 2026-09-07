@@ -1,0 +1,60 @@
+# git-cliff configuration — generates CHANGELOG.md and release notes from git
+# history. Works best with Conventional Commits (feat:, fix:, docs: ...), but
+# degrades gracefully: anything unmatched lands under "Other".
+#
+# Regenerate the whole changelog:   git cliff -o CHANGELOG.md
+# Notes for the latest tag only:     git cliff --latest --strip all
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to LogLens AI are documented here.
+This project adheres to [Semantic Versioning](https://semver.org).\n
+"""
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}\
+- {{ commit.message | upper_first }}\
+{% if commit.id %} ({{ commit.id | truncate(length=7, end="") }}){% endif %}
+{% endfor %}\
+{% endfor %}\n
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = false          # keep non-conventional commits (as "Other")
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+tag_pattern = "v[0-9].*"
+topo_order = false
+sort_commits = "newest"
+
+# Categorize by commit prefix. Order here = order in the changelog.
+commit_parsers = [
+  { message = "^feat",     group = "Features" },
+  { message = "^fix",      group = "Bug Fixes" },
+  { message = "^perf",     group = "Performance" },
+  { message = "^refactor", group = "Refactor" },
+  { message = "^docs",     group = "Documentation" },
+  { message = "^test",     group = "Testing" },
+  { message = "^ci|^build",group = "CI/Build" },
+  { message = "^chore\\(release\\):", skip = true },   # hide the release-bump commits
+  { message = "^chore",    group = "Chores" },
+  { body = ".*security",   group = "Security" },
+  { message = "^.*",       group = "Other" },           # catch-all
+]
+
+# Skip noise so release notes stay clean.
+commit_preprocessors = [
+  { pattern = '\\s+', replace = " " },
+]

@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump level"
+        required: true
+        default: patch
+        type: choice
+        options: [patch, minor, major]
+
+permissions:
+  contents: write        
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tooling
+        run: pip install hatch git-cliff
+
+      - name: Bump version
+        id: bump
+        run: |
+          hatch version ${{ inputs.bump }}
+          echo "new=$(hatch version)" >> "$GITHUB_OUTPUT"
+
+      - name: Update changelog + release notes
+        env:
+          NEW: ${{ steps.bump.outputs.new }}
+        run: |
+          git cliff --tag "v${NEW}" -o CHANGELOG.md
+          git cliff --unreleased --tag "v${NEW}" --strip header -o RELEASE_NOTES.md
+
+      - name: Commit, tag, push
+        env:
+          NEW: ${{ steps.bump.outputs.new }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/loglens/_version.py CHANGELOG.md
+          git commit -m "chore(release): v${NEW}"
+          git tag "v${NEW}"
+          git push origin HEAD --tags
+
+      - name: Publish GitHub Release
+        env:
+          NEW: ${{ steps.bump.outputs.new }}
+        run: |
+          gh release create "v${NEW}" \
+            --title "v${NEW}" \
+            --notes-file RELEASE_NOTES.md

@@ -7,7 +7,7 @@ from loglens.monitor import init, Monitor
 from loglens.alerts import (SlackAlerter, TeamsAlerter, EmailAlerter,
                             AlertDispatcher)
 
-__version__ = "0.3.0"
+from loglens._version import __version__
 
 __all__ = ["analyze", "analyze_async", "analyze_entries", "AnalysisResult",
            "Anomaly", "LiveDetector", "LogLensHandler", "RunConfig",
