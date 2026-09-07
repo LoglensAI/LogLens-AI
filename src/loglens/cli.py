@@ -22,6 +22,7 @@ from loglens.pipeline.grouping import group_anomalies, group_summaries
 from loglens.pipeline.embeddings import EmbeddingEngine
 from loglens.llm import LLMConfig, LLMError, run_rca, run_ask, save_report
 from loglens.live import LiveDetector
+from loglens import __version__
 
 try:
     from loglens.pipeline.deep_embeddings import DeepEmbeddingEngine
@@ -121,7 +122,7 @@ def _write_html(html_out, source, total_lines, anomalies, rca_result=None, score
 
 @app.command()
 def version():
-    console.print("[bold cyan]LogLens AI[/bold cyan] version [bold]0.2.0[/bold]")
+    console.print(f"[bold cyan]LogLens AI[/bold cyan] version [bold]{__version__}[/bold]")
 
 
 @app.command()
@@ -525,7 +526,7 @@ def benchmark(
     fmt: str = typer.Option("bgl", "--format", help="Label format: bgl | jsonl | labeled"),
     limit: int = typer.Option(None, "--limit", help="Max lines to load (default: all)"),
     grid: bool = typer.Option(False, "--grid", help="Grid-search feature_weight x threshold"),
-    supervised: bool = typer.Option(False, "--supervised", help="Train + eval logistic-reg head"),
+    supervised: bool = typer.Option(False, "--supervised", help="Train + eval supervised (RandomForest) head"),
     min_f1: float = typer.Option(None, "--min-f1", help="Fail (exit 1) if baseline F1 below this"),
 ):
     console.print(f"\n[bold cyan][LogLens][/bold cyan] Benchmarking: [yellow]{dataset}[/yellow] "
@@ -556,7 +557,7 @@ def benchmark(
     baseline = out["baseline"]
     _row("Rule + embeddings (baseline)", baseline)
     if "supervised" in out:
-        _row("Supervised head (logistic reg)", out["supervised"])
+        _row("Supervised head (RandomForest)", out["supervised"])
     console.print(table)
 
     if "grid_best_f1" in out:

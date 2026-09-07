@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import itertools
 import json
+import statistics as _st
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+import joblib
 import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
 from loglens.models import LogEntry
 from loglens.pipeline.detector import (
@@ -167,12 +172,10 @@ class SupervisedHead:
                  max_iter: int = 1000, n_estimators: int = 300,
                  random_state: int = 0):
         if model == "rf":
-            from sklearn.ensemble import RandomForestClassifier
             self.clf = RandomForestClassifier(
                 n_estimators=n_estimators, class_weight=class_weight,
                 random_state=random_state)
         else:
-            from sklearn.linear_model import LogisticRegression
             self.clf = LogisticRegression(class_weight=class_weight,
                                           max_iter=max_iter)
         self.fitted = False
@@ -188,14 +191,23 @@ class SupervisedHead:
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         return self.clf.predict_proba(X)[:, 1]
 
+    def save(self, path: str) -> None:
+        joblib.dump({"clf": self.clf, "version": 1}, path)
+
+    @classmethod
+    def load(cls, path: str) -> "SupervisedHead":
+        obj = cls.__new__(cls)
+        blob = joblib.load(path)
+        obj.clf = blob["clf"] if isinstance(blob, dict) else blob
+        obj.fitted = True
+        return obj
+
 
 def train_supervised(entries: Sequence[LogEntry],
                      labels: Sequence[int],
                      test_size: float = 0.4,
                      random_state: int = 0
                      ) -> Tuple[SupervisedHead, Metrics]:
-    from sklearn.model_selection import train_test_split
-
     engine = EmbeddingEngine()
     vecs = engine.embed(list(entries))
     res = detect(list(entries), vecs, DetectorConfig())
@@ -209,6 +221,46 @@ def train_supervised(entries: Sequence[LogEntry],
     head = SupervisedHead().fit(Xtr, ytr)
     metrics = score_prf1(yte, head.predict(Xte))
     return head, metrics
+
+
+def cross_validate_supervised(entries: Sequence[LogEntry],
+                              labels: Sequence[int],
+                              n_splits: int = 5,
+                              model: str = "rf",
+                              random_state: int = 0) -> Dict[str, object]:
+    engine = EmbeddingEngine()
+    vecs = engine.embed(list(entries))
+    res = detect(list(entries), vecs, DetectorConfig())
+    X = build_feature_matrix(entries, res.scores)
+    y = np.asarray(labels, dtype=int)
+    if len(set(y.tolist())) < 2:
+        raise ValueError("need both classes present for cross-validation")
+
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True,
+                          random_state=random_state)
+    ps, rs, fs = [], [], []
+    for tr, te in skf.split(X, y):
+        head = SupervisedHead(model=model).fit(X[tr], y[tr])
+        m = score_prf1(y[te], head.predict(X[te]))
+        ps.append(m.precision); rs.append(m.recall); fs.append(m.f1)
+
+    def _ms(a): return {"mean": sum(a) / len(a),
+                        "std": _st.pstdev(a) if len(a) > 1 else 0.0}
+    return {"folds": n_splits, "model": model,
+            "precision": _ms(ps), "recall": _ms(rs), "f1": _ms(fs)}
+
+
+def train_and_save(entries: Sequence[LogEntry],
+                   labels: Sequence[int],
+                   out_path: str,
+                   model: str = "rf") -> SupervisedHead:
+    engine = EmbeddingEngine()
+    vecs = engine.embed(list(entries))
+    res = detect(list(entries), vecs, DetectorConfig())
+    X = build_feature_matrix(entries, res.scores)
+    head = SupervisedHead(model=model).fit(X, np.asarray(labels, dtype=int))
+    head.save(out_path)
+    return head
 
 
 def run_benchmark(path: str, fmt: str = "bgl",

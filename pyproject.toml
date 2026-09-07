@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "loglensai"
-version = "0.3.2"
+version = "0.3.1"
 description = "AI-powered log anomaly detection & incident grouping: local, fast, and explainable."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -76,6 +76,6 @@ asyncio_mode = "auto"
 
 [project.urls]
 "Homepage" = "https://loglensai.com"
-"Bug Tracker" = "https://github.com/parasrajput/loglensai/issues"
-"Source Code" = "https://github.com/parasrajput/loglensai"
+"Bug Tracker" = "https://github.com/ParasRajput810/LogLens-AI/issues"
+"Source Code" = "https://github.com/ParasRajput810/LogLens-AI"
 "Documentation" = "https://github.com/ParasRajput810/LogLens-AI/blob/main/DOCUMENTATION.md"

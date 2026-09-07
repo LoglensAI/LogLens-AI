@@ -49,10 +49,7 @@ CHRONIC_MIN_COUNT = 25
 CHRONIC_SPREAD = 0.50         
 CHRONIC_DAMP = 0.45      
 
-# FIX 3: global rarity — templates that are a tiny fraction of the WHOLE file
-# (regardless of level) get a small rarity bump so fragmented severe families
-# are not lost.
-GLOBAL_RARE_SHARE = 0.005     # <=0.5% of the whole file
+GLOBAL_RARE_SHARE = 0.005     
 GLOBAL_RARE_BONUS = 0.18
 OUTLIER_Z_EXEMPT = 4.0
 OUTLIER_DIST_FLOOR = 0.08
@@ -65,6 +62,12 @@ HISTORY_HEAD = 0.25
 HISTORY_MIN_COUNT = 5         
 HISTORY_MIN_SPAN = 0.40       
 HISTORY_MAX_DAMP = 0.45       
+
+
+def volume_confidence(n: int, k: float) -> float:
+    if k <= 0:
+        return 1.0
+    return n / (n + k)
 
 
 def soft_cap(raw: float) -> float:
@@ -141,6 +144,7 @@ class DetectorConfig:
     max_patterns: int = 15
     recurring_share: float = 0.002
     recurring_min: int = 5
+    rarity_confidence_k: float = 0.0
 
     @classmethod
     def from_sensitivity(cls, sensitivity: str = "normal", **overrides) -> "DetectorConfig":
@@ -392,8 +396,8 @@ def detect(entries: Sequence[LogEntry],
     for gi, g in enumerate(registry.groups):
         if g.count / n <= GLOBAL_RARE_SHARE:
             group_global_rare[gi] = True
-        if group_sev[gi] > 4 or group_sev[gi] <= 2:
-            continue
+        if group_sev[gi] > 4 or group_sev[gi] <= 1:
+            continue                    
         if not (g.count / n >= CHRONIC_SHARE or g.count >= CHRONIC_MIN_COUNT):
             continue
         span = (g.indices[-1] - g.indices[0]) / max(n - 1, 1)
@@ -405,6 +409,8 @@ def detect(entries: Sequence[LogEntry],
 
     scores = np.zeros(n, dtype=np.float64)
     reasons: List[List[str]] = [[] for _ in range(n)]
+
+    conf = volume_confidence(n, cfg.rarity_confidence_k)
 
     for i, e in enumerate(entries):
         sev = int(severities[i])
@@ -466,10 +472,11 @@ def detect(entries: Sequence[LogEntry],
             if not any("chronic" in r for r in entry_reasons):
                 entry_reasons.append(
                     f"chronic pattern ({g.count}x) — damped as routine noise")
+        rarity *= conf          # thin-sample rarity is unreliable; damp it
         score += rarity
 
         if group_global_rare[gi] and sev <= 4 and not chronic:
-            score += GLOBAL_RARE_BONUS
+            score += GLOBAL_RARE_BONUS * conf
             entry_reasons.append(
                 f"globally rare ({g.count/n:.2%} of file)")
 
@@ -484,18 +491,18 @@ def detect(entries: Sequence[LogEntry],
             entry_reasons.append(
                 f"flood: pattern is {g.count / n:.0%} of the whole file")
 
-        if group_recurring[gi]:
+        if group_recurring[gi] and not chronic:
             conc = (g.count / (g.count + 8.0)) * (1.0 - group_span[gi])
             score += 0.02 + 0.25 * conc
             entry_reasons.append(
                 f"recurring {e.level.upper()} pattern "
                 f"({g.count}x, concentration {conc:.2f})")
 
-        if sev <= 4 and _CATASTROPHE_RE.search(e.message):
+        if sev <= 4 and not chronic and _CATASTROPHE_RE.search(e.message):
             score += 0.20
             entry_reasons.append("catastrophic keyword")
 
-        if sev <= 4 and _FAILURE_RE.search(e.message):
+        if sev <= 4 and not chronic and _FAILURE_RE.search(e.message):
             score += 0.22
             entry_reasons.append("failure keyword in severe entry")
 
