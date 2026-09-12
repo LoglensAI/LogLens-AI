@@ -141,6 +141,7 @@ def analyze(
     sort_by: str = typer.Option("severity", "--sort-by", help="Sort anomalies by: severity | time | service"),
     turbo: bool = typer.Option(False, "--turbo", help="Fast multiprocess scan for huge files (byte-range + template dedup, skips embeddings)"),
     explain: int = typer.Option(0, "--explain", help="Show top-N scored entries (flagged or not) with score and reasons — for debugging near-misses"),
+    model: str = typer.Option("", "--model", help="Path to a trained model from `loglens train` — uses the supervised head instead of the raw threshold"),
     rca: bool = typer.Option(False, "--rca", help="AI root-cause analysis of detected anomalies (requires LLM key: openai | azure | groq)"),
     provider: str = typer.Option("", "--provider", help="LLM provider: openai | azure | groq (or env LOGLENS_LLM_PROVIDER)"),
     llm_model: str = typer.Option("", "--llm-model", help="LLM model / Azure deployment name (or env LOGLENS_LLM_MODEL)"),
@@ -279,6 +280,25 @@ def analyze(
         # --- anomaly detection ---
         normal, anomalies, labels = detect_anomalies(entries, vectors)
         summary = cluster_summary(labels)
+
+        # --- supervised override: re-flag using a trained model if provided ---
+        if model:
+            import numpy as _np
+            from loglens.pipeline.benchmark import (SupervisedHead,
+                                                    build_feature_matrix)
+            try:
+                head = SupervisedHead.load(model)
+            except Exception as exc:
+                console.print(f"[bold red]Could not load model '{model}': {exc}[/bold red]")
+                raise typer.Exit(code=1)
+            console.print(
+                f"[bold cyan][LogLens][/bold cyan] Model:      "
+                f"[magenta]{model}[/magenta] [dim](supervised head)[/dim]"
+            )
+            _scores = _np.array(
+                [getattr(e, "anomaly_score", 0.0) for e in entries], dtype=float)
+            _preds = head.predict(build_feature_matrix(entries, _scores))
+            anomalies = [e for e, p in zip(entries, _preds) if int(p) == 1]
 
         if explain:
             ranked = sorted(entries,
@@ -576,6 +596,55 @@ def benchmark(
             console.print(f"\n[bold red]✗ FAIL: F1 {f1:.3f} < required {min_f1:.3f}[/bold red]")
             raise typer.Exit(code=1)
         console.print(f"\n[bold green]✓ PASS: F1 {f1:.3f} >= {min_f1:.3f}[/bold green]")
+
+
+@app.command()
+def train(
+    dataset: str = typer.Argument(..., help="Path to a LABELED log file to learn from"),
+    out: str = typer.Option("loglens-model.pkl", "--out", "-o",
+                            help="Where to save the trained model"),
+    fmt: str = typer.Option("bgl", "--format",
+                            help="Label format: bgl | jsonl | labeled"),
+    limit: int = typer.Option(None, "--limit", help="Max lines to load (default: all)"),
+    no_cv: bool = typer.Option(False, "--no-cv",
+                               help="Skip cross-validation (faster, no accuracy estimate)"),
+):
+    """Train a supervised model on labeled logs, for use with `analyze --model`."""
+    from loglens.pipeline.benchmark import (load_labeled, train_and_save,
+                                            cross_validate_supervised)
+
+    console.print(f"\n[bold cyan][LogLens][/bold cyan] Training on: "
+                  f"[yellow]{dataset}[/yellow] [dim](format={fmt})[/dim]")
+
+    entries, labels = load_labeled(dataset, fmt=fmt, limit=limit)
+    if len(entries) == 0:
+        console.print("[bold red]No entries loaded — check the path and --format.[/bold red]")
+        raise typer.Exit(code=1)
+
+    n_pos = int(labels.sum())
+    console.print(
+        f"[bold cyan][LogLens][/bold cyan] Loaded [bold]{len(entries):,}[/bold] entries, "
+        f"[bold red]{n_pos:,}[/bold red] labeled anomalies"
+    )
+    if n_pos == 0 or n_pos == len(entries):
+        console.print("[bold red]Need both normal and anomalous lines to train.[/bold red]")
+        raise typer.Exit(code=1)
+
+    if not no_cv:
+        with console.status("[cyan]Cross-validating (5-fold)...[/cyan]"):
+            cv = cross_validate_supervised(entries, labels, n_splits=5, model="rf")
+        f1, pr, rc = cv["f1"], cv["precision"], cv["recall"]
+        console.print(
+            f"[bold cyan][LogLens][/bold cyan] Cross-validated: "
+            f"[bold green]F1 {f1['mean']:.3f} ± {f1['std']:.3f}[/bold green] "
+            f"[dim](precision {pr['mean']:.3f}, recall {rc['mean']:.3f})[/dim]"
+        )
+
+    with console.status("[cyan]Fitting final model on all data...[/cyan]"):
+        train_and_save(entries, labels, out, model="rf")
+
+    console.print(f"[bold green]✓ Model saved →[/bold green] [yellow]{out}[/yellow]")
+    console.print(f"[dim]  Use it: loglens analyze --source app.log --model {out}[/dim]")
 
 
 @app.command()

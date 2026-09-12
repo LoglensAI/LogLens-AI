@@ -79,6 +79,6 @@ asyncio_mode = "auto"
 
 [project.urls]
 "Homepage" = "https://loglensai.com"
-"Bug Tracker" = "https://github.com/ParasRajput810/LogLens-AI/issues"
-"Source Code" = "https://github.com/ParasRajput810/LogLens-AI"
-"Documentation" = "https://github.com/ParasRajput810/LogLens-AI/blob/main/DOCUMENTATION.md"
+"Bug Tracker" = "https://github.com/LoglensAI/LogLens-AI/issues"
+"Source Code" = "https://github.com/LoglensAI/LogLens-AI"
+"Documentation" = "https://github.com/LoglensAI/LogLens-AI/blob/main/docs/DOCUMENTATION.md"

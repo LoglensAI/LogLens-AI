@@ -10,7 +10,7 @@ __all__ = ["AsyncFileReader", "AsyncStdinReader", "AsyncHTTPReader",
 
 
 def get_reader(source: str):
-    if source == "stdin":
+    if source == "stdin" or source == "-":
         return AsyncStdinReader()
     elif source.startswith("cmd:"):
         return AsyncCommandReader(source[len("cmd:"):])

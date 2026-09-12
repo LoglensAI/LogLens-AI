@@ -61,3 +61,22 @@ jobs:
           gh release create "v${NEW}" \
             --title "v${NEW}" \
             --notes-file RELEASE_NOTES.md
+
+      - name: Build distributions
+        run: |
+          pip install build
+          rm -rf dist
+          python -m build
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -z "$TWINE_PASSWORD" ]; then
+            echo "::warning:: PYPI_API_TOKEN not set — skipping PyPI publish"
+            exit 0
+          fi
+          pip install twine
+          twine check dist/*
+          twine upload dist/*
