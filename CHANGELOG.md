@@ -3,6 +3,11 @@
 All notable changes to LogLens AI are documented here.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [0.4.0] - 2026-09-12
+
+### Features
+- Add supervised train/analyze --model; fix stdin ingestion (f9fb1bc)
+
 ## [0.3.4] - 2026-09-07
 
 ### Chores
