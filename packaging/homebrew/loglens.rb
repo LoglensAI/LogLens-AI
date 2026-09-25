@@ -10,8 +10,7 @@ class Loglens < Formula
       sha256 "REPLACED_BY_CI_ARM64"
     end
     on_intel do
-      url "https://github.com/LoglensAI/LogLens-AI/releases/download/v0.12.0/loglens-macos-x86_64.tar.gz"
-      sha256 "REPLACED_BY_CI_X86_64"
+      odie "Prebuilt LogLens binaries are Apple Silicon only. On Intel Macs, install with: pip install loglensai"
     end
   end
 
