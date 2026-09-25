@@ -13,9 +13,11 @@ permissions:
   contents: write
 
 env:
+  # Neural mode bundled into every binary so `--deep` works with no extra install.
   LOGLENS_BUNDLE_DEEP: "1"
 
 jobs:
+  # --------------------------------------------------------------------------- #
   build:
     name: build (${{ matrix.name }})
     strategy:
@@ -93,6 +95,7 @@ jobs:
             ${{ matrix.asset }}.zip
             loglens_*_amd64.deb
 
+  # --------------------------------------------------------------------------- #
   publish-apt:
     name: publish APT repo (GitHub Pages)
     needs: build
@@ -144,10 +147,15 @@ jobs:
           destination_dir: apt
           keep_files: true
 
+  # --------------------------------------------------------------------------- #
   update-taps:
     name: update Homebrew tap + Scoop bucket
     needs: build
     runs-on: ubuntu-22.04
+    # `secrets` can't be used directly in an `if:` expression, so expose it as an
+    # env var here and gate the step on that instead.
+    env:
+      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -175,8 +183,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+
       - name: Update tap + bucket
-        if: ${{ secrets.TAP_TOKEN != '' }}
+        if: ${{ env.TAP_TOKEN != '' }}
         run: |
           echo "version=${{ steps.ver.outputs.version }}"
           echo "arm64=${{ steps.sums.outputs.arm64 }}"
