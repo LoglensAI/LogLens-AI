@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to build (e.g. 0.12.0), without the leading v"
-        required: true
+        description: "Optional version override. Leave blank to use src/loglens/_version.py."
+        required: false
 
 permissions:
   contents: write
@@ -26,6 +26,8 @@ jobs:
         include:
           - { name: linux-x86_64,  os: ubuntu-22.04,  asset: loglens-linux-x86_64 }
           - { name: macos-arm64,   os: macos-14,      asset: loglens-macos-arm64 }
+          # Intel Mac (macos-13) dropped for now — scarce/slow runners; Apple
+          # Silicon covers the vast majority of Macs and Intel users can pip install.
           - { name: windows-x86_64, os: windows-latest, asset: loglens-windows-x86_64 }
     runs-on: ${{ matrix.os }}
     steps:
@@ -39,9 +41,15 @@ jobs:
         id: ver
         shell: bash
         run: |
+          # Source of truth is src/loglens/_version.py, so the .deb version always
+          # matches what `loglens version` reports. A tag or manual input overrides it.
           V="${{ github.event.inputs.version }}"
           [ -z "$V" ] && V="${GITHUB_REF_NAME#v}"
+          case "$V" in ""|refs/*|main|master)
+            V="$(python -c "import runpy; print(runpy.run_path('src/loglens/_version.py')['__version__'])")"
+          ;; esac
           echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Building LogLens $V"
 
       - name: Install build deps
         shell: bash
@@ -166,14 +174,23 @@ jobs:
 
       - name: Push to Cloudsmith
         run: |
-          # Repo: cloudsmith.io/~loglensai/repos/loglens
-          # 'any-distro/any-version' makes one .deb serve every Debian/Ubuntu release.
+          # nullglob: an unmatched pattern (e.g. no .rpm yet) expands to nothing,
+          # so the loop is skipped cleanly instead of leaving a non-zero status.
+          shopt -s nullglob
+          # 'any-distro/any-version' makes one package serve every Debian/Ubuntu (deb)
+          # or RHEL/Fedora (rpm) release.
+          pushed=0
           for f in dist/loglens_*_amd64.deb; do
-            [ -e "$f" ] && cloudsmith push deb loglensai/loglensai-363o/any-distro/any-version "$f"
+            cloudsmith push deb loglensai/loglensai-363o/any-distro/any-version "$f"
+            pushed=1
           done
           for f in dist/loglens-*.x86_64.rpm; do
-            [ -e "$f" ] && cloudsmith push rpm loglensai/loglensai-363o/any-distro/any-version "$f"
+            cloudsmith push rpm loglensai/loglensai-363o/any-distro/any-version "$f"
+            pushed=1
           done
+          if [ "$pushed" = "0" ]; then
+            echo "::warning::No .deb/.rpm found in dist/ — nothing pushed to Cloudsmith."
+          fi
 
   # --------------------------------------------------------------------------- #
   update-taps:
