@@ -50,9 +50,17 @@ if _bundle_deep:
         except Exception as exc:  # a missing optional dep shouldn't kill the build
             print(f"[loglens.spec] skipping {pkg}: {exc}")
     _model_dir = os.environ.get("LOGLENS_BUNDLED_MODEL_DIR", "").strip()
-    if _model_dir and os.path.isdir(_model_dir):
-        # Shipped alongside the binary; deep mode points here so it works offline.
-        datas += [(_model_dir, "loglens_models")]
+    if _model_dir:
+        # PyInstaller resolves relative `datas` sources against the spec file's
+        # directory, but the model is downloaded to the CWD (repo root) in CI, so
+        # make it absolute to avoid a "not found" mismatch.
+        _model_dir = os.path.abspath(_model_dir)
+        if os.path.isdir(_model_dir):
+            # Shipped alongside the binary; deep mode points here so it works offline.
+            datas += [(_model_dir, "loglens_models")]
+        else:
+            print(f"[loglens.spec] LOGLENS_BUNDLED_MODEL_DIR={_model_dir} not found; "
+                  "neural model not bundled (deep mode will download on first use).")
 
 # torch is heavy and platform-specific; let PyInstaller's hooks handle it when
 # present, but never try to bundle it when deep isn't requested.

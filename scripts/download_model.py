@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 import sys
 
@@ -11,7 +10,7 @@ def main() -> int:
     out = sys.argv[1] if len(sys.argv) > 1 else "_models"
     dest = f"{out}/{MODEL}"
     print(f"Downloading {MODEL} -> {dest}")
-    SentenceTransformer(MODEL).save(dest)
+    SentenceTransformer(MODEL, device="cpu").save(dest)
     print("done")
     return 0
 
