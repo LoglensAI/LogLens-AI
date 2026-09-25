@@ -87,7 +87,18 @@ jobs:
           bash packaging/linux/build_deb.sh "${{ steps.ver.outputs.version }}" dist amd64
           # (optional) also build an .rpm here with alien/nfpm if desired.
 
-      - name: Upload release assets
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: |
+            ${{ matrix.asset }}.tar.gz
+            ${{ matrix.asset }}.zip
+            loglens_*_amd64.deb
+          if-no-files-found: ignore
+
+      - name: Attach to GitHub Release
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -99,6 +110,7 @@ jobs:
   publish-apt:
     name: publish APT repo (GitHub Pages)
     needs: build
+    if: github.event_name == 'release'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -151,6 +163,7 @@ jobs:
   update-taps:
     name: update Homebrew tap + Scoop bucket
     needs: build
+    if: github.event_name == 'release'
     runs-on: ubuntu-22.04
     # `secrets` can't be used directly in an `if:` expression, so expose it as an
     # env var here and gate the step on that instead.
@@ -182,7 +195,6 @@ jobs:
           } >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ github.token }}
-
 
       - name: Update tap + bucket
         if: ${{ env.TAP_TOKEN != '' }}
