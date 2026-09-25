@@ -107,13 +107,13 @@ jobs:
 
   # --------------------------------------------------------------------------- #
   publish-apt:
-    name: publish APT repo (GitHub Pages)
+    name: publish .deb + .rpm to Cloudsmith
     needs: build
     if: github.event_name == 'release'
     runs-on: ubuntu-22.04
+    env:
+      CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
-
       - name: Resolve version
         id: ver
         run: |
@@ -121,42 +121,31 @@ jobs:
           [ -z "$V" ] && V="${GITHUB_REF_NAME#v}"
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
-      - name: Download the .deb from the release
+      - name: Download packages from the release
         run: |
           gh release download "v${{ steps.ver.outputs.version }}" \
-            --pattern 'loglens_*_amd64.deb' --dir dist
+            --repo "${{ github.repository }}" \
+            --pattern 'loglens_*_amd64.deb' --dir dist || true
+          gh release download "v${{ steps.ver.outputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --pattern 'loglens-*.x86_64.rpm' --dir dist || true
+          ls -lh dist
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Import signing key
-        run: |
-          echo "${{ secrets.APT_GPG_PRIVATE_KEY }}" | gpg --batch --import
-          gpg --armor --export > public.key
+      - name: Install Cloudsmith CLI
+        run: pipx install cloudsmith-cli
 
-      - name: Build signed APT repo (reprepro)
+      - name: Push to Cloudsmith
         run: |
-          sudo apt-get update && sudo apt-get install -y reprepro
-          KEYID=$(gpg --list-keys --with-colons | awk -F: '/^pub/{print $5; exit}')
-          mkdir -p apt/conf
-          cat > apt/conf/distributions <<EOF
-          Origin: LogLens AI
-          Label: LogLens AI
-          Codename: stable
-          Architectures: amd64
-          Components: main
-          Description: LogLens AI apt repository
-          SignWith: ${KEYID}
-          EOF
-          reprepro -b apt includedeb stable dist/loglens_*_amd64.deb
-          cp public.key apt/key.gpg
-
-      - name: Publish to gh-pages (apt/)
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ github.token }}
-          publish_dir: ./apt
-          destination_dir: apt
-          keep_files: true
+          # Repo: cloudsmith.io/~loglensai/repos/loglens
+          # 'any-distro/any-version' makes one .deb serve every Debian/Ubuntu release.
+          for f in dist/loglens_*_amd64.deb; do
+            [ -e "$f" ] && cloudsmith push deb loglensai/loglens/any-distro/any-version "$f"
+          done
+          for f in dist/loglens-*.x86_64.rpm; do
+            [ -e "$f" ] && cloudsmith push rpm loglensai/loglens/any-distro/any-version "$f"
+          done
 
   # --------------------------------------------------------------------------- #
   update-taps:
