@@ -4,9 +4,15 @@ Tracked work that is deliberately deferred, with the rationale. This is a
 living list; items graduate into the phased plan in `SYSTEM_DESIGN.md`.
 
 ## Product / features
-- **Persistent warm process ("daemon mode").** Lazy import already cut CLI
-  startup from ~1.6s to ~0.17s; a resident process to eliminate the ~1s
-  scikit-learn import on every run is deferred until there's demand.
+- ✅ **Persistent warm process ("daemon mode").** Done. A resident process keeps
+  scikit-learn imported and serves `analyze` over a local socket (Unix domain
+  socket on POSIX, loopback TCP + token on Windows), cutting a warm run from
+  ~2.4s to ~0.33s (~7x). Off by default for `pip` installs; on by default for
+  native installer builds (`sys.frozen`) so "install and it's just fast" holds.
+  Falls back to in-process on any daemon problem, idle-shuts-down after 30 min.
+  See `loglens daemon start|stop|status|restart`. Next: have each OS installer
+  register it as a service (systemd / launchd / Windows service) so it
+  auto-starts post-install.
 - **Compressed-file ingestion (`.gz`, `.zip`, …).** Currently rejected by the
   file-type guard with a "decompress first" hint. Native decompression later.
 

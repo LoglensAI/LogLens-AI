@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS LaunchAgent for the LogLens warm daemon.
+     Homebrew registers this automatically (via the formula's `service` block).
+     For a manual / .pkg install, copy this to:
+         ~/Library/LaunchAgents/com.loglensai.loglens.plist
+     then:  launchctl load ~/Library/LaunchAgents/com.loglensai.loglens.plist
+     Adjust the ProgramArguments path if you installed somewhere other than
+     /usr/local/bin. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.loglensai.loglens</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/loglens</string>
+        <string>daemon</string>
+        <string>start</string>
+        <string>--foreground</string>
+        <string>--idle-timeout</string>
+        <string>0</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/tmp/loglens.daemon.log</string>
+    <key>StandardOutPath</key>
+    <string>/tmp/loglens.daemon.log</string>
+</dict>
+</plist>

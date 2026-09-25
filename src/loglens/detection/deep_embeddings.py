@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import sys
 import threading
 
 import numpy as np
@@ -16,6 +18,25 @@ from loglens.domain.models import LogEntry
 _model = None
 _model_lock = threading.Lock()
 
+_MODEL_NAME = "all-MiniLM-L6-v2"
+
+
+def _bundled_model_dir() -> str | None:
+    candidates = []
+    env = os.environ.get("LOGLENS_MODEL_DIR", "").strip()
+    if env:
+        candidates += [os.path.join(env, _MODEL_NAME), env]
+    base = getattr(sys, "_MEIPASS", None)
+    if base:
+        candidates += [
+            os.path.join(base, "loglens_models", _MODEL_NAME),
+            os.path.join(base, "loglens_models"),
+        ]
+    for c in candidates:
+        if c and os.path.isdir(c):
+            return c
+    return None
+
 
 def _load_model():
     global _model
@@ -30,7 +51,13 @@ def _load_model():
                 "Install it with: pip install sentence-transformers"
             ) from exc
         try:
-            _model = SentenceTransformer("all-MiniLM-L6-v2")
+            bundled = _bundled_model_dir()
+            if bundled:
+                os.environ.setdefault("HF_HUB_OFFLINE", "1")
+                os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+                _model = SentenceTransformer(bundled)
+            else:
+                _model = SentenceTransformer(_MODEL_NAME)
         except Exception as e:
             raise RuntimeError(
                 "Could not load the sentence-transformers model "

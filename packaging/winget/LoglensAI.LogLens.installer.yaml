@@ -1,0 +1,15 @@
+PackageIdentifier: LoglensAI.LogLens
+PackageVersion: 0.12.0
+InstallerType: zip
+NestedInstallerType: portable
+Commands:
+  - loglens
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/LoglensAI/LogLens-AI/releases/download/v0.12.0/loglens-windows-x86_64.zip
+    InstallerSha256: REPLACED_BY_CI_WIN64
+    NestedInstallerFiles:
+      - RelativeFilePath: loglens\loglens.exe
+        PortableCommandAlias: loglens
+ManifestType: installer
+ManifestVersion: 1.6.0

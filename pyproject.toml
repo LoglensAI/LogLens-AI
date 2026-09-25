@@ -70,7 +70,7 @@ dev = [
 ]
 
 [project.scripts]
-loglens = "loglens.interface.cli:app"
+loglens = "loglens.interface.cli:main"
 
 [tool.hatch.version]
 path = "src/loglens/_version.py"

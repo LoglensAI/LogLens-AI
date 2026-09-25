@@ -1,0 +1,25 @@
+PackageIdentifier: LoglensAI.LogLens
+PackageVersion: 0.12.0
+PackageLocale: en-US
+Publisher: LogLens AI
+PublisherUrl: https://github.com/LoglensAI
+Author: Paras Rajput
+PackageName: LogLens AI
+PackageUrl: https://github.com/LoglensAI/LogLens-AI
+License: MIT
+LicenseUrl: https://github.com/LoglensAI/LogLens-AI/blob/main/LICENSE
+ShortDescription: Local, privacy-first log anomaly detection with neural mode built in.
+Description: |-
+  LogLens AI analyzes log files for anomalies entirely on your machine - no data
+  leaves the host. It ships a self-contained runtime (no Python required) and a
+  resident warm daemon so repeat runs are near-instant. Fast (TF-IDF), turbo
+  (parallel scan) and deep (neural) modes are all included.
+Tags:
+  - logs
+  - log-analysis
+  - anomaly-detection
+  - devops
+  - observability
+  - cli
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

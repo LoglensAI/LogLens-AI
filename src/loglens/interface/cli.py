@@ -1,6 +1,8 @@
 import asyncio
 import functools
 import json
+import os
+import sys
 from typing import TYPE_CHECKING, Any, cast
 
 import typer
@@ -96,8 +98,15 @@ def _load():
 
 app = typer.Typer(
     name="loglens",
-    help="LogLens AI Intelligent log analysis and anomaly detection",
+    help=(
+        "LogLens AI — intelligent, local log analysis and anomaly detection.\n\n"
+        "Run [bold]loglens COMMAND --help[/bold] to see a command's flags and examples "
+        "(e.g. [cyan]loglens analyze --help[/cyan])."
+    ),
     add_completion=False,
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 
 console = Console()
@@ -138,7 +147,6 @@ def _emit_json(
 
 
 def _apply_fail_on(fail_on: str, items: list[dict[str, Any]]) -> None:
-
     key = (fail_on or "").strip().lower()
     if not key or key == "none":
         return
@@ -276,9 +284,10 @@ def version():
     console.print(f"[bold cyan]LogLens AI[/bold cyan] version [bold]{__version__}[/bold]")
 
 
-@app.command()
-def hello():
-    console.print("[bold green] LogLens is alive![/bold green] Let's analyze some logs.")
+@app.command("help")
+def help_command(ctx: typer.Context):
+    root = ctx.find_root()
+    console.print(root.get_help())
 
 
 @app.command()
@@ -1157,5 +1166,134 @@ def watch(
         )
 
 
-if __name__ == "__main__":
+daemon_app = typer.Typer(
+    name="daemon",
+    help="Manage the resident warm process (keeps LogLens fast between runs).",
+    add_completion=False,
+)
+app.add_typer(daemon_app, name="daemon")
+
+
+@daemon_app.command("start")
+def daemon_start(
+    foreground: bool = typer.Option(
+        False,
+        "--foreground",
+        "-f",
+        help="Run the daemon in this terminal (blocks). "
+        "Without this, it's started detached in the background.",
+    ),
+    idle_timeout: int = typer.Option(
+        1800, "--idle-timeout", help="Shut down after this many seconds with no requests."
+    ),
+):
+    if foreground:
+        from loglens.interface.daemon_server import serve
+
+        raise typer.Exit(code=serve(idle_timeout=float(idle_timeout)))
+
+    from loglens.application import daemon as d
+
+    if d.is_running():
+        st = d.status() or {}
+        console.print(
+            f"[bold cyan][LogLens][/bold cyan] daemon already running "
+            f"(pid [bold]{st.get('pid', '?')}[/bold], v{st.get('version', '?')})."
+        )
+        return
+    console.print("[bold cyan][LogLens][/bold cyan] starting daemon…")
+    if d.ensure_running(spawn=True):
+        st = d.status() or {}
+        console.print(
+            f"[bold green][LogLens][/bold green] daemon ready "
+            f"(pid [bold]{st.get('pid', '?')}[/bold], {st.get('transport', '?')}). "
+            "Your next analyze will be instant."
+        )
+    else:
+        console.print(
+            "[bold red][LogLens][/bold red] daemon failed to start; "
+            "commands will still work (they'll just run in-process)."
+        )
+        raise typer.Exit(code=1)
+
+
+@daemon_app.command("stop")
+def daemon_stop():
+    from loglens.application import daemon as d
+
+    if d.stop():
+        console.print("[bold cyan][LogLens][/bold cyan] daemon stopped.")
+    else:
+        console.print("[dim][LogLens] no daemon was running.[/dim]")
+
+
+@daemon_app.command("status")
+def daemon_status():
+    import time as _time
+
+    from loglens.application import daemon as d
+
+    st = d.status()
+    if not st:
+        console.print("[dim][LogLens] daemon: [bold]not running[/bold].[/dim]")
+        raise typer.Exit(code=1)
+    uptime = int(_time.time() - float(st.get("started", _time.time())))
+    console.print(
+        f"[bold green][LogLens][/bold green] daemon: [bold]running[/bold]  "
+        f"pid [bold]{st.get('pid', '?')}[/bold] · v{st.get('version', '?')} · "
+        f"{st.get('transport', '?')} · up {uptime}s"
+    )
+
+
+@daemon_app.command("restart")
+def daemon_restart():
+    from loglens.application import daemon as d
+
+    d.stop()
+    if d.ensure_running(spawn=True):
+        console.print("[bold green][LogLens][/bold green] daemon restarted.")
+    else:
+        console.print("[bold red][LogLens][/bold red] daemon failed to restart.")
+        raise typer.Exit(code=1)
+
+
+# Commands worth serving from the warm daemon (heavy import cost to amortize).
+_DAEMON_COMMANDS = {"analyze"}
+
+
+def _daemon_enabled() -> bool:
+    v = os.environ.get("LOGLENS_DAEMON", "").strip().lower()
+    if v in ("0", "off", "false", "no"):
+        return False
+    if v in ("1", "on", "true", "yes"):
+        return True
+    return bool(getattr(sys, "frozen", False))
+
+
+def _should_forward(argv: list[str]) -> bool:
+    if not argv or not _daemon_enabled():
+        return False
+    if any(tok in ("--help", "-h", "--version", "-V") for tok in argv):
+        return False
+    for tok in argv:  # first positional is the subcommand
+        if not tok.startswith("-"):
+            return tok in _DAEMON_COMMANDS
+    return False
+
+
+def main() -> None:
+    argv = sys.argv[1:]
+    if _should_forward(argv):
+        try:
+            from loglens.application import daemon as d
+
+            code = d.run_via_daemon(argv, spawn=True)
+        except Exception:  # noqa: BLE001 — any daemon issue -> run locally
+            code = None
+        if code is not None:
+            raise SystemExit(code)
     app()
+
+
+if __name__ == "__main__":
+    main()

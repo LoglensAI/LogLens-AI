@@ -1,0 +1,17 @@
+[Unit]
+Description=LogLens AI warm daemon (keeps log analysis fast between runs)
+Documentation=https://github.com/LoglensAI/LogLens-AI
+After=network.target
+
+[Service]
+Type=simple
+# Foreground so systemd supervises it directly; --idle-timeout 0 keeps it
+# resident (systemd handles lifecycle, so we don't want it self-exiting).
+ExecStart=/usr/bin/loglens daemon start --foreground --idle-timeout 0
+Restart=on-failure
+RestartSec=2
+# The daemon only ever reads files the user can already read; keep it locked down.
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

@@ -24,10 +24,19 @@ def test_version():
     assert __version__ in strip_ansi(result.output)
 
 
-def test_hello():
-    result = runner.invoke(app, ["hello"])
+def test_help_lists_commands():
+    result = runner.invoke(app, ["help"])
     assert result.exit_code == 0
-    assert "alive" in result.output
+    out = strip_ansi(result.output)
+    # every command should be listed with a description, not just a bare name
+    for cmd in ("analyze", "train", "watch", "daemon"):
+        assert cmd in out
+
+
+def test_no_hello_command():
+    # `hello` was removed; unknown commands should not resolve to it
+    result = runner.invoke(app, ["hello"])
+    assert result.exit_code != 0
 
 
 def _write_log(tmp_path):

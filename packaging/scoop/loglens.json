@@ -1,0 +1,27 @@
+{
+  "version": "0.12.0",
+  "description": "LogLens AI - local, privacy-first log anomaly detection (neural mode built in).",
+  "homepage": "https://github.com/LoglensAI/LogLens-AI",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/LoglensAI/LogLens-AI/releases/download/v0.12.0/loglens-windows-x86_64.zip",
+      "hash": "REPLACED_BY_CI_WIN64"
+    }
+  },
+  "bin": [["loglens\\loglens.exe", "loglens"]],
+  "notes": [
+    "LogLens installed. Run:  loglens analyze --source C:\\path\\to\\your.log",
+    "The warm daemon starts automatically on first run for fast repeat analyses."
+  ],
+  "checkver": {
+    "github": "https://github.com/LoglensAI/LogLens-AI"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/LoglensAI/LogLens-AI/releases/download/v$version/loglens-windows-x86_64.zip"
+      }
+    }
+  }
+}

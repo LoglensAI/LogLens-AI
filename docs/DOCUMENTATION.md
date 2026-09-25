@@ -179,6 +179,40 @@ loglens analyze --source app.log --rca --rca-out rca.md --html report.html
 
 ---
 
+## `daemon` - keep LogLens fast between runs
+
+**What it does, in one line:** it keeps a warm process resident so every
+`loglens analyze` skips the ~1.7s scikit-learn import and returns almost
+instantly.
+
+Importing scikit-learn costs ~1.7s *every* run, even warm - that's the ML stack
+loading, not LogLens code. The daemon pays that once and then serves analyses
+over a **local socket** (a Unix domain socket on Linux/macOS with `0600`
+permissions; loopback TCP guarded by a random token on Windows). It never leaves
+`localhost` and runs as you, so it only ever reads files you already can.
+
+```bash
+loglens daemon start      # warm it up (starts detached)
+loglens analyze --source app.log   # now sub-second
+loglens daemon status     # running? which pid/version?
+loglens daemon stop
+loglens daemon restart    # after upgrading LogLens
+```
+
+| | |
+|--|--|
+| **Warm run** | ~0.33s vs ~2.4s in-process (~7x faster) |
+| **Output** | byte-identical to a direct run (same code path, same JSON, same exit codes) |
+| **Safety** | if the daemon is down, unreachable, or a different version, the CLI silently runs in-process - nothing regresses |
+| **Lifecycle** | idle-shuts-down after 30 min (`--idle-timeout`) |
+
+**Turning it on.** It's **off by default** for `pip` installs (no surprise
+background process). Set `LOGLENS_DAEMON=1` to opt in (`=0` to force off).
+Native installer builds turn it on automatically, and the installer registers it
+as an OS service so it's warm right after install.
+
+---
+
 ## `watch`
 
 **What it does, in one line:** it sits next to your running app and taps you on the shoulder the moment something goes wrong - instead of you scrolling through thousands of log lines later.

@@ -1,4 +1,7 @@
+from loglens import _quiet as _quiet
 from loglens._version import __version__
+
+_quiet.install()
 
 __all__ = [
     "analyze",
