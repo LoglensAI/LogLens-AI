@@ -169,10 +169,10 @@ jobs:
           # Repo: cloudsmith.io/~loglensai/repos/loglens
           # 'any-distro/any-version' makes one .deb serve every Debian/Ubuntu release.
           for f in dist/loglens_*_amd64.deb; do
-            [ -e "$f" ] && cloudsmith push deb loglensai/loglens/any-distro/any-version "$f"
+            [ -e "$f" ] && cloudsmith push deb loglensai/loglensai-363o/any-distro/any-version "$f"
           done
           for f in dist/loglens-*.x86_64.rpm; do
-            [ -e "$f" ] && cloudsmith push rpm loglensai/loglens/any-distro/any-version "$f"
+            [ -e "$f" ] && cloudsmith push rpm loglensai/loglensai-363o/any-distro/any-version "$f"
           done
 
   # --------------------------------------------------------------------------- #

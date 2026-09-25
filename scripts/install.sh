@@ -1,9 +1,8 @@
 #!/usr/bin/env sh
-
 set -eu
 
 REPO="LoglensAI/LogLens-AI"
-CS_REPO="loglensai/loglens"   
+CS_REPO="loglensai/loglensai-363o"  
 
 info() { printf '\033[1;36m[LogLens]\033[0m %s\n' "$1"; }
 err()  { printf '\033[1;31m[LogLens]\033[0m %s\n' "$1" >&2; }
