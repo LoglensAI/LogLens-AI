@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/LoglensAI/LogLens-AI/main/images/Logo.png" alt="LogLens AI" width="400">
+<img src="https://raw.githubusercontent.com/LoglensAI/LogLens-AI/main/images/avatar.png" alt="LogLens AI" width="400">
 
 **Detect anomalies by meaning. Explain why they matter. Group them into incidents. Monitor services in real time.**
 
@@ -68,8 +68,9 @@ The detection pipeline runs locally, making the project suitable for environment
   * [Multiple Detection Engines](#multiple-detection-engines)
 * [Installation](#installation)
 
-  * [Python](#python)
+  * [Python (pip)](#python-pip)
   * [Docker](#docker)
+  * [Warm daemon](#warm-daemon)
 * [Quick Start](#quick-start)
 * [Python SDK](#python-sdk)
 * [How It Works](#how-it-works)
@@ -186,32 +187,49 @@ The core detection pipeline does not require an external AI service.
 
 ## Installation
 
-### Python
+LogLens installs as a **self-contained binary** on Linux, macOS and Windows - no
+Python needed. Neural (`--deep`) mode is **built in**, and a warm daemon makes
+repeat runs near-instant. Full details for every platform are in
+**[INSTALL.md](INSTALL.md)**.
 
-Requires **Python 3.10+**.
+| Platform | Install |
+|---|---|
+| **Linux** (Debian/Ubuntu) | `curl -1sLf 'https://dl.cloudsmith.io/public/loglensai/loglensai-363o/setup.deb.sh' \| sudo -E bash && sudo apt install loglens` |
+| **Linux** (Fedora/RHEL) | `curl -1sLf 'https://dl.cloudsmith.io/public/loglensai/loglensai-363o/setup.rpm.sh' \| sudo -E bash && sudo dnf install loglens` |
+| **macOS** | `brew install loglensai/tap/loglens` |
+| **Windows** | `winget install LoglensAI.LogLens` |
 
-Install the standard package with:
+Updates arrive through the normal channel afterwards (`sudo apt upgrade`,
+`brew upgrade`, `winget upgrade`).
+
+### Python (pip)
+
+Great for developers and CI. Requires **Python 3.10+**.
 
 ```bash
-pip install loglensai
+pipx install loglensai            # or: pip install loglensai
+pip install "loglensai[deep]"     # add transformer-based semantic detection
 ```
 
-For transformer-based semantic detection:
-
-```bash
-pip install "loglensai[deep]"
-```
-
+> With `pip` the warm daemon is off by default - enable it with `LOGLENS_DAEMON=1`
+> or `loglens daemon start`. Installer builds turn it on automatically.
 
 ### Docker
 
-LogLens AI also provides multi-architecture Docker images for **amd64** and **arm64**.
-
-Example:
+Multi-architecture images for **amd64** and **arm64**:
 
 ```bash
 docker run --rm -v "$PWD:/data" loglensai/loglens analyze --source app.log
 ```
+
+### Warm daemon
+
+A resident process keeps LogLens fast between runs (skips the ~1.7 s ML-import
+cost per invocation). Native installs start it automatically; manage it with
+`loglens daemon start|stop|status|restart`.
+
+See **[INSTALL.md](INSTALL.md)** for per-OS guides, the portable tarballs,
+Scoop, code-signing notes, and environment toggles.
 
 ---
 
@@ -375,7 +393,7 @@ These figures are benchmark results on the specified dataset and configuration; 
 loglens benchmark path/to/BGL.log --format bgl --supervised
 ```
 
-On the bundled 2,000-line sample (`benchmarks/BGL_2k.log`), the supervised head scores **F1 0.932** (precision 0.902, recall 0.965) and the unsupervised path reaches **1.000 recall** — see [BENCHMARKS.md](docs/BENCHMARKS.md) for the full measured baseline (accuracy, throughput, memory).
+On the bundled 2,000-line sample (`benchmarks/BGL_2k.log`), the supervised head scores **F1 0.932** (precision 0.902, recall 0.965) and the unsupervised path reaches **1.000 recall** - see [BENCHMARKS.md](docs/BENCHMARKS.md) for the full measured baseline (accuracy, throughput, memory).
 
 The complete methodology and reproduction instructions are available in [BENCHMARKS.md](docs/BENCHMARKS.md).
 
