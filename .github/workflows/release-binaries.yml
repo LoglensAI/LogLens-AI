@@ -109,8 +109,13 @@ jobs:
   publish-apt:
     name: publish .deb + .rpm to Cloudsmith
     needs: build
-    if: github.event_name == 'release'
+    # Runs on a real release, and also on a manual dispatch so you can test the
+    # Cloudsmith push without cutting a release or bumping the version. Skips if
+    # the Cloudsmith key isn't set (checked in the push step).
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
+    # Cloudsmith hosts the apt/yum repos, signs packages server-side, and handles
+    # large files + bandwidth — so no reprepro / GPG-in-CI / gh-pages needed.
     env:
       CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
     steps:
@@ -122,6 +127,7 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
       - name: Download packages from the release
+        if: github.event_name == 'release'
         run: |
           gh release download "v${{ steps.ver.outputs.version }}" \
             --repo "${{ github.repository }}" \
@@ -129,9 +135,31 @@ jobs:
           gh release download "v${{ steps.ver.outputs.version }}" \
             --repo "${{ github.repository }}" \
             --pattern 'loglens-*.x86_64.rpm' --dir dist || true
-          ls -lh dist
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Download packages from build artifacts
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          path: _artifacts
+
+      - name: Collect packages into dist/
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p dist
+          find _artifacts -name '*.deb' -exec cp {} dist/ \; 2>/dev/null || true
+          find _artifacts -name '*.rpm' -exec cp {} dist/ \; 2>/dev/null || true
+
+      - name: List packages to publish
+        run: ls -lh dist || echo "no dist/ — nothing to publish"
+
+      - name: Check Cloudsmith key is set
+        run: |
+          if [ -z "$CLOUDSMITH_API_KEY" ]; then
+            echo "::error::CLOUDSMITH_API_KEY secret is not set — add it in repo settings."
+            exit 1
+          fi
 
       - name: Install Cloudsmith CLI
         run: pipx install cloudsmith-cli
