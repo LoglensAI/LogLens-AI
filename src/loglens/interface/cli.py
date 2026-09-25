@@ -21,6 +21,9 @@ from loglens.domain.severity import (
 )
 from loglens.infrastructure.output.terminal import LiveProgress
 
+# When output is piped to a consumer that closes early (e.g. `loglens ... | head`),
+# restore the default SIGPIPE behaviour so we exit quietly like grep/cat instead of
+# dumping a BrokenPipeError traceback. POSIX-only; a no-op on Windows.
 try:
     import signal
 
@@ -113,6 +116,8 @@ console = Console()
 
 INFO_KEYWORDS = {"error", "fail", "timeout", "refused", "crash", "panic", "oom", "kill"}
 
+# --- CI/CD helpers: machine-readable output + build gating -------------------- #
+# Severity a --fail-on threshold maps to (fail if any anomaly is this bad or worse).
 _FAIL_ON_RANK = {
     "emergency": 0,
     "fatal": 1,
@@ -133,6 +138,7 @@ def _emit_json(
     incident: bool,
     items: list[dict[str, Any]],
 ) -> None:
+    """Print a machine-readable analysis result to stdout (for CI/CD)."""
     payload = {
         "version": __version__,
         "source": source,
@@ -147,6 +153,11 @@ def _emit_json(
 
 
 def _apply_fail_on(fail_on: str, items: list[dict[str, Any]]) -> None:
+    """Exit non-zero if any anomaly meets/exceeds the --fail-on severity.
+
+    Exit code 2 == the gate tripped (a CI build should fail). Unknown thresholds
+    are reported and ignored so a typo never silently passes a broken build.
+    """
     key = (fail_on or "").strip().lower()
     if not key or key == "none":
         return
@@ -281,11 +292,13 @@ def _write_html(html_out, source, total_lines, anomalies, rca_result=None, score
 
 @app.command()
 def version():
+    """Print the installed LogLens version."""
     console.print(f"[bold cyan]LogLens AI[/bold cyan] version [bold]{__version__}[/bold]")
 
 
 @app.command("help")
 def help_command(ctx: typer.Context):
+    """Show the list of commands (same as `loglens --help`)."""
     root = ctx.find_root()
     console.print(root.get_help())
 
@@ -355,9 +368,11 @@ def analyze(
         "critical | error | warning | fatal | any. For gating CI/CD builds.",
     ),
 ):
+    """Analyze a log file for anomalies (fast / turbo / deep, with CI/CD gating)."""
     _load()
     as_json = output_format.strip().lower() == "json"
     if as_json:
+        # Keep stdout clean for the JSON payload — human/status output is silenced.
         console.quiet = True
 
     from loglens.detection.filetype import InvalidSourceError, check_source
@@ -463,6 +478,7 @@ def analyze(
                     html_out, source, res.parsed_lines, rca_entries, rca_result, scores=turbo_scores
                 )
 
+            # --- machine-readable output + CI/CD gating ---
             turbo_items = [
                 {
                     "level": a.level,
@@ -779,6 +795,7 @@ def analyze(
                 html_out, source, len(entries), filtered_anomalies, rca_result, scores=entry_scores
             )
 
+        # --- machine-readable output + CI/CD gating ---
         classic_items = [
             {
                 "level": g.level,
@@ -827,6 +844,7 @@ def ask(
         "", "--api-key", help="LLM API key (prefer env LOGLENS_LLM_API_KEY)"
     ),
 ):
+    """Ask a natural-language question about a log (AI, needs an LLM key)."""
     _load()
 
     async def _run():
@@ -911,6 +929,7 @@ def benchmark(
     ),
     min_f1: float = typer.Option(None, "--min-f1", help="Fail (exit 1) if baseline F1 below this"),
 ):
+    """Measure detection accuracy (precision/recall/F1) on a labeled dataset."""
     _load()
     console.print(
         f"\n[bold cyan][LogLens][/bold cyan] Benchmarking: [yellow]{dataset}[/yellow] "
@@ -1026,6 +1045,7 @@ def bench(
     workers: int = typer.Option(4, "--workers"),
     out: str = typer.Option(None, "--out", help="Write markdown results to this file"),
 ):
+    """Measure processing speed (throughput) across modes on a log file."""
     _load()
     mode_list = [m.strip() for m in modes.split(",") if m.strip()]
     console.print(
@@ -1071,6 +1091,7 @@ def watch(
         help="After stopping, write a shareable HTML dashboard of the session",
     ),
 ):
+    """Watch a live command's output and flag anomalies in real time."""
     _load()
 
     det = LiveDetector(window=window, mode=mode, sensitivity=sensitivity, threshold=threshold)
@@ -1166,6 +1187,12 @@ def watch(
         )
 
 
+# --------------------------------------------------------------------------- #
+# Daemon: a resident warm process that keeps scikit-learn imported so each
+# `loglens analyze` is a sub-100 ms round-trip instead of paying ~1.7 s of
+# import cost every run. See loglens.application.daemon for the transport.
+# --------------------------------------------------------------------------- #
+
 daemon_app = typer.Typer(
     name="daemon",
     help="Manage the resident warm process (keeps LogLens fast between runs).",
@@ -1187,6 +1214,7 @@ def daemon_start(
         1800, "--idle-timeout", help="Shut down after this many seconds with no requests."
     ),
 ):
+    """Start the LogLens daemon."""
     if foreground:
         from loglens.interface.daemon_server import serve
 
@@ -1219,6 +1247,7 @@ def daemon_start(
 
 @daemon_app.command("stop")
 def daemon_stop():
+    """Stop the LogLens daemon."""
     from loglens.application import daemon as d
 
     if d.stop():
@@ -1229,6 +1258,7 @@ def daemon_stop():
 
 @daemon_app.command("status")
 def daemon_status():
+    """Show whether the LogLens daemon is running."""
     import time as _time
 
     from loglens.application import daemon as d
@@ -1247,6 +1277,7 @@ def daemon_status():
 
 @daemon_app.command("restart")
 def daemon_restart():
+    """Restart the LogLens daemon (picks up a new version)."""
     from loglens.application import daemon as d
 
     d.stop()
@@ -1262,6 +1293,12 @@ _DAEMON_COMMANDS = {"analyze"}
 
 
 def _daemon_enabled() -> bool:
+    """Whether to route eligible commands through the daemon.
+
+    Off by default for `pip` installs (no surprises); on by default for installed
+    native binaries (``sys.frozen``), where "install and it's just fast" is the
+    whole point. ``LOGLENS_DAEMON=1|0`` forces it either way.
+    """
     v = os.environ.get("LOGLENS_DAEMON", "").strip().lower()
     if v in ("0", "off", "false", "no"):
         return False
@@ -1282,6 +1319,12 @@ def _should_forward(argv: list[str]) -> bool:
 
 
 def main() -> None:
+    """Console-script entry point.
+
+    Eligible commands are forwarded to the warm daemon when it's enabled; if the
+    daemon is down, unreachable, or errors, we fall straight through to running
+    in-process, so behaviour never regresses.
+    """
     argv = sys.argv[1:]
     if _should_forward(argv):
         try:
