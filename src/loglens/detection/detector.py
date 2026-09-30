@@ -12,6 +12,7 @@ from sklearn.preprocessing import normalize
 from loglens.detection.cooccurrence import cooccurrence_boost
 from loglens.detection.parameters import parameter_anomaly_scores
 from loglens.detection.rate import rate_burst_scores
+from loglens.detection.safety_floor import safety_floor
 from loglens.detection.sequence import sequence_anomaly_scores
 from loglens.detection.templates import TemplateRegistry, parse_timestamp
 from loglens.domain.models import LogEntry
@@ -87,6 +88,7 @@ class DetectorConfig:
     enable_parameters: bool = True  # P3.D numeric-parameter outlier detector
     enable_rate: bool = True  # P3.B per-template rate/burst change-point detector
     enable_cooccurrence: bool = True  # incident co-occurrence boost (recall lever)
+    enable_safety_floor: bool = True  # surface rare severe non-routine events (recall backstop)
 
     @classmethod
     def from_sensitivity(cls, sensitivity: str = "normal", **overrides) -> DetectorConfig:
@@ -590,6 +592,15 @@ def detect(
             if cooc_reasons[i]:
                 reasons[i] = list(reasons[i]) + cooc_reasons[i]
 
+    floor_note = ""
+    if cfg.enable_safety_floor:
+        scores, floor_reasons, floor_note = safety_floor(
+            entries, scores, flag_at=cfg.flag_threshold
+        )
+        for i in range(n):
+            if floor_reasons[i]:
+                reasons[i] = list(reasons[i]) + floor_reasons[i]
+
     threshold = cfg.flag_threshold
     if cfg.auto_threshold:
         auto = otsu_threshold(scores)
@@ -626,6 +637,8 @@ def detect(
         meta["rate_note"] = rate_note
     if cooc_note:
         meta["cooccurrence_note"] = cooc_note
+    if floor_note:
+        meta["safety_floor_note"] = floor_note
 
     return DetectionResult(
         entries=entries,

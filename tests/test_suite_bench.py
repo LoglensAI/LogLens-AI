@@ -41,6 +41,49 @@ def test_bench_file_detects_obvious_incident(tmp_path):
     assert fm.f1 == 1.0
     assert fm.fmt == "GENERIC"
     assert fm.lines_per_sec > 0
+    assert 0.0 <= fm.window_f1 <= 1.0
+    assert fm.window_recall == 1.0
+    assert 0.0 <= fm.template_f1 <= 1.0
+    assert fm.window_size == 100
+
+
+def test_window_metric_rewards_incident_windows(tmp_path):
+    _write_suite(tmp_path)
+    labels = json.load(open(tmp_path / "labels.json"))
+    fm = bench_file(
+        str(tmp_path / "incident.log"),
+        labels["incident.log"]["anomaly_lines"],
+        window=10,
+        seed=0,
+    )
+    assert fm.window_size == 10
+    assert fm.window_recall == 1.0
+    assert fm.window_precision > 0.0
+
+
+def test_supervised_head_benchmarks_when_enabled(tmp_path):
+    _write_suite(tmp_path)
+    labels = json.load(open(tmp_path / "labels.json"))
+    fm_small = bench_file(
+        str(tmp_path / "incident.log"),
+        labels["incident.log"]["anomaly_lines"],
+        supervised=True,
+        seed=0,
+    )
+    assert fm_small.sup_f1 is None  # gracefully skipped, not an error
+
+    big = tmp_path / "big_incident.log"
+    lines, anom = [], []
+    for i in range(200):
+        if i % 4 == 0:
+            lines.append(f"2024-01-01 00:00:{i % 60:02d} CRITICAL db pool exhausted node {i}")
+            anom.append(i + 1)
+        else:
+            lines.append(f"2024-01-01 00:00:{i % 60:02d} INFO api request {i} ok")
+    big.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    fm = bench_file(str(big), anom, supervised=True, seed=0)
+    assert fm.sup_f1 is not None
+    assert 0.0 <= fm.sup_f1 <= 1.0
 
 
 def test_clean_file_scores_perfect(tmp_path):

@@ -1245,6 +1245,12 @@ def bench_suite(
     min_f1: float = typer.Option(
         None, "--min-f1", help="Exit non-zero (code 1) if micro-F1 is below this — a CI gate"
     ),
+    window: int = typer.Option(
+        100, "--window", help="Window size (lines) for window-level F1 — the BGL/HDFS standard"
+    ),
+    supervised: bool = typer.Option(
+        False, "--supervised", help="Also benchmark the supervised head (5-fold CV RandomForest)"
+    ),
     as_json: bool = typer.Option(False, "--json", help="Print the full JSON report to stdout"),
 ):
     _load()
@@ -1260,6 +1266,8 @@ def bench_suite(
             mode=mode,
             seed=seed,
             exclude=[e.strip() for e in exclude.split(",") if e.strip()],
+            window=window,
+            supervised=supervised,
         )
     except FileNotFoundError as exc:
         console.print(f"[bold red][LogLens][/bold red] {exc}")
@@ -1273,42 +1281,44 @@ def bench_suite(
         print(json.dumps(report.to_dict(), indent=2))
     else:
         table = Table(title=f"LogLens Bench — {directory}", header_style="bold cyan")
-        for col in [
-            "File",
-            "Fmt",
-            "Lines",
-            "Labeled",
-            "Flagged",
-            "P",
-            "R",
-            "F1",
-            "P@k",
-            "Compress",
-            "Lines/s",
-        ]:
+        cols = ["File", "Lines", "Lbl", "Line F1", "Win F1", "Win P", "Tmpl F1"]
+        if supervised:
+            cols.append("Sup F1")
+        cols += ["Compress", "Lines/s"]
+        for col in cols:
             table.add_column(col, justify="right")
         for fm in report.files:
-            table.add_row(
+            row = [
                 fm.name,
-                fm.fmt,
                 f"{fm.lines:,}",
                 str(fm.labeled),
-                str(fm.flagged),
-                f"{fm.precision:.3f}",
-                f"{fm.recall:.3f}",
                 f"{fm.f1:.3f}",
-                f"{fm.precision_at_k:.3f}",
-                f"{fm.compression:.1f}×",
-                f"{fm.lines_per_sec:,.0f}",
-            )
+                f"{fm.window_f1:.3f}",
+                f"{fm.window_precision:.3f}",
+                f"{fm.template_f1:.3f}",
+            ]
+            if supervised:
+                row.append("—" if fm.sup_f1 is None else f"{fm.sup_f1:.3f}")
+            row += [f"{fm.compression:.1f}×", f"{fm.lines_per_sec:,.0f}"]
+            table.add_row(*row)
         console.print(table)
         m, ma, tot = report.micro, report.macro, report.totals
         console.print(
-            f"\n[bold cyan][LogLens][/bold cyan] Micro "
-            f"[bold green]F1 {m.get('f1', 0):.3f}[/bold green] "
-            f"(P {m.get('precision', 0):.3f} R {m.get('recall', 0):.3f}) · "
-            f"Macro F1 {ma.get('f1', 0):.3f} · "
-            f"{tot.get('lines', 0):,} lines @ {tot.get('lines_per_sec', 0):,.0f} lines/s"
+            f"\n[bold cyan][LogLens][/bold cyan] "
+            f"[bold green]Window F1 {ma.get('window_f1', 0):.3f}[/bold green] "
+            f"(P {ma.get('window_precision', 0):.3f} R {ma.get('window_recall', 0):.3f}, "
+            f"win={window} lines) · Template F1 {ma.get('template_f1', 0):.3f} · "
+            f"Line micro-F1 {m.get('f1', 0):.3f}"
+        )
+        if supervised and "supervised_f1" in ma:
+            console.print(
+                f"[bold cyan][LogLens][/bold cyan] Supervised head (5-fold CV): "
+                f"[bold green]F1 {ma['supervised_f1']:.3f}[/bold green] "
+                f"(P {ma['supervised_precision']:.3f} R {ma['supervised_recall']:.3f})"
+            )
+        console.print(
+            f"[dim][LogLens] {tot.get('lines', 0):,} lines @ "
+            f"{tot.get('lines_per_sec', 0):,.0f} lines/s[/dim]"
         )
 
     if out:

@@ -4,10 +4,12 @@ import json
 import os
 import time
 from dataclasses import asdict, dataclass, field
+from typing import Any, cast
 
 from loglens.application.api import analyze_entries
 from loglens.detection.parser import parse_line, sniff_format
 from loglens.detection.run import RunConfig
+from loglens.detection.templates import template_key
 
 SCHEMA = "loglens.bench.v1"
 
@@ -34,6 +36,16 @@ class FileMetrics:
     lines_per_sec: float
     fmt: str
     fmt_confidence: float
+    window_size: int = 100
+    window_precision: float = 0.0
+    window_recall: float = 0.0
+    window_f1: float = 0.0
+    template_precision: float = 0.0
+    template_recall: float = 0.0
+    template_f1: float = 0.0
+    sup_precision: float | None = None
+    sup_recall: float | None = None
+    sup_f1: float | None = None
 
 
 @dataclass
@@ -70,6 +82,57 @@ def _pr_auc(scores: list[float], labels: list[int]) -> float | None:
         return None
 
 
+def _set_prf(pred: set, truth: set) -> tuple[float, float, float]:
+    if not truth:
+        clean = len(pred) == 0
+        return (1.0, 1.0, 1.0) if clean else (0.0, 1.0, 0.0)
+    return _prf(len(pred & truth), len(pred - truth), len(truth - pred))
+
+
+def _window_prf(
+    n: int, flagged_lines: set[int], labeled: set[int], window: int
+) -> tuple[float, float, float]:
+    pred: set[int] = set()
+    truth: set[int] = set()
+    for i in range(n):
+        w = i // window
+        if (i + 1) in flagged_lines:
+            pred.add(w)
+        if (i + 1) in labeled:
+            truth.add(w)
+    return _set_prf(pred, truth)
+
+
+def _template_prf(
+    tmpl_of: list[str], flagged_lines: set[int], labeled: set[int]
+) -> tuple[float, float, float]:
+    pred = {tmpl_of[i] for i in range(len(tmpl_of)) if (i + 1) in flagged_lines}
+    truth = {tmpl_of[i] for i in range(len(tmpl_of)) if (i + 1) in labeled}
+    return _set_prf(pred, truth)
+
+
+def _supervised_prf(entries, labeled: set[int], seed: int) -> tuple[float, float, float] | None:
+    n = len(entries)
+    y = [1 if (i + 1) in labeled else 0 for i in range(n)]
+    pos = sum(y)
+    if pos < 5 or (n - pos) < 5:  # 5-fold CV needs ≥5 of each class
+        return None
+    try:
+        from loglens.detection.benchmark import cross_validate_supervised
+
+        cv = cast(
+            "dict[str, Any]",
+            cross_validate_supervised(entries, y, n_splits=5, model="rf", random_state=seed),
+        )
+        return (
+            round(float(cv["precision"]["mean"]), 4),
+            round(float(cv["recall"]["mean"]), 4),
+            round(float(cv["f1"]["mean"]), 4),
+        )
+    except Exception:
+        return None
+
+
 def _seed(seed: int) -> None:
     try:
         import numpy as np
@@ -80,7 +143,12 @@ def _seed(seed: int) -> None:
 
 
 def bench_file(
-    path: str, anomaly_lines: list[int], mode: str = "fast", seed: int = 0
+    path: str,
+    anomaly_lines: list[int],
+    mode: str = "fast",
+    seed: int = 0,
+    window: int = 100,
+    supervised: bool = False,
 ) -> FileMetrics:
     _seed(seed)
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -121,6 +189,11 @@ def bench_file(
         [1 if (i + 1) in labeled else 0 for i in range(n)],
     )
 
+    wp, wr, wf = _window_prf(n, flagged_lines, labeled, window)
+    tmpl_of = [template_key(e.message or "") for e in entries]
+    tp_p, tp_r, tp_f = _template_prf(tmpl_of, flagged_lines, labeled)
+    sup = _supervised_prf(entries, labeled, seed) if supervised else None
+
     families = len(result.detection.groups)
     compression = (len(flagged_lines) / families) if families else 0.0
     total_seconds = parse_seconds + analyze_seconds
@@ -148,6 +221,16 @@ def bench_file(
         lines_per_sec=round(lines_per_sec, 1),
         fmt=fmt,
         fmt_confidence=confidence,
+        window_size=window,
+        window_precision=round(wp, 4),
+        window_recall=round(wr, 4),
+        window_f1=round(wf, 4),
+        template_precision=round(tp_p, 4),
+        template_recall=round(tp_r, 4),
+        template_f1=round(tp_f, 4),
+        sup_precision=None if sup is None else sup[0],
+        sup_recall=None if sup is None else sup[1],
+        sup_f1=None if sup is None else sup[2],
     )
 
 
@@ -156,6 +239,8 @@ def run_suite(
     mode: str = "fast",
     seed: int = 0,
     exclude: list[str] | None = None,
+    window: int = 100,
+    supervised: bool = False,
 ) -> SuiteReport:
     labels_path = os.path.join(directory, "labels.json")
     if not os.path.isfile(labels_path):
@@ -175,7 +260,11 @@ def run_suite(
         if not os.path.isfile(path):
             continue
         anomaly_lines = labels[name].get("anomaly_lines", [])
-        report.files.append(bench_file(path, anomaly_lines, mode=mode, seed=seed))
+        report.files.append(
+            bench_file(
+                path, anomaly_lines, mode=mode, seed=seed, window=window, supervised=supervised
+            )
+        )
 
     _aggregate(report)
     return report
@@ -203,7 +292,18 @@ def _aggregate(report: SuiteReport) -> None:
         "recall": round(sum(f.recall for f in files) / k, 4),
         "f1": round(sum(f.f1 for f in files) / k, 4),
         "precision_at_k": round(sum(f.precision_at_k for f in files) / k, 4),
+        "window_precision": round(sum(f.window_precision for f in files) / k, 4),
+        "window_recall": round(sum(f.window_recall for f in files) / k, 4),
+        "window_f1": round(sum(f.window_f1 for f in files) / k, 4),
+        "template_f1": round(sum(f.template_f1 for f in files) / k, 4),
     }
+    sp = [f.sup_precision for f in files if f.sup_precision is not None]
+    sr = [f.sup_recall for f in files if f.sup_recall is not None]
+    sf = [f.sup_f1 for f in files if f.sup_f1 is not None]
+    if sf:
+        report.macro["supervised_precision"] = round(sum(sp) / len(sp), 4)
+        report.macro["supervised_recall"] = round(sum(sr) / len(sr), 4)
+        report.macro["supervised_f1"] = round(sum(sf) / len(sf), 4)
     total_lines = sum(f.lines for f in files)
     total_seconds = sum(f.parse_seconds + f.analyze_seconds for f in files)
     report.totals = {
@@ -220,26 +320,34 @@ def to_markdown(report: SuiteReport) -> str:
         "",
         f"mode: `{report.mode}` · seed: `{report.seed}` · schema: `{report.schema}`",
         "",
-        "| file | fmt | lines | labeled | flagged | P | R | F1 | P@k | PR-AUC | compress | lines/s |",
+        "| file | fmt | lines | labeled | line F1 | **win F1** | win P | win R | tmpl F1 "
+        "| sup F1 | compress | lines/s |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for f in report.files:
-        pr_auc = "—" if f.pr_auc is None else f"{f.pr_auc:.3f}"
+        sup = "—" if f.sup_f1 is None else f"{f.sup_f1:.3f}"
         lines.append(
-            f"| {f.name} | {f.fmt} | {f.lines:,} | {f.labeled} | {f.flagged} | "
-            f"{f.precision:.3f} | {f.recall:.3f} | {f.f1:.3f} | {f.precision_at_k:.3f} | "
-            f"{pr_auc} | {f.compression:.1f}× | {f.lines_per_sec:,.0f} |"
+            f"| {f.name} | {f.fmt} | {f.lines:,} | {f.labeled} | {f.f1:.3f} | "
+            f"**{f.window_f1:.3f}** | {f.window_precision:.3f} | {f.window_recall:.3f} | "
+            f"{f.template_f1:.3f} | {sup} | {f.compression:.1f}× | {f.lines_per_sec:,.0f} |"
         )
     m, ma, t = report.micro, report.macro, report.totals
     lines += [
         "",
         "## Aggregate",
         "",
-        f"- **Micro** (pooled lines): P {m.get('precision', 0):.3f} · "
-        f"R {m.get('recall', 0):.3f} · **F1 {m.get('f1', 0):.3f}**",
-        f"- **Macro** (per-file avg): P {ma.get('precision', 0):.3f} · "
-        f"R {ma.get('recall', 0):.3f} · **F1 {ma.get('f1', 0):.3f}** · "
-        f"P@k {ma.get('precision_at_k', 0):.3f}",
+        f"- **Window-level (headline)**: P {ma.get('window_precision', 0):.3f} · "
+        f"R {ma.get('window_recall', 0):.3f} · **F1 {ma.get('window_f1', 0):.3f}**",
+        f"- **Template-level**: F1 {ma.get('template_f1', 0):.3f}",
+        f"- **Line-level**: micro-F1 {m.get('f1', 0):.3f} "
+        f"(P {m.get('precision', 0):.3f} · R {m.get('recall', 0):.3f}) — reported, not the headline",
+    ]
+    if "supervised_f1" in ma:
+        lines.append(
+            f"- **Supervised head (5-fold CV)**: P {ma['supervised_precision']:.3f} · "
+            f"R {ma['supervised_recall']:.3f} · **F1 {ma['supervised_f1']:.3f}**"
+        )
+    lines += [
         f"- **Throughput**: {t.get('lines', 0):,} lines in {t.get('seconds', 0):.2f}s "
         f"→ {t.get('lines_per_sec', 0):,.0f} lines/sec",
         "",
