@@ -138,6 +138,13 @@ _INCIDENT_BURST_FAMILIES = 5
 def _assess_incident(
     items: list[dict[str, Any]], lines_parsed: int
 ) -> tuple[bool, float, list[str]]:
+    """Decide whether the run is an incident, with a 0-1 score and reasons.
+
+    An incident fires when ANY of: at least one CRITICAL/FATAL family, a severe
+    burst (≥30% of parsed lines severe), or many critical families. This replaces
+    the old "≥30% of all lines" rule, which never fired on realistic logs where a
+    few catastrophic families sit among mostly-normal traffic.
+    """
     crit = [it for it in items if str(it.get("level", "")).upper() in _INCIDENT_CRIT_LEVELS]
     errs = [it for it in items if str(it.get("level", "")).upper() in ("ERROR",)]
     severe_lines = sum(int(it.get("count", 1) or 1) for it in (*crit, *errs))
@@ -173,6 +180,7 @@ def _template_id(template: str) -> str:
 
 
 def _seed_everything(seed: int) -> None:
+
     import os
     import random as _random
 
@@ -189,6 +197,7 @@ def _seed_everything(seed: int) -> None:
 async def _collect_entries(
     source: str, sniff_n: int = 500
 ) -> tuple[list[Any], int, str, float, dict[str, Any]]:
+
     line_count = 0
     entries: list[Any] = []
     sample_buf: list[str] = []
@@ -222,16 +231,32 @@ async def _collect_entries(
     return entries, line_count, fmt or "PLAINTEXT", confidence, layout
 
 
-def _family_item(g, members: list, line_of: dict[int, int]) -> dict[str, Any]:
-    """Build a rich loglens.v1 anomaly-family record from a group + its members.
+def _family_item(
+    g, members: list, line_of: dict[int, int], rmap: dict | None = None
+) -> dict[str, Any]:
 
-    ``members`` are the LogEntry objects in this family; ``line_of`` maps each
-    entry's identity to its 1-based line number in the source.
-    """
     line_numbers = sorted(line_of[id(m)] for m in members if id(m) in line_of)
     timestamps = [m.timestamp for m in members if getattr(m, "timestamp", "")]
     samples = [(getattr(m, "raw", "") or m.message) for m in members[:3]]
     tid = _template_id(getattr(g, "template", "") or g.sample)
+    reasons = list(getattr(g, "reasons", []) or [])
+
+    confidence = None
+    r_status = "unknown"
+    r_value = None
+    r_features: list[str] = []
+    if rmap is not None:
+        from loglens.detection.routineness import confidence_label
+
+        r = rmap.get(getattr(g, "template", ""))
+        confidence, _ = confidence_label(g.max_score, r)
+        if r is not None:
+            r_status = r.status
+            r_value = round(r.r, 4) if r.r is not None else None
+            r_features = r.features_used
+            if r.note:
+                reasons = [*reasons, r.note]
+
     return {
         "id": tid,
         "template_id": tid,
@@ -246,7 +271,12 @@ def _family_item(g, members: list, line_of: dict[int, int]) -> dict[str, Any]:
         "sample_lines": samples,
         "message": g.sample,
         "calibrated_p": None,  # populated once conformal calibration lands (P3.G)
-        "reasons": list(getattr(g, "reasons", []) or []),
+        "confidence": confidence,  # triage badge (blends score + routineness)
+        "r_value": r_value,  # routineness 0..1 (higher = more routine); None if unknown
+        "r_status": r_status,  # measured | partial(k/4) | unknown
+        "r_features_used": r_features,
+        "r_applied": False,  # R is descriptive — it never changes the score (D11)
+        "reasons": reasons,
         "detector_votes": {},  # populated once the ensemble lands (P3.F)
     }
 
@@ -471,7 +501,9 @@ def analyze(
     deep: bool = typer.Option(False, "--deep", help="Use neural embeddings (accurate, slower)"),
     limit: int = typer.Option(20, "--limit", help="Max anomaly families to display (default: 20)"),
     sort_by: str = typer.Option(
-        "severity", "--sort-by", help="Sort anomalies by: severity | time | service"
+        "recent",
+        "--sort-by",
+        help="Order anomaly families by: recent (newest first, default) | severity | time | service",
     ),
     turbo: bool = typer.Option(
         False,
@@ -548,9 +580,9 @@ def analyze(
     _load()
     _seed_everything(seed)
     as_json = output_format.strip().lower() == "json"
+    console.quiet = as_json
     if as_json:
-        # Keep stdout clean for the JSON payload — human/status output is silenced.
-        console.quiet = True
+        pass
 
     from loglens.detection.filetype import InvalidSourceError, check_source
 
@@ -657,7 +689,6 @@ def analyze(
                     html_out, source, res.parsed_lines, rca_entries, rca_result, scores=turbo_scores
                 )
 
-            # --- machine-readable output + CI/CD gating ---
             turbo_items = [
                 {
                     "id": _template_id(getattr(a, "template", "") or a.sample),
@@ -783,10 +814,41 @@ def analyze(
             except OSError as _exc:
                 console.print(f"[dim][LogLens] baseline not saved: {_exc}[/dim]")
 
-        # --- supervised: explicit model, else bundled default, else unsupervised ---
-        model_path = model
+            try:
+                import numpy as _np
+
+                from loglens.application import autotrain as _autotrain
+                from loglens.detection.benchmark import build_feature_matrix as _bfm
+
+                _scores_at = _np.array(
+                    [getattr(e, "anomaly_score", 0.0) for e in entries], dtype=float
+                )
+                _feats = _bfm(entries, _scores_at)
+                _ymask = _np.array([1 if f else 0 for f in _flagged_mask], dtype=int)
+                _auto_path, _auto_ready = _autotrain.record_and_maybe_fit(
+                    _bkey, _feats, _ymask, _sdir
+                )
+            except Exception:
+                _auto_path, _auto_ready = None, False
+
+        model_sel = model
+        no_model_eff = no_model
+        if model_sel.strip().lower() == "auto":
+            from loglens.application import autotrain as _at
+
+            _amp = _at.auto_model_path(_bstore.baseline_key(source, profile), state_dir or None)
+            if os.path.isfile(_amp):
+                model_sel = _amp
+            else:
+                console.print(
+                    "[yellow][LogLens][/yellow] No auto-trained head yet — keep running "
+                    "`analyze` (with learning on) to build one; using unsupervised for now."
+                )
+                model_sel = ""
+                no_model_eff = True
+        model_path = model_sel
         used_default = False
-        if not model and not no_model:
+        if not model_sel and not no_model_eff:
             try:
                 from importlib.resources import files
 
@@ -936,15 +998,51 @@ def analyze(
             if a.level.upper() != "INFO" or any(kw in a.message.lower() for kw in INFO_KEYWORDS)
         ]
 
-        # Sort
         if sort_by == "severity":
             filtered_anomalies.sort(key=_severity)
         elif sort_by == "service":
             filtered_anomalies.sort(key=lambda a: a.service)
-        # "time" = keep original order
 
         # --- Phase 1: template grouping (families, ×N) ---
         groups = group_anomalies(filtered_anomalies)
+
+        from loglens.detection.routineness import compute_routineness, confidence_label
+        from loglens.detection.timeutil import humanize_delta, humanize_span, parse_ts
+
+        _rmap = compute_routineness(entries, baseline=_baseline)
+
+        _gtimes: dict[int, tuple] = {}
+        _anchor = None
+        for g in groups:
+            dts = [parse_ts(filtered_anomalies[i].timestamp) for i in g.indices]
+            dts = [d for d in dts if d is not None]
+            first_dt, last_dt = (min(dts), max(dts)) if dts else (None, None)
+            _gtimes[id(g)] = (first_dt, last_dt)
+            if last_dt and (_anchor is None or last_dt > _anchor):
+                _anchor = last_dt
+
+        _MIN_DT = __import__("datetime").datetime.min
+        if sort_by == "recent":
+            groups.sort(key=lambda g: _gtimes[id(g)][1] or _MIN_DT, reverse=True)
+        elif sort_by == "time":
+            groups.sort(key=lambda g: _gtimes[id(g)][0] or _MIN_DT)
+        elif sort_by == "service":
+            groups.sort(key=lambda g: (g.service, -g.max_score))
+
+        def _conf_color(label: str) -> str:
+            head = label.split()[0]
+            return {"High": "red", "Medium": "yellow", "Low": "green"}.get(head, "dim")
+
+        def _when_str(gid: int, count: int) -> str:
+            first_dt, last_dt = _gtimes[gid]
+            if last_dt is None:
+                return "no timestamp"
+            parts = [f"last {last_dt.strftime('%Y-%m-%d %H:%M:%S')}"]
+            if _anchor is not None:
+                parts.append(humanize_delta(_anchor - last_dt))
+            if count > 1 and first_dt is not None and first_dt != last_dt:
+                parts.append(f"span {humanize_span(first_dt, last_dt)}")
+            return " · ".join(parts)
 
         if groups:
             display = groups[:limit]
@@ -952,16 +1050,29 @@ def analyze(
             blocks = []
             for g in display:
                 col = _level_color(g.level)
+                r = _rmap.get(g.template)
+                conf, _ = confidence_label(g.max_score, r)
                 head = (
                     f"[{col}][{g.level}][/{col}] [yellow]{g.service}[/yellow] "
-                    f"[dim](×{g.count:,}, score {g.max_score:.2f})[/dim]  {g.sample[:100]}"
+                    f"[dim](×{g.count:,} · score {g.max_score:.2f} · {_when_str(id(g), g.count)})[/dim]"
+                    f"  {g.sample[:100]}"
                 )
                 why = "; ".join(getattr(g, "reasons", []) or []) or "no signals"
-                blocks.append(f"{head}\n   [dim]↳ why: {why}[/dim]")
+                if r is not None and r.note:
+                    why = f"{why}; {r.note}"
+                badge = (
+                    f"   [dim]↳ why: {why}[/dim]  "
+                    f"[[{_conf_color(conf)}]confidence: {conf}[/{_conf_color(conf)}]]"
+                )
+                blocks.append(f"{head}\n{badge}")
             console.print(
                 Panel(
                     "\n\n".join(blocks),
                     title=f"[bold red]ANOMALY FAMILIES ({len(groups)} families, "
+                    f"{len(filtered_anomalies)} events)[/bold red] "
+                    f"[dim]— newest first[/dim]"
+                    if sort_by == "recent"
+                    else f"[bold red]ANOMALY FAMILIES ({len(groups)} families, "
                     f"{len(filtered_anomalies)} events)[/bold red]",
                     border_style="red",
                 )
@@ -969,13 +1080,29 @@ def analyze(
             if len(groups) > limit:
                 console.print(
                     f"[dim]... and {len(groups) - limit} more families "
-                    f"(use --limit {limit * 2} to see more)[/dim]"
+                    f"(use --limit {limit * 2} to see more, or `loglens explain` for detail)[/dim]"
                 )
             suppressed = len(anomalies) - len(filtered_anomalies)
             if suppressed:
                 console.print(f"[dim]{suppressed} INFO-level false positives suppressed[/dim]")
         else:
             console.print("\n[bold green] No anomalies detected![/bold green]")
+
+        if not as_json and not model.strip():
+            from loglens.application import autotrain as _at2
+
+            _amp2 = _at2.auto_model_path(_bstore.baseline_key(source, profile), state_dir or None)
+            if os.path.isfile(_amp2):
+                console.print(
+                    "[dim][LogLens] 🤖 A supervised head trained on your usage is ready — "
+                    "rerun with [magenta]--model auto[/magenta] for a second opinion.[/dim]"
+                )
+            elif groups:
+                console.print(
+                    "[dim][LogLens] Not the results you expected? LogLens is auto-building a "
+                    "supervised head from your usage (use it later with [magenta]--model auto"
+                    "[/magenta]); for labelled data, [magenta]loglens train <file>[/magenta].[/dim]"
+                )
 
         # --- AI root-cause analysis (classic path) ---
         # Phase 1: send ONE representative entry per family (×N in message) — far cheaper tokens
@@ -1002,7 +1129,8 @@ def analyze(
 
         line_of = {id(e): i + 1 for i, e in enumerate(entries)}
         classic_items = [
-            _family_item(g, [filtered_anomalies[i] for i in g.indices], line_of) for g in groups
+            _family_item(g, [filtered_anomalies[i] for i in g.indices], line_of, _rmap)
+            for g in groups
         ]
         if as_json:
             _emit_json(
@@ -1026,6 +1154,288 @@ def analyze(
             console.print(table)
 
     asyncio.run(_run())
+
+
+def _explain_frames_str(frames: list) -> str:
+    from rich.markup import escape
+
+    parts = []
+    for f in frames[:8]:
+        loc = escape(f.basename + (f":{f.line}" if f.line is not None else ""))
+        if f.func:
+            loc += f" in {escape(f.func)}"
+        parts.append(f"[dim]{loc} (lib)[/dim]" if f.is_library else loc)
+    return " → ".join(parts)
+
+
+@app.command()
+def explain(
+    source: str = typer.Option(..., "--source", help="Log source: file path, URL, or stdin"),
+    last: str = typer.Option(
+        "24h",
+        "--last",
+        help="Look back this far from the newest event: 24h, 6h, 2d, 90m (default 24h).",
+    ),
+    since: str = typer.Option(
+        "", "--since", help="Absolute lower bound, e.g. '2024-01-01 00:00:00' (overrides --last)."
+    ),
+    until: str = typer.Option(
+        "", "--until", help="Absolute upper bound (default: the newest event in the log)."
+    ),
+    now: bool = typer.Option(
+        False,
+        "--now",
+        help="Anchor the window to wall-clock now instead of the log's newest event.",
+    ),
+    top: int = typer.Option(20, "--top", help="Max error cards to show (most recent first)."),
+    buckets: int = typer.Option(24, "--buckets", help="Sparkline resolution across the window."),
+    output_format: str = typer.Option("terminal", "--format", help="terminal (default) | json"),
+    seed: int = typer.Option(
+        0, "--seed", help="Reproducible runs (same input + seed → identical)."
+    ),
+    profile: str = typer.Option("", "--profile", help="Baseline name (for novelty/routineness)."),
+    state_dir: str = typer.Option("", "--state-dir", help="Where baselines are stored."),
+    no_learn: bool = typer.Option(
+        False, "--no-learn", help="Ignore the learned baseline (explain reads it, never writes)."
+    ),
+):
+    import datetime as _dt
+
+    from rich.markup import escape
+
+    from loglens.application.api import analyze_entries as _analyze_entries
+    from loglens.detection.grouping import group_anomalies as _group
+    from loglens.detection.routineness import compute_routineness, confidence_label
+    from loglens.detection.run import RunConfig
+    from loglens.detection.timeutil import (
+        bucketize,
+        humanize_delta,
+        humanize_span,
+        parse_duration,
+        parse_ts,
+        sparkline,
+    )
+    from loglens.detection.trace import primary_site, reconstruct_trace
+
+    _load()
+    _seed_everything(seed)
+    as_json = output_format.strip().lower() == "json"
+    console.quiet = as_json
+
+    from loglens.detection.filetype import InvalidSourceError, check_source
+
+    try:
+        check_source(source)
+    except InvalidSourceError as _e:
+        console.print(f"[bold red][LogLens][/bold red] {_e}")
+        raise typer.Exit(code=1) from None
+
+    # Read (never write) the learned baseline so novelty + routineness `age` are informed.
+    from loglens.application import baseline_store as _bstore
+
+    _sdir = state_dir or None
+    _baseline = None
+    if not no_learn:
+        _baseline = _bstore.load_baseline(_bstore.baseline_key(source, profile), _sdir)
+
+    entries, _line_count, _fmt, _fmt_conf, _layout = asyncio.run(_collect_entries(source))
+    res = _analyze_entries(entries, RunConfig(mode="fast"), baseline=_baseline, fmt=_fmt)
+    entries = res.entries
+    anoms = list(res.anomalies)
+    rmap = compute_routineness(entries, baseline=_baseline)
+
+    dated = [(a, parse_ts(getattr(a, "timestamp", ""))) for a in anoms]
+    parsed = [(a, d) for a, d in dated if d is not None]
+    undated = [a for a, d in dated if d is None]
+
+    newest = max((d for _, d in parsed), default=None)
+    anchor = _dt.datetime.now() if now else newest
+    win_hi = parse_ts(until) if until else anchor
+    dur = parse_duration(last) or _dt.timedelta(hours=24)
+    win_lo = parse_ts(since) if since else (win_hi - dur if win_hi else None)
+
+    if win_lo is not None and win_hi is not None:
+        in_window = [(a, d) for a, d in parsed if win_lo <= d <= win_hi]
+        windowed = True
+    else:  # no usable timestamps — explain everything, and say so
+        in_window = parsed
+        windowed = False
+
+    win_anoms = [a for a, _ in in_window]
+    win_dts = {id(a): d for a, d in in_window}
+    groups = _group(
+        win_anoms,
+        scores=[a.score for a in win_anoms],
+        reasons=[list(a.reasons) for a in win_anoms],
+    )
+
+    def _members(g):
+        return [win_anoms[i] for i in g.indices]
+
+    def _g_times(g):
+        ds = [win_dts[id(m)] for m in _members(g) if win_dts.get(id(m)) is not None]
+        return (min(ds), max(ds)) if ds else (None, None)
+
+    # order newest-first
+    _MIN = _dt.datetime.min
+    groups.sort(key=lambda g: _g_times(g)[1] or _MIN, reverse=True)
+
+    records = []
+    for g in groups:
+        members = _members(g)
+        first_dt, last_dt = _g_times(g)
+        rep = max(members, key=lambda m: m.score)  # representative for the trace
+        frames = (
+            reconstruct_trace(entries, rep.index) if getattr(rep, "index", None) is not None else []
+        )
+        site = primary_site(frames)
+        r = rmap.get(g.template)
+        conf, conf_adj = confidence_label(g.max_score, r)
+        times = [win_dts[id(m)] for m in members if win_dts.get(id(m)) is not None]
+        spark = ""
+        if windowed and win_lo and win_hi and times:
+            spark = sparkline(bucketize(times, win_lo, win_hi, buckets))
+        records.append(
+            {
+                "level": g.level,
+                "service": g.service,
+                "template": g.template,
+                "message": g.sample,
+                "score": round(g.max_score, 4),
+                "count": g.count,
+                "first_seen": first_dt.isoformat() if first_dt else None,
+                "last_seen": last_dt.isoformat() if last_dt else None,
+                "frequency": g.count,
+                "sparkline": spark,
+                "site": site.location() if site else None,
+                "trace": [f.location() for f in frames[:8]],
+                "confidence": conf,
+                "confidence_value": round(conf_adj, 4),
+                "r_value": round(r.r, 4) if r and r.r is not None else None,
+                "r_status": r.status if r else "unknown",
+                "reasons": list(getattr(g, "reasons", []) or [])
+                + ([r.note] if r and r.note else []),
+                "_first_dt": first_dt,
+                "_last_dt": last_dt,
+                "_frames": frames,
+                "_site": site,
+            }
+        )
+
+    if as_json:
+        payload = {
+            "schema": "loglens.explain.v1",
+            "version": __version__,
+            "source": source,
+            "window": {
+                "from": win_lo.isoformat() if win_lo else None,
+                "to": win_hi.isoformat() if win_hi else None,
+                "anchored_to": "wall-clock" if now else "newest-event",
+                "applied": windowed,
+            },
+            "anomaly_families": len(records),
+            "events_in_window": len(win_anoms),
+            "undated_events": len(undated),
+            "anomalies": [
+                {k: v for k, v in rec.items() if not k.startswith("_")} for rec in records
+            ],
+        }
+        print(json.dumps(payload, indent=2))
+        return
+
+    _conf_color = {"High": "red", "Medium": "yellow", "Low": "green"}
+
+    console.print()
+    if windowed and win_lo is not None and win_hi is not None:
+        console.print(
+            f"[bold cyan][LogLens][/bold cyan] Explaining [bold]{len(win_anoms)}[/bold] anomaly "
+            f"events in [bold]{len(records)}[/bold] families "
+            f"[dim]· window {win_lo.strftime('%Y-%m-%d %H:%M')} → {win_hi.strftime('%Y-%m-%d %H:%M')} "
+            f"({'wall-clock' if now else 'newest event'} − {last if not since else 'since ' + since})[/dim]"
+        )
+    else:
+        console.print(
+            f"[bold cyan][LogLens][/bold cyan] Explaining [bold]{len(win_anoms)}[/bold] anomaly "
+            f"events in [bold]{len(records)}[/bold] families "
+            "[dim]· no parseable timestamps — showing all (time window not applied)[/dim]"
+        )
+    if undated:
+        console.print(
+            f"[dim][LogLens] {len(undated)} undated event(s) excluded from the window view.[/dim]"
+        )
+
+    if not records:
+        console.print("\n[bold green] No anomalies in this window.[/bold green]")
+        return
+
+    recurring = sorted(records, key=lambda r: r["count"], reverse=True)
+    if recurring and recurring[0]["count"] > 1:
+        t = Table(
+            title="Most frequent in window", title_style="bold cyan", box=None, pad_edge=False
+        )
+        t.add_column("×", justify="right", style="bold")
+        t.add_column("Level")
+        t.add_column("Service", style="yellow")
+        t.add_column("Error")
+        for rec in recurring[:5]:
+            if rec["count"] < 2:
+                continue
+            col = _level_color(rec["level"])
+            t.add_row(
+                f"{rec['count']:,}",
+                f"[{col}]{rec['level']}[/{col}]",
+                rec["service"],
+                escape(rec["message"][:60]),
+            )
+        console.print()
+        console.print(t)
+
+    anchor_dt = win_hi or newest
+    for rec in records[:top]:
+        col = _level_color(rec["level"])
+        lines = []
+        # When
+        if rec["_last_dt"]:
+            when = f"last [bold]{rec['_last_dt'].strftime('%Y-%m-%d %H:%M:%S')}[/bold]"
+            if anchor_dt:
+                when += f" [dim]({humanize_delta(anchor_dt - rec['_last_dt'])})[/dim]"
+            if rec["count"] > 1 and rec["_first_dt"] and rec["_first_dt"] != rec["_last_dt"]:
+                when += (
+                    f" [dim]· first {rec['_first_dt'].strftime('%H:%M:%S')} "
+                    f"· span {humanize_span(rec['_first_dt'], rec['_last_dt'])}[/dim]"
+                )
+        else:
+            when = "[dim]no timestamp[/dim]"
+        lines.append(f"[bold]When[/bold]   {when}")
+        freq = f"[bold]{rec['count']:,}×[/bold] in window"
+        if rec["sparkline"]:
+            freq += f"   [cyan]{rec['sparkline']}[/cyan]"
+        lines.append(f"[bold]Freq[/bold]   {freq}")
+        if rec["_site"]:
+            lines.append(
+                f"[bold]Where[/bold]  [magenta]{escape(rec['_site'].location())}[/magenta]  [dim]← failure site[/dim]"
+            )
+        if rec["_frames"]:
+            lines.append(f"[bold]Trace[/bold]  {_explain_frames_str(rec['_frames'])}")
+        why = "; ".join(rec["reasons"]) or "no signals"
+        lines.append(f"[bold]Why[/bold]    [dim]{escape(why)}[/dim]")
+        cc = _conf_color.get(rec["confidence"].split()[0], "dim")
+        lines.append(
+            f"[bold]Conf[/bold]   [{cc}]{rec['confidence']}[/{cc}]  [dim](score {rec['score']:.2f})[/dim]"
+        )
+
+        title = (
+            f"[{col}]{rec['level']}[/{col}] · [yellow]{rec['service']}[/yellow] · "
+            f"{escape(rec['message'][:80])}"
+        )
+        console.print()
+        console.print(Panel("\n".join(lines), title=title, title_align="left", border_style=col))
+
+    if len(records) > top:
+        console.print(
+            f"[dim]... and {len(records) - top} more families "
+            f"(use --top {top * 2}, or narrow with --last / --since)[/dim]"
+        )
 
 
 @app.command()
@@ -1289,8 +1699,7 @@ def bench_suite(
     """Score detection accuracy + throughput over a labeled suite (LogLens Bench)."""
     _load()
     _seed_everything(seed)
-    if as_json:
-        console.quiet = True
+    console.quiet = as_json
 
     from loglens.application.suite_bench import run_suite, to_markdown
 
@@ -1676,12 +2085,7 @@ def _should_forward(argv: list[str]) -> bool:
 
 
 def main() -> None:
-    """Console-script entry point.
 
-    Eligible commands are forwarded to the warm daemon when it's enabled; if the
-    daemon is down, unreachable, or errors, we fall straight through to running
-    in-process, so behaviour never regresses.
-    """
     argv = sys.argv[1:]
     if _should_forward(argv):
         try:

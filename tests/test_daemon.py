@@ -75,12 +75,10 @@ def test_client_returns_none_when_no_daemon(tmp_path, monkeypatch):
 def test_should_forward_respects_env(monkeypatch):
     monkeypatch.setenv("LOGLENS_DAEMON", "1")
     assert cli._should_forward(["analyze", "--source", "x"]) is True
-    assert cli._should_forward(["train", "--source", "x"]) is False  
-    assert cli._should_forward(["analyze", "--help"]) is False  
+    assert cli._should_forward(["train", "--source", "x"]) is False
+    assert cli._should_forward(["analyze", "--help"]) is False
     monkeypatch.setenv("LOGLENS_DAEMON", "0")
     assert cli._should_forward(["analyze", "--source", "x"]) is False
-
-
 
 
 def test_ping_reports_current_version(daemon):
@@ -112,7 +110,8 @@ def test_served_fail_on_propagates_exit_code(daemon, logfile):
         ["analyze", "--source", logfile, "--format", "json", "--fail-on", "error"],
         spawn=False,
     )
-    assert code == 2  
+    assert code == 2
+
 
 def test_bad_token_is_rejected(daemon):
     state = d._read_state()

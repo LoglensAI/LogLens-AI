@@ -4,12 +4,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from loglens.detection.templates import template_key
-from loglens.domain.models import LogEntry
+from loglens.domain.models import Anomaly, LogEntry
 
 
 def template_of(message: str) -> str:
-    """Group key for a message. Delegates to the canonical masker so grouping,
-    turbo, and detection all collapse the same messages the same way."""
     return template_key(message)
 
 
@@ -26,7 +24,7 @@ class AnomalyGroup:
 
 
 def group_anomalies(
-    anomalies: Sequence[LogEntry],
+    anomalies: Sequence[LogEntry | Anomaly],
     scores: Sequence[float] | None = None,
     reasons: Sequence[list[str]] | None = None,
 ) -> list[AnomalyGroup]:
