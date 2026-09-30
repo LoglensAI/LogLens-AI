@@ -44,8 +44,9 @@ def _fmt(x: float) -> str:
 def parameter_anomaly_scores(
     entries: Sequence[LogEntry],
     *,
-    min_group: int = 8,
-    z_cutoff: float = 3.5,
+    min_group: int = 12,
+    z_cutoff: float = 5.0,
+    min_ratio: float = 3.0,
     flag_at: float = 0.70,
 ) -> tuple[np.ndarray, list[list[str]], str]:
     n = len(entries)
@@ -74,12 +75,13 @@ def parameter_anomaly_scores(
             vals = np.array([slotlists[i][slot] for i in members], dtype=np.float64)
             med = float(np.median(vals))
             mad = float(np.median(np.abs(vals - med)))
-            if mad <= 0:  
+            if mad <= 0: 
                 continue
             for i in members:
                 x = slotlists[i][slot]
-                z = 0.6745 * abs(x - med) / mad  
-                if z >= z_cutoff:
+                z = 0.6745 * abs(x - med) / mad 
+                ratio = abs(x - med) / max(abs(med), 1.0)
+                if z >= z_cutoff and ratio >= min_ratio:
                     score = min(1.0, 0.7 + 0.3 * min(1.0, (z - z_cutoff) / z_cutoff))
                     if score > scores[i]:
                         scores[i] = score

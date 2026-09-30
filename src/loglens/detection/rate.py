@@ -19,8 +19,10 @@ def rate_burst_scores(
     min_count: int = 12,
     burst_min: int = 10,
     factor: float = 6.0,
+    min_active_windows: int = 4,
     flag_at: float = 0.70,
 ) -> tuple[np.ndarray, list[list[str]], str]:
+
     n = len(entries)
     scores = np.zeros(n, dtype=np.float64)
     reasons: list[list[str]] = [[] for _ in range(n)]
@@ -42,7 +44,10 @@ def rate_burst_scores(
         counts = np.zeros(n_bins, dtype=np.int64)
         for i in idxs:
             counts[bin_of[i]] += 1
-        baseline = total / n_bins  
+        active = counts[counts > 0]
+        if active.size < min_active_windows:
+            continue
+        baseline = float(np.median(active))
         threshold = max(float(burst_min), factor * baseline)
         burst_bins = {b for b in range(n_bins) if counts[b] >= threshold}
         if not burst_bins:
@@ -51,14 +56,14 @@ def rate_burst_scores(
         for i in idxs:
             b = bin_of[i]
             if b in burst_bins:
-                ratio = counts[b] / max(baseline, 0.5)
+                ratio = counts[b] / max(baseline, 1.0)
                 score = min(1.0, 0.7 + 0.3 * min(1.0, (ratio - factor) / factor))
                 if score > scores[i]:
                     scores[i] = score
                 if not reasons[i]:
                     reasons[i].append(
                         f"rate burst: this message fired {int(counts[b])}× in one window "
-                        f"vs a baseline of {baseline:.1f} (×{ratio:.0f} its usual rate)"
+                        f"vs a usual {baseline:.0f} (×{ratio:.0f} its normal rate)"
                     )
 
     note = f"rate: {bursts} template(s) with a burst window" if bursts else ""

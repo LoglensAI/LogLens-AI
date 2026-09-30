@@ -44,9 +44,7 @@ def test_normal_sessions_not_flagged():
 def test_reordered_session_flagged_whole():
     entries = _corpus()
     start = len(entries)
-    entries += _session(
-        "blk_9990001", ["allocate", "confirm", "write", "close"]
-    )  
+    entries += _session("blk_9990001", ["allocate", "confirm", "write", "close"])
     scores, reasons, note = sequence_anomaly_scores(entries, flag_at=0.70)
     bad_idx = range(start, len(entries))
     assert all(scores[i] >= 0.70 for i in bad_idx)

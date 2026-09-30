@@ -90,7 +90,7 @@ def sequence_anomaly_scores(
         pred[prev] += 1
 
     v = len(vocab)
-    alpha = 1.0  
+    alpha = 1.0
 
     flagged_sessions = 0
     for key, events in sessions.items():
@@ -99,7 +99,7 @@ def sequence_anomaly_scores(
         prev = _BOS
         prev_idx = -1
         for idx, tmpl in events:
-            if pred[prev] >= min_pred:  
+            if pred[prev] >= min_pred:
                 p = (trans[prev].get(tmpl, 0) + alpha) / (pred[prev] + alpha * v)
                 surprise = 1.0 - p
                 if surprise > scores[idx]:

@@ -9,6 +9,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 
+from loglens.detection.cooccurrence import cooccurrence_boost
 from loglens.detection.parameters import parameter_anomaly_scores
 from loglens.detection.rate import rate_burst_scores
 from loglens.detection.sequence import sequence_anomaly_scores
@@ -85,6 +86,7 @@ class DetectorConfig:
     enable_sequence: bool = True  # P3.C session-order detector (auto-silent w/o sessions)
     enable_parameters: bool = True  # P3.D numeric-parameter outlier detector
     enable_rate: bool = True  # P3.B per-template rate/burst change-point detector
+    enable_cooccurrence: bool = True  # incident co-occurrence boost (recall lever)
 
     @classmethod
     def from_sensitivity(cls, sensitivity: str = "normal", **overrides) -> DetectorConfig:
@@ -579,6 +581,15 @@ def detect(
             if rate_reasons[i]:
                 reasons[i] = list(reasons[i]) + rate_reasons[i]
 
+    cooc_note = ""
+    if cfg.enable_cooccurrence:
+        scores, cooc_reasons, cooc_note = cooccurrence_boost(
+            entries, scores, flag_at=cfg.flag_threshold
+        )
+        for i in range(n):
+            if cooc_reasons[i]:
+                reasons[i] = list(reasons[i]) + cooc_reasons[i]
+
     threshold = cfg.flag_threshold
     if cfg.auto_threshold:
         auto = otsu_threshold(scores)
@@ -613,6 +624,8 @@ def detect(
         meta["parameter_note"] = param_note
     if rate_note:
         meta["rate_note"] = rate_note
+    if cooc_note:
+        meta["cooccurrence_note"] = cooc_note
 
     return DetectionResult(
         entries=entries,

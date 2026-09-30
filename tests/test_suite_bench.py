@@ -36,7 +36,7 @@ def test_bench_file_detects_obvious_incident(tmp_path):
         seed=0,
     )
     assert fm.labeled == 3
-    assert fm.recall == 1.0  
+    assert fm.recall == 1.0
     assert fm.precision == 1.0
     assert fm.f1 == 1.0
     assert fm.fmt == "GENERIC"

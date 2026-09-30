@@ -39,7 +39,7 @@ def test_flags_value_outlier():
 
 
 def test_pools_across_levels():
-    normal = [20, 22, 19, 25, 18, 24, 21, 23, 20, 26]
+    normal = [20, 22, 19, 25, 18, 24, 21, 23, 20, 26, 19, 23, 21, 22]
     entries, spike_idx = _latency_corpus(normal, [9999])
     scores, _r, _n = parameter_anomaly_scores(entries)
     assert all(scores[i] >= 0.70 for i in spike_idx)
