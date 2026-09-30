@@ -1,6 +1,5 @@
 import asyncio
 import functools
-import hashlib
 import json
 import os
 import sys
@@ -197,7 +196,6 @@ def _seed_everything(seed: int) -> None:
 async def _collect_entries(
     source: str, sniff_n: int = 500
 ) -> tuple[list[Any], int, str, float, dict[str, Any]]:
-
     line_count = 0
     entries: list[Any] = []
     sample_buf: list[str] = []
@@ -288,6 +286,8 @@ def _family_item(
         "scores": scores_block,  # per-detector sub-scores {N,B,P,R,C,S} (D12)
         "impact": _d.impact,  # blocking | non-blocking | unknown (message+severity based here)
         "trace_kind": _d.trace_kind,  # deep trace reconstruction only in `explain`
+        "origin": _d.origin,  # your_code | dependency | upstream_service | system | unknown
+        "origin_detail": _d.origin_detail,  # the specific package / service / signal
         "confidence": confidence,  # triage badge (blends score + routineness)
         "r_value": r_value,  # routineness 0..1 (higher = more routine); None if unknown
         "r_status": r_status,  # measured | partial(k/4) | unknown
@@ -301,6 +301,48 @@ def _family_item(
     }
 
 
+def _build_incidents(source: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    from loglens.detection.incidents import Family, group_incidents
+    from loglens.detection.timeutil import parse_ts
+
+    fams = [
+        Family(
+            template_id=it.get("template_id", ""),
+            level=it.get("level", ""),
+            service=it.get("service", ""),
+            count=int(it.get("count", 1)),
+            first_dt=parse_ts(it.get("first_seen") or ""),
+            last_dt=parse_ts(it.get("last_seen") or ""),
+            origin=it.get("origin", "unknown"),
+            origin_detail=it.get("origin_detail"),
+            message=it.get("message", ""),
+        )
+        for it in items
+    ]
+    incidents, mapping = group_incidents(fams, source=source)
+    for it in items:
+        it["incident_id"] = mapping.get(it.get("template_id", ""))
+    return [
+        {
+            "id": inc.id,
+            "level": inc.level,
+            "events": inc.events,
+            "families": inc.family_ids,
+            "services": inc.services,
+            "first_seen": inc.first_dt.isoformat() if inc.first_dt else None,
+            "last_seen": inc.last_dt.isoformat() if inc.last_dt else None,
+            "span_seconds": inc.span_seconds,
+            "root_cause": {
+                "template_id": inc.root_cause_id,
+                "message": inc.root_cause_message,
+                "origin": inc.root_cause_origin,
+                "origin_detail": inc.root_cause_detail,
+            },
+        }
+        for inc in incidents
+    ]
+
+
 def _emit_json(
     source: str,
     mode: str,
@@ -312,20 +354,10 @@ def _emit_json(
     """Print a machine-readable analysis result to stdout (for CI/CD)."""
     is_incident, incident_score, incident_reasons = _assess_incident(items, lines_parsed)
 
-    # incident_id (D12, light): when the run is an incident, the severe families that
-    # make it up share one deterministic id. Derived from the source + the sorted
-    # template_ids of the participating families, so it's stable across runs. D13
-    # refines this into multiple time-windowed incidents.
-    if is_incident and items:
-        parts = [
-            it for it in items if (it.get("level", "").upper() in ("CRITICAL", "FATAL", "ERROR"))
-        ]
-        parts = parts or items
-        key = source + "|" + "|".join(sorted(it.get("template_id", "") for it in parts))
-        inc_id = "inc_" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:10]
-        members = {id(it) for it in parts}
-        for it in items:
-            it["incident_id"] = inc_id if id(it) in members else None
+    # Incident grouping (D13): cluster the severe families into distinct incidents by
+    # time-gap, each with a root-cause hint + the services it touched, and stamp every
+    # participating family with its incident_id (replaces D12's single run-level id).
+    incidents = _build_incidents(source, items)
 
     payload = {
         "schema": "loglens.v1",
@@ -337,6 +369,7 @@ def _emit_json(
         "incident": is_incident,
         "incident_score": incident_score,
         "incident_reasons": incident_reasons,
+        "incidents": incidents,
         "anomaly_count": len(items),
         "anomalies": items,
     }
@@ -746,6 +779,8 @@ def analyze(
                     "scores": {"N": 0.0, "B": 0.0, "P": 0.0, "C": 0.0, "S": 0.0, "R": None},
                     "impact": _d.impact,
                     "trace_kind": _d.trace_kind,
+                    "origin": _d.origin,
+                    "origin_detail": _d.origin_detail,
                     "confidence": None,
                     "r_value": None,
                     "r_status": "unknown",
@@ -1222,6 +1257,7 @@ _IMPACT_STYLE = {
 
 
 def _explain_frames_str(frames: list) -> str:
+    """Render a frame chain as ``a.py:10 in f → b.py:20 (lib)``, library frames dimmed."""
     from rich.markup import escape
 
     parts = []
@@ -1308,7 +1344,6 @@ def explain(
         console.print(f"[bold red][LogLens][/bold red] {_e}")
         raise typer.Exit(code=1) from None
 
-    # Read (never write) the learned baseline so novelty + routineness `age` are informed.
     from loglens.application import baseline_store as _bstore
 
     _sdir = state_dir or None
@@ -1372,6 +1407,7 @@ def explain(
                     return True
         return False
 
+    # --- build structured records (used by both terminal + json) ----------- #
     records = []
     for g in groups:
         members = _members(g)
@@ -1404,6 +1440,7 @@ def explain(
                 "level": g.level,
                 "service": g.service,
                 "template": g.template,
+                "template_id": _template_id(g.template or g.sample),
                 "message": g.sample,
                 "score": round(g.max_score, 4),
                 "count": g.count,
@@ -1415,6 +1452,8 @@ def explain(
                 "impact": diag.impact,
                 "impact_reason": diag.impact_reason,
                 "exception_type": diag.exception_type,
+                "origin": diag.origin,
+                "origin_detail": diag.origin_detail,
                 "headline": diag.headline,
                 "where": diag.where_human,
                 "site": site.location() if site else None,
@@ -1432,6 +1471,8 @@ def explain(
                 "_diag": diag,
             }
         )
+
+    explain_incidents = _build_incidents(source, records)
 
     _imp = impact_filter.strip().lower()
     if _imp:
@@ -1455,6 +1496,7 @@ def explain(
                 k: sum(1 for r in records if r["impact"] == k)
                 for k in ("blocking", "non-blocking", "unknown")
             },
+            "incidents": explain_incidents,
             "anomalies": [
                 {k: v for k, v in rec.items() if not k.startswith("_")} for rec in records
             ],
@@ -1523,6 +1565,39 @@ def explain(
         f"[dim]❓ {_tally['unknown']} unknown[/dim]"
     )
 
+    _origin_word = {
+        "your_code": "your code",
+        "dependency": "dependency",
+        "upstream_service": "upstream service",
+        "system": "system",
+        "unknown": "unknown",
+    }
+    if explain_incidents:
+        lines = []
+        for inc in explain_incidents:
+            col = _level_color(inc["level"])
+            span = inc["span_seconds"]
+            span_s = f"{span // 60}m" if span >= 60 else f"{span}s"
+            chain = " → ".join(inc["services"][:6]) or "—"
+            rc = inc["root_cause"]
+            ow = _origin_word.get(rc["origin"], rc["origin"])
+            detail = f" ({escape(rc['origin_detail'])})" if rc.get("origin_detail") else ""
+            lines.append(
+                f"[bold]{inc['id']}[/bold]  [{col}]{inc['level']}[/{col}] · "
+                f"{inc['events']} events · {span_s} · [yellow]{escape(chain)}[/yellow]\n"
+                f"   [dim]root cause:[/dim] [bold]{ow}[/bold]{detail} [dim]— "
+                f"{escape(rc['message'][:70])}[/dim]"
+            )
+        console.print()
+        console.print(
+            Panel(
+                "\n\n".join(lines),
+                title=f"[bold red]INCIDENTS ({len(explain_incidents)})[/bold red]",
+                border_style="red",
+                title_align="left",
+            )
+        )
+
     anchor_dt = win_hi or newest
     for rec in records[:top]:
         col = _level_color(rec["level"])
@@ -1540,6 +1615,14 @@ def explain(
             f"[bold]Impact[/bold]  [{icolor}]{ilabel}[/{icolor}] — {impact_help}  "
             f"[dim]({escape(rec['impact_reason'])})[/dim]"
         )
+
+        ow = _origin_word.get(rec["origin"], rec["origin"])
+        odetail = (
+            f" [magenta]{escape(rec['origin_detail'])}[/magenta]"
+            if rec.get("origin_detail")
+            else ""
+        )
+        lines.append(f"[bold]Origin[/bold]  {ow}{odetail}")
 
         if rec["_last_dt"]:
             when = f"last [bold]{rec['_last_dt'].strftime('%Y-%m-%d %H:%M:%S')}[/bold]"

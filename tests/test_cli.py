@@ -156,6 +156,26 @@ def test_analyze_json_d12_deterministic(tmp_path):
     assert json.loads(a1) == json.loads(a2)  # incident_id + scores stable run-to-run
 
 
+def test_analyze_json_d13_incidents_and_origin(tmp_path):
+    import json
+
+    log = _write_log(tmp_path)
+    result = runner.invoke(app, ["analyze", "--source", log, "--format", "json", "--no-learn"])
+    data = json.loads(result.output)
+    assert "incidents" in data and isinstance(data["incidents"], list)
+    a = data["anomalies"][0]
+    assert "origin" in a and "origin_detail" in a  # blame axis present
+    if data["incident"]:
+        inc = data["incidents"][0]
+        for key in ("id", "level", "events", "families", "services", "root_cause"):
+            assert key in inc
+        assert inc["id"].startswith("inc_")
+        assert {"template_id", "origin", "message"} <= set(inc["root_cause"])
+        # every family in an incident is stamped with that incident's id
+        stamped = {x["incident_id"] for x in data["anomalies"] if x["incident_id"]}
+        assert inc["id"] in stamped
+
+
 def test_analyze_format_json_turbo(tmp_path):
     import json
 

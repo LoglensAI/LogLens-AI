@@ -88,6 +88,36 @@ _NON_BLOCK = (
 )
 _RECOVERY = ("recovered", "reconnected", "back to normal", "healthy again", "resolved")
 
+YOUR_CODE = "your_code"  # a frame in the user's own source
+DEPENDENCY = "dependency"  # inside a third-party package / stdlib module
+UPSTREAM = "upstream_service"  # a call to another service/API failed
+SYSTEM = "system"  # OS / kernel: OOM, segfault, disk full, signal…
+
+_SYS: tuple[tuple[re.Pattern[str], str | None], ...] = (
+    (re.compile(r"\bSIG[A-Z]{2,}\b"), None),
+    (re.compile(r"out of memory|\boom\b|oom-?kill|killing process", re.I), "out of memory"),
+    (re.compile(r"segmentation fault|segfault", re.I), "segmentation fault"),
+    (re.compile(r"kernel panic", re.I), "kernel panic"),
+    (re.compile(r"core dumped", re.I), "core dumped"),
+    (re.compile(r"no space left|disk full", re.I), "disk full"),
+    (re.compile(r"too many open files", re.I), "too many open files"),
+    (re.compile(r"stack overflow", re.I), "stack overflow"),
+)
+_UPSTREAM_KW = re.compile(
+    r"\b(50[234]|bad gateway|gateway timeout|service unavailable|upstream|"
+    r"econnrefused|connection refused|refused connection|rpc error|grpc|unavailable)\b",
+    re.I,
+)
+_HOST = re.compile(r"\bhost=([\w.\-:]+)")
+_URL = re.compile(r"https?://([^/\s:]+)")
+_UPSTREAM_NAMED = re.compile(
+    r"upstream (?:service |server )?([\w.\- ]+?)(?: (?:timed out|timeout|failed|unavailable))"
+)
+_PKG = re.compile(
+    r"(?:site-packages|dist-packages|node_modules|/vendor/|/gems/[\w.-]+/gems)/(@[\w.-]+/[\w.-]+|[\w.-]+)"
+)
+_NO_MODULE = re.compile(r"No module named ['\"]?([\w.]+)")
+
 
 @dataclass
 class Diagnosis:
@@ -98,6 +128,8 @@ class Diagnosis:
     site: Frame | None = None
     headline: str = ""
     where_human: str = ""
+    origin: str = "unknown"  # your_code | dependency | upstream_service | system | unknown
+    origin_detail: str | None = None  # the specific package / service / signal / module
     frames: list[Frame] = field(default_factory=list)
 
 
@@ -156,6 +188,50 @@ def classify_blocking(level: str, text: str, *, recovery_follows: bool = False) 
     return UNKNOWN, "no clear blocking/recovery signal"
 
 
+def _pkg_from_frame(f: Frame) -> str:
+    m = _PKG.search(f.file)
+    if m:
+        return m.group(1)
+    parts = f.file.replace("\\", "/").rstrip("/").split("/")
+    return parts[-2] if len(parts) >= 2 else (f.basename or f.file)
+
+
+def classify_origin(
+    text: str, frames: list[Frame] | None = None, exc: str | None = None
+) -> tuple[str, str | None]:
+    frames = frames or []
+    text = text or ""
+
+    for pat, label in _SYS:
+        m = pat.search(text)
+        if m:
+            return SYSTEM, (label or m.group(0))
+
+    if _UPSTREAM_KW.search(text) or _HOST.search(text) or _URL.search(text):
+        named = _UPSTREAM_NAMED.search(text)
+        host = _HOST.search(text)
+        url = _URL.search(text)
+        detail = (
+            (named.group(1).strip() if named else None)
+            or (host.group(1) if host else None)
+            or (url.group(1) if url else None)
+            or "upstream"
+        )
+        return UPSTREAM, detail
+
+    nm = _NO_MODULE.search(text)
+    if nm:
+        return DEPENDENCY, nm.group(1).split(".")[0]
+
+    lib = [f for f in frames if f.is_library and f.file]
+    if lib:
+        return DEPENDENCY, _pkg_from_frame(lib[-1])
+    app = [f for f in frames if not f.is_library and f.file]
+    if app:
+        return YOUR_CODE, (app[-1].basename or None)
+    return UNKNOWN, None
+
+
 def _headline(kind: str, site: Frame | None, exc: str | None, level: str, impact: str) -> str:
     who = f"{exc} " if exc else ""
     if kind == APPLICATION and site:
@@ -197,6 +273,7 @@ def diagnose(
     impact, reason = classify_blocking(level, text, recovery_follows=recovery_follows)
     if impact == UNKNOWN and kind in (APPLICATION, LIBRARY) and not recovery_follows:
         impact, reason = BLOCKING, "unhandled traceback (operation aborted)"
+    origin, origin_detail = classify_origin(text, frames, exc)
     return Diagnosis(
         trace_kind=kind,
         impact=impact,
@@ -205,5 +282,7 @@ def diagnose(
         site=site,
         headline=_headline(kind, site, exc, level, impact),
         where_human=_where_human(kind, site),
+        origin=origin,
+        origin_detail=origin_detail,
         frames=frames,
     )

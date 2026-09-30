@@ -1,124 +1,124 @@
-2026-09-30 19:02:57 INFO api handled request 0 in 12ms
-2026-09-30 19:03:17 INFO web handled request 1 in 12ms
-2026-09-30 19:03:37 INFO worker handled request 2 in 12ms
-2026-09-30 19:03:57 INFO cache handled request 3 in 12ms
-2026-09-30 19:04:17 INFO db handled request 4 in 12ms
-2026-09-30 19:04:37 INFO api handled request 5 in 12ms
-2026-09-30 19:04:57 INFO web handled request 6 in 12ms
-2026-09-30 19:05:17 INFO worker handled request 7 in 12ms
-2026-09-30 19:05:37 INFO cache handled request 8 in 12ms
-2026-09-30 19:05:57 INFO db handled request 9 in 12ms
-2026-09-30 19:06:17 INFO api handled request 10 in 12ms
-2026-09-30 19:06:37 INFO web handled request 11 in 12ms
-2026-09-30 19:06:57 INFO worker handled request 12 in 12ms
-2026-09-30 19:07:17 INFO cache handled request 13 in 12ms
-2026-09-30 19:07:37 INFO db handled request 14 in 12ms
-2026-09-30 19:07:57 INFO api handled request 15 in 12ms
-2026-09-30 19:08:17 INFO web handled request 16 in 12ms
-2026-09-30 19:08:37 INFO worker handled request 17 in 12ms
-2026-09-30 19:08:57 INFO cache handled request 18 in 12ms
-2026-09-30 19:09:17 INFO db handled request 19 in 12ms
-2026-09-30 19:09:37 INFO api handled request 20 in 12ms
-2026-09-30 19:09:57 INFO web handled request 21 in 12ms
-2026-09-30 19:10:17 INFO worker handled request 22 in 12ms
-2026-09-30 19:10:37 INFO cache handled request 23 in 12ms
-2026-09-30 19:10:57 INFO db handled request 24 in 12ms
-2026-09-30 19:11:17 INFO api handled request 25 in 12ms
-2026-09-30 19:11:37 INFO web handled request 26 in 12ms
-2026-09-30 19:11:57 INFO worker handled request 27 in 12ms
-2026-09-30 19:12:17 INFO cache handled request 28 in 12ms
-2026-09-30 19:12:37 INFO db handled request 29 in 12ms
-2026-09-30 19:12:57 INFO api handled request 30 in 12ms
-2026-09-30 19:13:17 INFO web handled request 31 in 12ms
-2026-09-30 19:13:37 INFO worker handled request 32 in 12ms
-2026-09-30 19:13:57 INFO cache handled request 33 in 12ms
-2026-09-30 19:14:17 INFO db handled request 34 in 12ms
-2026-09-30 19:14:37 INFO api handled request 35 in 12ms
-2026-09-30 19:14:57 INFO web handled request 36 in 12ms
-2026-09-30 19:15:17 INFO worker handled request 37 in 12ms
-2026-09-30 19:15:37 INFO cache handled request 38 in 12ms
-2026-09-30 19:15:57 INFO db handled request 39 in 12ms
-2026-09-30 19:16:17 INFO api handled request 40 in 12ms
-2026-09-30 19:16:37 INFO web handled request 41 in 12ms
-2026-09-30 19:16:57 INFO worker handled request 42 in 12ms
-2026-09-30 19:17:17 INFO cache handled request 43 in 12ms
-2026-09-30 19:17:37 INFO db handled request 44 in 12ms
-2026-09-30 19:17:57 INFO api handled request 45 in 12ms
-2026-09-30 19:18:17 INFO web handled request 46 in 12ms
-2026-09-30 19:18:37 INFO worker handled request 47 in 12ms
-2026-09-30 19:18:57 INFO cache handled request 48 in 12ms
-2026-09-30 19:19:17 INFO db handled request 49 in 12ms
-2026-09-30 19:19:37 INFO api handled request 50 in 12ms
-2026-09-30 19:19:57 INFO web handled request 51 in 12ms
-2026-09-30 19:20:17 INFO worker handled request 52 in 12ms
-2026-09-30 19:20:37 INFO cache handled request 53 in 12ms
-2026-09-30 19:20:57 INFO db handled request 54 in 12ms
-2026-09-30 19:21:17 INFO api handled request 55 in 12ms
-2026-09-30 19:21:37 INFO web handled request 56 in 12ms
-2026-09-30 19:21:57 INFO worker handled request 57 in 12ms
-2026-09-30 19:22:17 INFO cache handled request 58 in 12ms
-2026-09-30 19:22:37 INFO db handled request 59 in 12ms
-2026-09-30 19:22:57 INFO api handled request 60 in 12ms
-2026-09-30 19:23:17 INFO web handled request 61 in 12ms
-2026-09-30 19:23:37 INFO worker handled request 62 in 12ms
-2026-09-30 19:23:57 INFO cache handled request 63 in 12ms
-2026-09-30 19:24:17 INFO db handled request 64 in 12ms
-2026-09-30 19:24:37 INFO api handled request 65 in 12ms
-2026-09-30 19:24:57 INFO web handled request 66 in 12ms
-2026-09-30 19:25:17 INFO worker handled request 67 in 12ms
-2026-09-30 19:25:37 INFO cache handled request 68 in 12ms
-2026-09-30 19:25:57 INFO db handled request 69 in 12ms
-2026-09-30 19:26:17 INFO api handled request 70 in 12ms
-2026-09-30 19:26:37 INFO web handled request 71 in 12ms
-2026-09-30 19:26:57 INFO worker handled request 72 in 12ms
-2026-09-30 19:27:17 INFO cache handled request 73 in 12ms
-2026-09-30 19:27:37 INFO db handled request 74 in 12ms
-2026-09-30 19:27:57 INFO api handled request 75 in 12ms
-2026-09-30 19:28:17 INFO web handled request 76 in 12ms
-2026-09-30 19:28:37 INFO worker handled request 77 in 12ms
-2026-09-30 19:28:57 INFO cache handled request 78 in 12ms
-2026-09-30 19:29:17 INFO db handled request 79 in 12ms
-2026-09-30 19:29:37 INFO api handled request 80 in 12ms
-2026-09-30 19:29:57 INFO web handled request 81 in 12ms
-2026-09-30 19:30:17 INFO worker handled request 82 in 12ms
-2026-09-30 19:30:37 INFO cache handled request 83 in 12ms
-2026-09-30 19:30:57 INFO db handled request 84 in 12ms
-2026-09-30 19:31:17 INFO api handled request 85 in 12ms
-2026-09-30 19:31:37 INFO web handled request 86 in 12ms
-2026-09-30 19:31:57 INFO worker handled request 87 in 12ms
-2026-09-30 19:32:17 INFO cache handled request 88 in 12ms
-2026-09-30 19:32:37 INFO db handled request 89 in 12ms
-2026-09-30 19:32:57 INFO api handled request 90 in 12ms
-2026-09-30 19:33:17 INFO web handled request 91 in 12ms
-2026-09-30 19:33:37 INFO worker handled request 92 in 12ms
-2026-09-30 19:33:57 INFO cache handled request 93 in 12ms
-2026-09-30 19:34:17 INFO db handled request 94 in 12ms
-2026-09-30 19:34:37 INFO api handled request 95 in 12ms
-2026-09-30 19:34:57 INFO web handled request 96 in 12ms
-2026-09-30 19:35:17 INFO worker handled request 97 in 12ms
-2026-09-30 19:35:37 INFO cache handled request 98 in 12ms
-2026-09-30 19:35:57 INFO db handled request 99 in 12ms
-2026-09-30 19:36:17 INFO api handled request 100 in 12ms
-2026-09-30 19:36:37 INFO web handled request 101 in 12ms
-2026-09-30 19:36:57 INFO worker handled request 102 in 12ms
-2026-09-30 19:37:17 INFO cache handled request 103 in 12ms
-2026-09-30 19:37:37 INFO db handled request 104 in 12ms
-2026-09-30 19:37:57 INFO api handled request 105 in 12ms
-2026-09-30 19:38:17 INFO web handled request 106 in 12ms
-2026-09-30 19:38:37 INFO worker handled request 107 in 12ms
-2026-09-30 19:38:57 INFO cache handled request 108 in 12ms
-2026-09-30 19:39:17 INFO db handled request 109 in 12ms
-2026-09-30 19:39:37 INFO api handled request 110 in 12ms
-2026-09-30 19:39:57 INFO web handled request 111 in 12ms
-2026-09-30 19:40:17 INFO worker handled request 112 in 12ms
-2026-09-30 19:40:37 INFO cache handled request 113 in 12ms
-2026-09-30 19:40:57 INFO db handled request 114 in 12ms
-2026-09-30 19:41:17 INFO api handled request 115 in 12ms
-2026-09-30 19:41:37 INFO web handled request 116 in 12ms
-2026-09-30 19:41:57 INFO worker handled request 117 in 12ms
-2026-09-30 19:42:17 INFO cache handled request 118 in 12ms
-2026-09-30 19:42:37 INFO db handled request 119 in 12ms
-2026-09-30 19:34:57 ERROR api unhandled exception while processing order 1000
+2026-09-30 20:22:15 INFO api handled request 0 in 12ms
+2026-09-30 20:22:35 INFO web handled request 1 in 12ms
+2026-09-30 20:22:55 INFO worker handled request 2 in 12ms
+2026-09-30 20:23:15 INFO cache handled request 3 in 12ms
+2026-09-30 20:23:35 INFO db handled request 4 in 12ms
+2026-09-30 20:23:55 INFO api handled request 5 in 12ms
+2026-09-30 20:24:15 INFO web handled request 6 in 12ms
+2026-09-30 20:24:35 INFO worker handled request 7 in 12ms
+2026-09-30 20:24:55 INFO cache handled request 8 in 12ms
+2026-09-30 20:25:15 INFO db handled request 9 in 12ms
+2026-09-30 20:25:35 INFO api handled request 10 in 12ms
+2026-09-30 20:25:55 INFO web handled request 11 in 12ms
+2026-09-30 20:26:15 INFO worker handled request 12 in 12ms
+2026-09-30 20:26:35 INFO cache handled request 13 in 12ms
+2026-09-30 20:26:55 INFO db handled request 14 in 12ms
+2026-09-30 20:27:15 INFO api handled request 15 in 12ms
+2026-09-30 20:27:35 INFO web handled request 16 in 12ms
+2026-09-30 20:27:55 INFO worker handled request 17 in 12ms
+2026-09-30 20:28:15 INFO cache handled request 18 in 12ms
+2026-09-30 20:28:35 INFO db handled request 19 in 12ms
+2026-09-30 20:28:55 INFO api handled request 20 in 12ms
+2026-09-30 20:29:15 INFO web handled request 21 in 12ms
+2026-09-30 20:29:35 INFO worker handled request 22 in 12ms
+2026-09-30 20:29:55 INFO cache handled request 23 in 12ms
+2026-09-30 20:30:15 INFO db handled request 24 in 12ms
+2026-09-30 20:30:35 INFO api handled request 25 in 12ms
+2026-09-30 20:30:55 INFO web handled request 26 in 12ms
+2026-09-30 20:31:15 INFO worker handled request 27 in 12ms
+2026-09-30 20:31:35 INFO cache handled request 28 in 12ms
+2026-09-30 20:31:55 INFO db handled request 29 in 12ms
+2026-09-30 20:32:15 INFO api handled request 30 in 12ms
+2026-09-30 20:32:35 INFO web handled request 31 in 12ms
+2026-09-30 20:32:55 INFO worker handled request 32 in 12ms
+2026-09-30 20:33:15 INFO cache handled request 33 in 12ms
+2026-09-30 20:33:35 INFO db handled request 34 in 12ms
+2026-09-30 20:33:55 INFO api handled request 35 in 12ms
+2026-09-30 20:34:15 INFO web handled request 36 in 12ms
+2026-09-30 20:34:35 INFO worker handled request 37 in 12ms
+2026-09-30 20:34:55 INFO cache handled request 38 in 12ms
+2026-09-30 20:35:15 INFO db handled request 39 in 12ms
+2026-09-30 20:35:35 INFO api handled request 40 in 12ms
+2026-09-30 20:35:55 INFO web handled request 41 in 12ms
+2026-09-30 20:36:15 INFO worker handled request 42 in 12ms
+2026-09-30 20:36:35 INFO cache handled request 43 in 12ms
+2026-09-30 20:36:55 INFO db handled request 44 in 12ms
+2026-09-30 20:37:15 INFO api handled request 45 in 12ms
+2026-09-30 20:37:35 INFO web handled request 46 in 12ms
+2026-09-30 20:37:55 INFO worker handled request 47 in 12ms
+2026-09-30 20:38:15 INFO cache handled request 48 in 12ms
+2026-09-30 20:38:35 INFO db handled request 49 in 12ms
+2026-09-30 20:38:55 INFO api handled request 50 in 12ms
+2026-09-30 20:39:15 INFO web handled request 51 in 12ms
+2026-09-30 20:39:35 INFO worker handled request 52 in 12ms
+2026-09-30 20:39:55 INFO cache handled request 53 in 12ms
+2026-09-30 20:40:15 INFO db handled request 54 in 12ms
+2026-09-30 20:40:35 INFO api handled request 55 in 12ms
+2026-09-30 20:40:55 INFO web handled request 56 in 12ms
+2026-09-30 20:41:15 INFO worker handled request 57 in 12ms
+2026-09-30 20:41:35 INFO cache handled request 58 in 12ms
+2026-09-30 20:41:55 INFO db handled request 59 in 12ms
+2026-09-30 20:42:15 INFO api handled request 60 in 12ms
+2026-09-30 20:42:35 INFO web handled request 61 in 12ms
+2026-09-30 20:42:55 INFO worker handled request 62 in 12ms
+2026-09-30 20:43:15 INFO cache handled request 63 in 12ms
+2026-09-30 20:43:35 INFO db handled request 64 in 12ms
+2026-09-30 20:43:55 INFO api handled request 65 in 12ms
+2026-09-30 20:44:15 INFO web handled request 66 in 12ms
+2026-09-30 20:44:35 INFO worker handled request 67 in 12ms
+2026-09-30 20:44:55 INFO cache handled request 68 in 12ms
+2026-09-30 20:45:15 INFO db handled request 69 in 12ms
+2026-09-30 20:45:35 INFO api handled request 70 in 12ms
+2026-09-30 20:45:55 INFO web handled request 71 in 12ms
+2026-09-30 20:46:15 INFO worker handled request 72 in 12ms
+2026-09-30 20:46:35 INFO cache handled request 73 in 12ms
+2026-09-30 20:46:55 INFO db handled request 74 in 12ms
+2026-09-30 20:47:15 INFO api handled request 75 in 12ms
+2026-09-30 20:47:35 INFO web handled request 76 in 12ms
+2026-09-30 20:47:55 INFO worker handled request 77 in 12ms
+2026-09-30 20:48:15 INFO cache handled request 78 in 12ms
+2026-09-30 20:48:35 INFO db handled request 79 in 12ms
+2026-09-30 20:48:55 INFO api handled request 80 in 12ms
+2026-09-30 20:49:15 INFO web handled request 81 in 12ms
+2026-09-30 20:49:35 INFO worker handled request 82 in 12ms
+2026-09-30 20:49:55 INFO cache handled request 83 in 12ms
+2026-09-30 20:50:15 INFO db handled request 84 in 12ms
+2026-09-30 20:50:35 INFO api handled request 85 in 12ms
+2026-09-30 20:50:55 INFO web handled request 86 in 12ms
+2026-09-30 20:51:15 INFO worker handled request 87 in 12ms
+2026-09-30 20:51:35 INFO cache handled request 88 in 12ms
+2026-09-30 20:51:55 INFO db handled request 89 in 12ms
+2026-09-30 20:52:15 INFO api handled request 90 in 12ms
+2026-09-30 20:52:35 INFO web handled request 91 in 12ms
+2026-09-30 20:52:55 INFO worker handled request 92 in 12ms
+2026-09-30 20:53:15 INFO cache handled request 93 in 12ms
+2026-09-30 20:53:35 INFO db handled request 94 in 12ms
+2026-09-30 20:53:55 INFO api handled request 95 in 12ms
+2026-09-30 20:54:15 INFO web handled request 96 in 12ms
+2026-09-30 20:54:35 INFO worker handled request 97 in 12ms
+2026-09-30 20:54:55 INFO cache handled request 98 in 12ms
+2026-09-30 20:55:15 INFO db handled request 99 in 12ms
+2026-09-30 20:55:35 INFO api handled request 100 in 12ms
+2026-09-30 20:55:55 INFO web handled request 101 in 12ms
+2026-09-30 20:56:15 INFO worker handled request 102 in 12ms
+2026-09-30 20:56:35 INFO cache handled request 103 in 12ms
+2026-09-30 20:56:55 INFO db handled request 104 in 12ms
+2026-09-30 20:57:15 INFO api handled request 105 in 12ms
+2026-09-30 20:57:35 INFO web handled request 106 in 12ms
+2026-09-30 20:57:55 INFO worker handled request 107 in 12ms
+2026-09-30 20:58:15 INFO cache handled request 108 in 12ms
+2026-09-30 20:58:35 INFO db handled request 109 in 12ms
+2026-09-30 20:58:55 INFO api handled request 110 in 12ms
+2026-09-30 20:59:15 INFO web handled request 111 in 12ms
+2026-09-30 20:59:35 INFO worker handled request 112 in 12ms
+2026-09-30 20:59:55 INFO cache handled request 113 in 12ms
+2026-09-30 21:00:15 INFO db handled request 114 in 12ms
+2026-09-30 21:00:35 INFO api handled request 115 in 12ms
+2026-09-30 21:00:55 INFO web handled request 116 in 12ms
+2026-09-30 21:01:15 INFO worker handled request 117 in 12ms
+2026-09-30 21:01:35 INFO cache handled request 118 in 12ms
+2026-09-30 21:01:55 INFO db handled request 119 in 12ms
+2026-09-30 20:54:15 ERROR api unhandled exception while processing order 1000
 Traceback (most recent call last):
   File "/srv/app/api/orders.py", line 142, in checkout
     charge = payments.charge(cart.total)
@@ -127,7 +127,7 @@ Traceback (most recent call last):
   File "/usr/lib/python3.12/http/client.py", line 1010, in _post
     raise TimeoutError(msg)
 TimeoutError: upstream payment gateway timed out
-2026-09-30 19:40:57 ERROR api unhandled exception while processing order 1001
+2026-09-30 21:00:15 ERROR api unhandled exception while processing order 1001
 Traceback (most recent call last):
   File "/srv/app/api/orders.py", line 142, in checkout
     charge = payments.charge(cart.total)
@@ -136,7 +136,7 @@ Traceback (most recent call last):
   File "/usr/lib/python3.12/http/client.py", line 1010, in _post
     raise TimeoutError(msg)
 TimeoutError: upstream payment gateway timed out
-2026-09-30 19:46:57 ERROR api unhandled exception while processing order 1002
+2026-09-30 21:06:15 ERROR api unhandled exception while processing order 1002
 Traceback (most recent call last):
   File "/srv/app/api/orders.py", line 142, in checkout
     charge = payments.charge(cart.total)
@@ -145,11 +145,11 @@ Traceback (most recent call last):
   File "/usr/lib/python3.12/http/client.py", line 1010, in _post
     raise TimeoutError(msg)
 TimeoutError: upstream payment gateway timed out
-2026-09-30 19:38:57 ERROR worker job serialization failed
+2026-09-30 20:58:15 ERROR worker job serialization failed
   File "/usr/lib/python3.12/json/encoder.py", line 257, in iterencode
 TypeError: Object of type set is not JSON serializable
-2026-09-30 19:41:57 ERROR auth login failed: NullPointerException in token parser
-2026-09-30 19:43:57 ERROR web config validation failed at config/settings.rb:42
-2026-09-30 19:46:57 FATAL db kernel panic: out of memory, killing process 8123
-2026-09-30 19:48:57 ERROR cache connection refused host=redis-1
-2026-09-30 19:49:17 INFO cache reconnected to redis-1, back to normal
+2026-09-30 21:01:15 ERROR auth login failed: NullPointerException in token parser
+2026-09-30 21:03:15 ERROR web config validation failed at config/settings.rb:42
+2026-09-30 21:06:15 FATAL db kernel panic: out of memory, killing process 8123
+2026-09-30 21:08:15 ERROR cache connection refused host=redis-1
+2026-09-30 21:08:35 INFO cache reconnected to redis-1, back to normal
