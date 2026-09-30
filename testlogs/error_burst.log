@@ -1,0 +1,380 @@
+2024-01-01 00:00:01 INFO api handling GET /health ok
+2024-01-01 00:00:02 INFO api handling GET /health ok
+2024-01-01 00:00:04 INFO api handling GET /users ok
+2024-01-01 00:00:05 DEBUG api handling POST /orders ok
+2024-01-01 00:00:07 INFO api request 329 completed in 151ms
+2024-01-01 00:00:08 INFO api cache hit for key user:548
+2024-01-01 00:00:09 INFO api handling POST /orders ok
+2024-01-01 00:00:11 INFO api handling POST /orders ok
+2024-01-01 00:00:12 INFO api request 582 completed in 59ms
+2024-01-01 00:00:14 INFO api connection pool size 657
+2024-01-01 00:00:16 INFO api connection pool size 280
+2024-01-01 00:00:17 INFO api handling POST /orders ok
+2024-01-01 00:00:19 INFO api handling GET /health ok
+2024-01-01 00:00:21 DEBUG api cache hit for key user:180
+2024-01-01 00:00:23 DEBUG api background job 89 finished
+2024-01-01 00:00:24 INFO api handling POST /orders ok
+2024-01-01 00:00:25 INFO api request 393 completed in 125ms
+2024-01-01 00:00:27 INFO api background job 310 finished
+2024-01-01 00:00:28 INFO api background job 710 finished
+2024-01-01 00:00:29 INFO api connection pool size 315
+2024-01-01 00:00:31 DEBUG api request 707 completed in 65ms
+2024-01-01 00:00:33 INFO api cache hit for key user:225
+2024-01-01 00:00:35 INFO api connection pool size 766
+2024-01-01 00:00:37 DEBUG api connection pool size 776
+2024-01-01 00:00:38 INFO api handling GET /users ok
+2024-01-01 00:00:40 INFO api handling GET /users ok
+2024-01-01 00:00:41 DEBUG api handling POST /orders ok
+2024-01-01 00:00:43 INFO api cache hit for key user:735
+2024-01-01 00:00:44 DEBUG api connection pool size 829
+2024-01-01 00:00:46 INFO api heartbeat ok
+2024-01-01 00:00:47 DEBUG api connection pool size 689
+2024-01-01 00:00:48 INFO api request 837 completed in 6ms
+2024-01-01 00:00:49 DEBUG api handling GET /users ok
+2024-01-01 00:00:51 INFO api handling GET /health ok
+2024-01-01 00:00:53 INFO api request 419 completed in 97ms
+2024-01-01 00:00:54 INFO api background job 913 finished
+2024-01-01 00:00:56 INFO api heartbeat ok
+2024-01-01 00:00:57 INFO api handling GET /users ok
+2024-01-01 00:00:59 DEBUG api handling POST /orders ok
+2024-01-01 00:01:00 INFO api request 475 completed in 283ms
+2024-01-01 00:01:02 DEBUG api heartbeat ok
+2024-01-01 00:01:03 INFO api background job 159 finished
+2024-01-01 00:01:04 INFO api handling GET /health ok
+2024-01-01 00:01:05 INFO api cache hit for key user:69
+2024-01-01 00:01:06 INFO api handling GET /health ok
+2024-01-01 00:01:08 INFO api cache hit for key user:553
+2024-01-01 00:01:09 INFO api request 240 completed in 299ms
+2024-01-01 00:01:11 DEBUG api background job 243 finished
+2024-01-01 00:01:12 DEBUG api cache hit for key user:424
+2024-01-01 00:01:14 INFO api handling POST /orders ok
+2024-01-01 00:01:16 INFO api background job 965 finished
+2024-01-01 00:01:18 INFO api heartbeat ok
+2024-01-01 00:01:20 INFO api connection pool size 247
+2024-01-01 00:01:22 INFO api connection pool size 937
+2024-01-01 00:01:24 INFO api handling POST /orders ok
+2024-01-01 00:01:26 INFO api background job 663 finished
+2024-01-01 00:01:28 INFO api handling GET /users ok
+2024-01-01 00:01:29 INFO api heartbeat ok
+2024-01-01 00:01:30 INFO api cache hit for key user:491
+2024-01-01 00:01:32 INFO api handling GET /health ok
+2024-01-01 00:01:33 INFO api cache hit for key user:713
+2024-01-01 00:01:35 INFO api background job 795 finished
+2024-01-01 00:01:37 INFO api background job 316 finished
+2024-01-01 00:01:39 DEBUG api connection pool size 478
+2024-01-01 00:01:41 INFO api cache hit for key user:380
+2024-01-01 00:01:43 INFO api cache hit for key user:760
+2024-01-01 00:01:44 INFO api heartbeat ok
+2024-01-01 00:01:45 INFO api cache hit for key user:389
+2024-01-01 00:01:46 INFO api background job 264 finished
+2024-01-01 00:01:48 INFO api handling POST /orders ok
+2024-01-01 00:01:49 INFO api connection pool size 189
+2024-01-01 00:01:50 DEBUG api handling GET /health ok
+2024-01-01 00:01:51 INFO api heartbeat ok
+2024-01-01 00:01:52 INFO api handling GET /health ok
+2024-01-01 00:01:54 INFO api handling GET /health ok
+2024-01-01 00:01:56 INFO api handling GET /health ok
+2024-01-01 00:01:58 INFO api handling GET /health ok
+2024-01-01 00:02:00 INFO api heartbeat ok
+2024-01-01 00:02:01 INFO api handling POST /orders ok
+2024-01-01 00:02:03 INFO api request 815 completed in 208ms
+2024-01-01 00:02:04 INFO api heartbeat ok
+2024-01-01 00:02:05 INFO api request 701 completed in 46ms
+2024-01-01 00:02:06 INFO api heartbeat ok
+2024-01-01 00:02:08 INFO api handling GET /health ok
+2024-01-01 00:02:09 INFO api heartbeat ok
+2024-01-01 00:02:10 DEBUG api handling GET /health ok
+2024-01-01 00:02:12 INFO api handling GET /health ok
+2024-01-01 00:02:14 DEBUG api handling GET /health ok
+2024-01-01 00:02:15 INFO api handling POST /orders ok
+2024-01-01 00:02:16 INFO api handling POST /orders ok
+2024-01-01 00:02:18 DEBUG api background job 394 finished
+2024-01-01 00:02:19 DEBUG api background job 55 finished
+2024-01-01 00:02:21 INFO api handling GET /users ok
+2024-01-01 00:02:23 INFO api request 803 completed in 235ms
+2024-01-01 00:02:25 INFO api background job 567 finished
+2024-01-01 00:02:27 INFO api heartbeat ok
+2024-01-01 00:02:28 INFO api handling GET /users ok
+2024-01-01 00:02:30 INFO api heartbeat ok
+2024-01-01 00:02:31 INFO api handling GET /health ok
+2024-01-01 00:02:33 INFO api request 105 completed in 72ms
+2024-01-01 00:02:34 INFO api heartbeat ok
+2024-01-01 00:02:36 INFO api handling GET /health ok
+2024-01-01 00:02:37 DEBUG api background job 885 finished
+2024-01-01 00:02:38 INFO api heartbeat ok
+2024-01-01 00:02:39 DEBUG api handling POST /orders ok
+2024-01-01 00:02:40 INFO api request 309 completed in 142ms
+2024-01-01 00:02:42 INFO api handling GET /users ok
+2024-01-01 00:02:44 INFO api request 496 completed in 44ms
+2024-01-01 00:02:46 INFO api cache hit for key user:739
+2024-01-01 00:02:47 INFO api handling GET /users ok
+2024-01-01 00:02:48 INFO api background job 862 finished
+2024-01-01 00:02:50 INFO api background job 441 finished
+2024-01-01 00:02:52 INFO api cache hit for key user:491
+2024-01-01 00:02:53 INFO api background job 299 finished
+2024-01-01 00:02:54 INFO api heartbeat ok
+2024-01-01 00:02:56 INFO api cache hit for key user:607
+2024-01-01 00:02:57 DEBUG api handling GET /health ok
+2024-01-01 00:02:58 INFO api request 852 completed in 40ms
+2024-01-01 00:03:00 INFO api handling POST /orders ok
+2024-01-01 00:03:01 INFO api handling POST /orders ok
+2024-01-01 00:03:03 INFO api connection pool size 613
+2024-01-01 00:03:05 DEBUG api heartbeat ok
+2024-01-01 00:03:07 DEBUG api handling GET /users ok
+2024-01-01 00:03:09 INFO api handling GET /health ok
+2024-01-01 00:03:11 INFO api handling GET /users ok
+2024-01-01 00:03:13 INFO api cache hit for key user:457
+2024-01-01 00:03:15 INFO api handling POST /orders ok
+2024-01-01 00:03:17 INFO api request 426 completed in 48ms
+2024-01-01 00:03:18 INFO api background job 320 finished
+2024-01-01 00:03:20 INFO api connection pool size 357
+2024-01-01 00:03:21 INFO api connection pool size 327
+2024-01-01 00:03:23 INFO api handling GET /users ok
+2024-01-01 00:03:24 INFO api cache hit for key user:529
+2024-01-01 00:03:25 INFO api heartbeat ok
+2024-01-01 00:03:26 INFO api handling POST /orders ok
+2024-01-01 00:03:28 INFO api cache hit for key user:461
+2024-01-01 00:03:30 INFO api cache hit for key user:211
+2024-01-01 00:03:31 DEBUG api handling GET /users ok
+2024-01-01 00:03:32 INFO api background job 202 finished
+2024-01-01 00:03:33 INFO api connection pool size 541
+2024-01-01 00:03:35 DEBUG api heartbeat ok
+2024-01-01 00:03:37 INFO api connection pool size 633
+2024-01-01 00:03:39 DEBUG api handling GET /users ok
+2024-01-01 00:03:41 INFO api cache hit for key user:313
+2024-01-01 00:03:42 INFO api handling POST /orders ok
+2024-01-01 00:03:44 DEBUG api handling POST /orders ok
+2024-01-01 00:03:46 INFO api connection pool size 651
+2024-01-01 00:03:47 DEBUG api handling POST /orders ok
+2024-01-01 00:03:48 INFO api background job 863 finished
+2024-01-01 00:03:49 INFO api handling GET /health ok
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:49 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:50 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:51 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:52 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:53 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:54 ERROR db connection refused host=db-1
+2024-01-01 00:03:55 ERROR db connection refused host=db-1
+2024-01-01 00:03:55 ERROR db connection refused host=db-1
+2024-01-01 00:03:56 INFO api background job 546 finished
+2024-01-01 00:03:57 INFO api request 297 completed in 298ms
+2024-01-01 00:03:59 DEBUG api handling GET /users ok
+2024-01-01 00:04:00 INFO api handling POST /orders ok
+2024-01-01 00:04:01 INFO api background job 849 finished
+2024-01-01 00:04:03 INFO api handling POST /orders ok
+2024-01-01 00:04:05 INFO api connection pool size 78
+2024-01-01 00:04:07 DEBUG api request 712 completed in 193ms
+2024-01-01 00:04:09 INFO api background job 596 finished
+2024-01-01 00:04:10 INFO api background job 871 finished
+2024-01-01 00:04:12 INFO api heartbeat ok
+2024-01-01 00:04:14 INFO api background job 849 finished
+2024-01-01 00:04:16 DEBUG api handling POST /orders ok
+2024-01-01 00:04:18 INFO api handling GET /health ok
+2024-01-01 00:04:19 INFO api handling POST /orders ok
+2024-01-01 00:04:20 INFO api cache hit for key user:706
+2024-01-01 00:04:22 INFO api request 96 completed in 189ms
+2024-01-01 00:04:24 INFO api background job 681 finished
+2024-01-01 00:04:25 INFO api request 744 completed in 124ms
+2024-01-01 00:04:27 INFO api handling GET /users ok
+2024-01-01 00:04:29 INFO api handling POST /orders ok
+2024-01-01 00:04:31 INFO api handling GET /health ok
+2024-01-01 00:04:32 INFO api handling POST /orders ok
+2024-01-01 00:04:33 INFO api handling GET /users ok
+2024-01-01 00:04:34 INFO api background job 903 finished
+2024-01-01 00:04:35 INFO api handling POST /orders ok
+2024-01-01 00:04:36 DEBUG api handling GET /health ok
+2024-01-01 00:04:38 INFO api cache hit for key user:644
+2024-01-01 00:04:40 DEBUG api connection pool size 881
+2024-01-01 00:04:41 INFO api handling POST /orders ok
+2024-01-01 00:04:43 INFO api heartbeat ok
+2024-01-01 00:04:44 INFO api handling GET /users ok
+2024-01-01 00:04:46 INFO api request 211 completed in 270ms
+2024-01-01 00:04:47 INFO api request 662 completed in 32ms
+2024-01-01 00:04:48 INFO api heartbeat ok
+2024-01-01 00:04:50 DEBUG api handling GET /users ok
+2024-01-01 00:04:52 INFO api handling POST /orders ok
+2024-01-01 00:04:54 INFO api handling POST /orders ok
+2024-01-01 00:04:55 INFO api handling GET /users ok
+2024-01-01 00:04:56 INFO api handling GET /health ok
+2024-01-01 00:04:58 DEBUG api heartbeat ok
+2024-01-01 00:04:59 DEBUG api handling POST /orders ok
+2024-01-01 00:05:01 INFO api cache hit for key user:998
+2024-01-01 00:05:03 INFO api handling GET /users ok
+2024-01-01 00:05:04 INFO api cache hit for key user:89
+2024-01-01 00:05:05 INFO api handling GET /health ok
+2024-01-01 00:05:06 INFO api handling POST /orders ok
+2024-01-01 00:05:07 INFO api background job 536 finished
+2024-01-01 00:05:09 INFO api background job 130 finished
+2024-01-01 00:05:10 INFO api background job 827 finished
+2024-01-01 00:05:12 DEBUG api handling GET /users ok
+2024-01-01 00:05:13 INFO api connection pool size 524
+2024-01-01 00:05:14 INFO api handling POST /orders ok
+2024-01-01 00:05:16 INFO api handling GET /users ok
+2024-01-01 00:05:17 INFO api handling GET /health ok
+2024-01-01 00:05:19 INFO api heartbeat ok
+2024-01-01 00:05:20 INFO api heartbeat ok
+2024-01-01 00:05:21 INFO api background job 278 finished
+2024-01-01 00:05:23 INFO api handling GET /health ok
+2024-01-01 00:05:24 INFO api handling GET /users ok
+2024-01-01 00:05:26 INFO api background job 89 finished
+2024-01-01 00:05:28 INFO api background job 206 finished
+2024-01-01 00:05:30 DEBUG api cache hit for key user:476
+2024-01-01 00:05:32 INFO api cache hit for key user:155
+2024-01-01 00:05:34 INFO api cache hit for key user:555
+2024-01-01 00:05:35 INFO api handling GET /health ok
+2024-01-01 00:05:37 INFO api cache hit for key user:543
+2024-01-01 00:05:39 INFO api handling GET /health ok
+2024-01-01 00:05:41 INFO api handling GET /health ok
+2024-01-01 00:05:43 INFO api connection pool size 998
+2024-01-01 00:05:44 DEBUG api handling POST /orders ok
+2024-01-01 00:05:45 DEBUG api handling GET /health ok
+2024-01-01 00:05:46 INFO api request 872 completed in 166ms
+2024-01-01 00:05:48 INFO api background job 464 finished
+2024-01-01 00:05:49 INFO api cache hit for key user:140
+2024-01-01 00:05:50 INFO api handling POST /orders ok
+2024-01-01 00:05:52 INFO api handling GET /users ok
+2024-01-01 00:05:53 INFO api request 475 completed in 140ms
+2024-01-01 00:05:54 INFO api handling POST /orders ok
+2024-01-01 00:05:55 INFO api background job 152 finished
+2024-01-01 00:05:56 INFO api heartbeat ok
+2024-01-01 00:05:58 INFO api handling POST /orders ok
+2024-01-01 00:06:00 DEBUG api cache hit for key user:97
+2024-01-01 00:06:01 INFO api handling GET /users ok
+2024-01-01 00:06:02 INFO api cache hit for key user:844
+2024-01-01 00:06:04 INFO api request 940 completed in 43ms
+2024-01-01 00:06:05 INFO api cache hit for key user:925
+2024-01-01 00:06:06 INFO api background job 126 finished
+2024-01-01 00:06:08 INFO api handling POST /orders ok
+2024-01-01 00:06:10 INFO api connection pool size 31
+2024-01-01 00:06:12 INFO api background job 220 finished
+2024-01-01 00:06:14 INFO api connection pool size 905
+2024-01-01 00:06:15 DEBUG api cache hit for key user:663
+2024-01-01 00:06:17 INFO api connection pool size 63
+2024-01-01 00:06:19 INFO api handling POST /orders ok
+2024-01-01 00:06:20 DEBUG api handling GET /health ok
+2024-01-01 00:06:22 DEBUG api connection pool size 353
+2024-01-01 00:06:24 INFO api request 185 completed in 18ms
+2024-01-01 00:06:26 DEBUG api cache hit for key user:31
+2024-01-01 00:06:27 INFO api background job 786 finished
+2024-01-01 00:06:28 INFO api cache hit for key user:673
+2024-01-01 00:06:30 DEBUG api handling GET /health ok
+2024-01-01 00:06:32 INFO api handling POST /orders ok
+2024-01-01 00:06:34 INFO api handling GET /health ok
+2024-01-01 00:06:35 DEBUG api cache hit for key user:857
+2024-01-01 00:06:37 INFO api connection pool size 39
+2024-01-01 00:06:38 INFO api cache hit for key user:21
+2024-01-01 00:06:40 INFO api background job 940 finished
+2024-01-01 00:06:41 INFO api handling POST /orders ok
+2024-01-01 00:06:42 INFO api handling POST /orders ok
+2024-01-01 00:06:43 DEBUG api background job 984 finished
+2024-01-01 00:06:45 INFO api handling GET /users ok
+2024-01-01 00:06:47 INFO api handling POST /orders ok
+2024-01-01 00:06:49 INFO api handling POST /orders ok
+2024-01-01 00:06:51 INFO api handling POST /orders ok
+2024-01-01 00:06:53 INFO api handling POST /orders ok
+2024-01-01 00:06:55 DEBUG api handling GET /health ok
+2024-01-01 00:06:56 DEBUG api handling GET /users ok
+2024-01-01 00:06:57 INFO api handling GET /users ok
+2024-01-01 00:06:59 INFO api handling GET /users ok
+2024-01-01 00:07:01 INFO api request 215 completed in 132ms
+2024-01-01 00:07:02 INFO api request 806 completed in 60ms
+2024-01-01 00:07:03 INFO api heartbeat ok
+2024-01-01 00:07:04 INFO api connection pool size 903
+2024-01-01 00:07:06 DEBUG api heartbeat ok
+2024-01-01 00:07:07 INFO api connection pool size 76
+2024-01-01 00:07:09 INFO api background job 268 finished
+2024-01-01 00:07:10 INFO api handling POST /orders ok
+2024-01-01 00:07:11 INFO api handling GET /users ok
+2024-01-01 00:07:12 INFO api handling POST /orders ok
+2024-01-01 00:07:13 INFO api handling GET /users ok
+2024-01-01 00:07:14 INFO api request 677 completed in 149ms
+2024-01-01 00:07:16 INFO api handling GET /users ok
+2024-01-01 00:07:18 INFO api handling GET /health ok
+2024-01-01 00:07:20 INFO api request 844 completed in 250ms
+2024-01-01 00:07:21 INFO api handling GET /health ok
+2024-01-01 00:07:23 INFO api connection pool size 865
+2024-01-01 00:07:25 INFO api connection pool size 501
+2024-01-01 00:07:26 DEBUG api heartbeat ok
+2024-01-01 00:07:28 INFO api handling POST /orders ok
+2024-01-01 00:07:30 INFO api connection pool size 270
+2024-01-01 00:07:32 DEBUG api handling GET /health ok
+2024-01-01 00:07:33 INFO api heartbeat ok
+2024-01-01 00:07:34 INFO api heartbeat ok
+2024-01-01 00:07:36 DEBUG api cache hit for key user:488
+2024-01-01 00:07:37 INFO api handling GET /health ok
+2024-01-01 00:07:38 INFO api connection pool size 178
+2024-01-01 00:07:39 INFO api handling POST /orders ok
+2024-01-01 00:07:40 INFO api cache hit for key user:843
+2024-01-01 00:07:42 INFO api handling GET /users ok

@@ -1,0 +1,191 @@
+2024-01-01 00:00:01 INFO auth handling GET /health ok
+2024-01-01 00:00:03 INFO api cache hit for key user:776
+2024-01-01 00:00:04 INFO api connection pool size 888
+2024-01-01 00:00:06 INFO auth cache hit for key user:438
+2024-01-01 00:00:07 INFO db heartbeat ok
+2024-01-01 00:00:09 INFO db handling GET /health ok
+2024-01-01 00:00:11 INFO auth handling GET /health ok
+2024-01-01 00:00:13 INFO db handling GET /health ok
+2024-01-01 00:00:14 INFO api request 451 completed in 208ms
+2024-01-01 00:00:16 INFO auth connection pool size 171
+2024-01-01 00:00:18 INFO db handling GET /health ok
+2024-01-01 00:00:19 INFO auth connection pool size 93
+2024-01-01 00:00:20 INFO api handling POST /orders ok
+2024-01-01 00:00:22 INFO auth handling GET /health ok
+2024-01-01 00:00:23 INFO auth handling GET /users ok
+2024-01-01 00:00:24 INFO db handling GET /users ok
+2024-01-01 00:00:26 INFO db background job 88 finished
+2024-01-01 00:00:28 INFO db handling POST /orders ok
+2024-01-01 00:00:30 INFO api handling POST /orders ok
+2024-01-01 00:00:31 INFO api handling POST /orders ok
+2024-01-01 00:00:33 INFO auth request 748 completed in 233ms
+2024-01-01 00:00:35 INFO db handling POST /orders ok
+2024-01-01 00:00:36 INFO api request 13 completed in 239ms
+2024-01-01 00:00:38 INFO auth handling GET /health ok
+2024-01-01 00:00:39 INFO api connection pool size 465
+2024-01-01 00:00:41 INFO api handling GET /health ok
+2024-01-01 00:00:43 INFO db cache hit for key user:51
+2024-01-01 00:00:44 INFO api background job 38 finished
+2024-01-01 00:00:45 INFO db request 340 completed in 49ms
+2024-01-01 00:00:46 INFO api heartbeat ok
+2024-01-01 00:00:48 INFO db handling POST /orders ok
+2024-01-01 00:00:50 INFO api handling GET /users ok
+2024-01-01 00:00:52 INFO auth heartbeat ok
+2024-01-01 00:00:54 INFO db handling GET /users ok
+2024-01-01 00:00:55 INFO api request 338 completed in 274ms
+2024-01-01 00:00:57 INFO db cache hit for key user:713
+2024-01-01 00:00:58 INFO api handling GET /users ok
+2024-01-01 00:01:00 INFO db background job 266 finished
+2024-01-01 00:01:02 INFO api connection pool size 533
+2024-01-01 00:01:04 INFO api cache hit for key user:726
+2024-01-01 00:01:05 INFO api handling GET /users ok
+2024-01-01 00:01:06 INFO db cache hit for key user:819
+2024-01-01 00:01:08 INFO api background job 359 finished
+2024-01-01 00:01:09 INFO api cache hit for key user:707
+2024-01-01 00:01:11 INFO api request 308 completed in 264ms
+2024-01-01 00:01:13 INFO api handling GET /users ok
+2024-01-01 00:01:15 INFO auth handling GET /health ok
+2024-01-01 00:01:16 INFO auth background job 945 finished
+2024-01-01 00:01:18 INFO api handling POST /orders ok
+2024-01-01 00:01:20 INFO db background job 474 finished
+2024-01-01 00:01:21 INFO db request 579 completed in 166ms
+2024-01-01 00:01:22 INFO api background job 819 finished
+2024-01-01 00:01:23 INFO api request 861 completed in 20ms
+2024-01-01 00:01:25 INFO auth handling POST /orders ok
+2024-01-01 00:01:26 INFO db handling GET /users ok
+2024-01-01 00:01:28 INFO db handling GET /health ok
+2024-01-01 00:01:29 INFO auth cache hit for key user:381
+2024-01-01 00:01:31 INFO api request 180 completed in 62ms
+2024-01-01 00:01:33 INFO api cache hit for key user:936
+2024-01-01 00:01:35 INFO db handling GET /health ok
+2024-01-01 00:01:36 INFO api background job 946 finished
+2024-01-01 00:01:38 INFO auth handling POST /orders ok
+2024-01-01 00:01:39 INFO api handling GET /health ok
+2024-01-01 00:01:40 INFO api request 955 completed in 27ms
+2024-01-01 00:01:41 INFO auth connection pool size 911
+2024-01-01 00:01:42 INFO db request 24 completed in 300ms
+2024-01-01 00:01:44 INFO db cache hit for key user:329
+2024-01-01 00:01:45 INFO auth request 546 completed in 168ms
+2024-01-01 00:01:47 INFO db handling GET /users ok
+2024-01-01 00:01:48 INFO auth handling GET /users ok
+2024-01-01 00:01:49 INFO api background job 563 finished
+2024-01-01 00:01:51 INFO api request 588 completed in 130ms
+2024-01-01 00:01:52 INFO api request 628 completed in 178ms
+2024-01-01 00:01:54 INFO api handling POST /orders ok
+2024-01-01 00:01:55 INFO api heartbeat ok
+2024-01-01 00:01:57 INFO auth handling POST /orders ok
+2024-01-01 00:01:59 INFO auth background job 838 finished
+2024-01-01 00:02:00 INFO auth handling POST /orders ok
+2024-01-01 00:02:01 INFO auth request 701 completed in 243ms
+2024-01-01 00:02:03 INFO api cache hit for key user:148
+2024-01-01 00:02:05 INFO auth handling POST /orders ok
+2024-01-01 00:02:07 INFO auth connection pool size 31
+2024-01-01 00:02:09 INFO api background job 491 finished
+2024-01-01 00:02:10 INFO auth background job 619 finished
+2024-01-01 00:02:11 INFO db handling GET /users ok
+2024-01-01 00:02:13 INFO db handling GET /users ok
+2024-01-01 00:02:15 INFO auth heartbeat ok
+2024-01-01 00:02:16 INFO auth heartbeat ok
+2024-01-01 00:02:17 INFO db heartbeat ok
+2024-01-01 00:02:19 INFO db cache hit for key user:178
+2024-01-01 00:02:21 INFO api connection pool size 334
+2024-01-01 00:02:22 INFO auth handling POST /orders ok
+2024-01-01 00:02:23 INFO db handling GET /users ok
+2024-01-01 00:02:25 INFO auth handling GET /health ok
+2024-01-01 00:02:26 INFO db handling GET /health ok
+2024-01-01 00:02:27 INFO auth request 400 completed in 300ms
+2024-01-01 00:02:29 INFO api cache hit for key user:698
+2024-01-01 00:02:31 INFO db request 941 completed in 227ms
+2024-01-01 00:02:33 INFO api handling GET /health ok
+2024-01-01 00:02:35 INFO api request 64 completed in 194ms
+2024-01-01 00:02:36 INFO api background job 113 finished
+2024-01-01 00:02:37 INFO api heartbeat ok
+2024-01-01 00:02:39 INFO db heartbeat ok
+2024-01-01 00:02:41 INFO db cache hit for key user:679
+2024-01-01 00:02:43 INFO api cache hit for key user:569
+2024-01-01 00:02:45 INFO auth handling POST /orders ok
+2024-01-01 00:02:46 INFO api handling GET /users ok
+2024-01-01 00:02:47 INFO db connection pool size 674
+2024-01-01 00:02:48 INFO api handling POST /orders ok
+2024-01-01 00:02:50 INFO db heartbeat ok
+2024-01-01 00:02:52 INFO db heartbeat ok
+2024-01-01 00:02:54 INFO auth cache hit for key user:191
+2024-01-01 00:02:55 INFO db connection pool size 868
+2024-01-01 00:02:57 INFO auth background job 35 finished
+2024-01-01 00:02:59 INFO db background job 116 finished
+2024-01-01 00:03:00 INFO api request 477 completed in 269ms
+2024-01-01 00:03:01 INFO db handling GET /users ok
+2024-01-01 00:03:02 INFO db request 628 completed in 32ms
+2024-01-01 00:03:04 INFO db handling GET /health ok
+2024-01-01 00:03:06 INFO db background job 432 finished
+2024-01-01 00:03:08 INFO auth handling POST /orders ok
+2024-01-01 00:03:10 INFO api connection pool size 593
+2024-01-01 00:03:11 INFO db request 829 completed in 18ms
+2024-01-01 00:03:13 INFO auth handling GET /users ok
+2024-01-01 00:03:14 INFO auth request 136 completed in 148ms
+2024-01-01 00:03:16 INFO auth handling GET /health ok
+2024-01-01 00:03:17 INFO db handling POST /orders ok
+2024-01-01 00:03:19 INFO api request 802 completed in 125ms
+2024-01-01 00:03:21 INFO api handling GET /health ok
+2024-01-01 00:03:22 INFO db handling POST /orders ok
+2024-01-01 00:03:24 INFO auth cache hit for key user:677
+2024-01-01 00:03:25 INFO api background job 56 finished
+2024-01-01 00:03:26 INFO api handling POST /orders ok
+2024-01-01 00:03:28 INFO auth connection pool size 765
+2024-01-01 00:03:29 INFO auth heartbeat ok
+2024-01-01 00:03:30 INFO db heartbeat ok
+2024-01-01 00:03:32 INFO auth background job 985 finished
+2024-01-01 00:03:33 INFO api background job 980 finished
+2024-01-01 00:03:35 INFO auth request 274 completed in 55ms
+2024-01-01 00:03:37 INFO db heartbeat ok
+2024-01-01 00:03:38 INFO db background job 694 finished
+2024-01-01 00:03:40 INFO db handling GET /health ok
+2024-01-01 00:03:41 INFO api heartbeat ok
+2024-01-01 00:03:42 INFO db connection pool size 360
+2024-01-01 00:03:44 INFO auth cache hit for key user:35
+2024-01-01 00:03:45 INFO api cache hit for key user:974
+2024-01-01 00:03:46 INFO api handling POST /orders ok
+2024-01-01 00:03:47 INFO api handling POST /orders ok
+2024-01-01 00:03:49 INFO db handling GET /users ok
+2024-01-01 00:03:51 INFO auth background job 264 finished
+2024-01-01 00:03:52 CRITICAL db database connection pool exhausted
+2024-01-01 00:03:52 ERROR auth connection refused host=db-1
+2024-01-01 00:03:52 ERROR auth connection refused host=db-1
+2024-01-01 00:03:52 ERROR auth connection refused host=db-1
+2024-01-01 00:03:52 ERROR auth connection refused host=db-1
+2024-01-01 00:03:52 ERROR api connection refused host=db-1
+2024-01-01 00:03:52 ERROR api connection refused host=db-1
+2024-01-01 00:03:52 ERROR api connection refused host=db-1
+2024-01-01 00:03:52 ERROR api connection refused host=db-1
+2024-01-01 00:03:53 ERROR api connection refused host=db-1
+2024-01-01 00:03:53 ERROR api connection refused host=db-1
+2024-01-01 00:03:53 ERROR api connection refused host=db-1
+2024-01-01 00:03:53 ERROR auth connection refused host=db-1
+2024-01-01 00:03:53 ERROR api connection refused host=db-1
+2024-01-01 00:03:53 ERROR api connection refused host=db-1
+2024-01-01 00:03:53 ERROR api connection refused host=db-1
+2024-01-01 00:03:53 ERROR auth connection refused host=db-1
+2024-01-01 00:03:53 ERROR auth connection refused host=db-1
+2024-01-01 00:03:53 ERROR api connection refused host=db-1
+2024-01-01 00:03:53 ERROR api connection refused host=db-1
+2024-01-01 00:03:54 ERROR auth connection refused host=db-1
+2024-01-01 00:03:54 ERROR api connection refused host=db-1
+2024-01-01 00:03:54 ERROR auth connection refused host=db-1
+2024-01-01 00:03:54 ERROR api connection refused host=db-1
+2024-01-01 00:03:54 ERROR api connection refused host=db-1
+2024-01-01 00:03:54 ERROR auth connection refused host=db-1
+2024-01-01 00:03:55 ERROR auth connection refused host=db-1
+2024-01-01 00:03:55 ERROR api connection refused host=db-1
+2024-01-01 00:03:55 ERROR api connection refused host=db-1
+2024-01-01 00:03:55 ERROR api connection refused host=db-1
+2024-01-01 00:03:55 ERROR api connection refused host=db-1
+2024-01-01 00:03:55 ERROR api connection refused host=db-1
+2024-01-01 00:03:55 ERROR auth connection refused host=db-1
+2024-01-01 00:03:56 ERROR auth connection refused host=db-1
+2024-01-01 00:03:56 ERROR api connection refused host=db-1
+2024-01-01 00:03:56 ERROR auth connection refused host=db-1
+2024-01-01 00:03:56 ERROR auth connection refused host=db-1
+2024-01-01 00:03:56 ERROR auth connection refused host=db-1
+2024-01-01 00:03:56 ERROR api connection refused host=db-1
+2024-01-01 00:03:56 ERROR api connection refused host=db-1
+2024-01-01 00:03:56 ERROR api connection refused host=db-1

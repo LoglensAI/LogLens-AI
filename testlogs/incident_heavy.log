@@ -1,0 +1,250 @@
+2024-01-01 00:00:02 CRITICAL auth unhandled exception in worker 940
+2024-01-01 00:00:04 INFO worker handling POST /orders ok
+2024-01-01 00:00:05 INFO cache handling GET /users ok
+2024-01-01 00:00:07 INFO auth heartbeat ok
+2024-01-01 00:00:09 INFO db request 413 completed in 78ms
+2024-01-01 00:00:11 CRITICAL worker disk full on /var/log
+2024-01-01 00:00:12 INFO auth background job 21 finished
+2024-01-01 00:00:14 INFO auth connection pool size 879
+2024-01-01 00:00:15 INFO auth connection pool size 793
+2024-01-01 00:00:17 INFO cache handling GET /users ok
+2024-01-01 00:00:18 ERROR gateway failed to acquire lock 778
+2024-01-01 00:00:20 INFO cache handling POST /orders ok
+2024-01-01 00:00:22 INFO cache handling GET /health ok
+2024-01-01 00:00:23 INFO db handling GET /health ok
+2024-01-01 00:00:25 INFO auth background job 844 finished
+2024-01-01 00:00:27 CRITICAL gateway database connection pool exhausted
+2024-01-01 00:00:29 DEBUG worker handling POST /orders ok
+2024-01-01 00:00:31 INFO db request 767 completed in 51ms
+2024-01-01 00:00:33 INFO worker handling GET /health ok
+2024-01-01 00:00:34 INFO gateway cache hit for key user:694
+2024-01-01 00:00:36 ERROR cache connection refused host=db-886
+2024-01-01 00:00:38 INFO gateway handling POST /orders ok
+2024-01-01 00:00:39 INFO cache request 730 completed in 145ms
+2024-01-01 00:00:41 INFO auth connection pool size 259
+2024-01-01 00:00:43 INFO gateway heartbeat ok
+2024-01-01 00:00:44 CRITICAL cache disk full on /var/log
+2024-01-01 00:00:46 INFO auth request 656 completed in 171ms
+2024-01-01 00:00:48 INFO gateway request 193 completed in 81ms
+2024-01-01 00:00:49 INFO cache heartbeat ok
+2024-01-01 00:00:50 INFO gateway connection pool size 303
+2024-01-01 00:00:52 ERROR worker connection refused host=db-598
+2024-01-01 00:00:53 INFO gateway cache hit for key user:703
+2024-01-01 00:00:55 INFO cache request 866 completed in 92ms
+2024-01-01 00:00:56 INFO api connection pool size 132
+2024-01-01 00:00:57 INFO gateway handling GET /users ok
+2024-01-01 00:00:58 CRITICAL worker disk full on /var/log
+2024-01-01 00:01:00 INFO api connection pool size 55
+2024-01-01 00:01:02 INFO cache handling GET /users ok
+2024-01-01 00:01:04 INFO api handling POST /orders ok
+2024-01-01 00:01:06 INFO cache connection pool size 147
+2024-01-01 00:01:07 CRITICAL worker disk full on /var/log
+2024-01-01 00:01:09 INFO api connection pool size 281
+2024-01-01 00:01:10 DEBUG db connection pool size 805
+2024-01-01 00:01:11 DEBUG worker heartbeat ok
+2024-01-01 00:01:13 INFO api handling GET /health ok
+2024-01-01 00:01:15 CRITICAL auth out of memory: killing process 19
+2024-01-01 00:01:16 INFO gateway background job 320 finished
+2024-01-01 00:01:17 INFO cache request 172 completed in 38ms
+2024-01-01 00:01:18 INFO auth connection pool size 746
+2024-01-01 00:01:20 INFO gateway handling POST /orders ok
+2024-01-01 00:01:22 FATAL db segmentation fault in pid 20
+2024-01-01 00:01:23 INFO db handling GET /health ok
+2024-01-01 00:01:24 INFO auth handling GET /health ok
+2024-01-01 00:01:25 DEBUG api handling GET /users ok
+2024-01-01 00:01:26 INFO worker connection pool size 390
+2024-01-01 00:01:28 ERROR gateway request 211 failed with status 500
+2024-01-01 00:01:30 INFO gateway handling GET /users ok
+2024-01-01 00:01:32 DEBUG cache handling POST /orders ok
+2024-01-01 00:01:33 INFO api handling GET /users ok
+2024-01-01 00:01:34 INFO cache cache hit for key user:367
+2024-01-01 00:01:36 FATAL api data corruption detected in shard 509
+2024-01-01 00:01:38 INFO db handling GET /health ok
+2024-01-01 00:01:39 DEBUG gateway connection pool size 153
+2024-01-01 00:01:40 INFO auth cache hit for key user:468
+2024-01-01 00:01:42 INFO api handling GET /users ok
+2024-01-01 00:01:43 CRITICAL auth disk full on /var/log
+2024-01-01 00:01:44 INFO api handling POST /orders ok
+2024-01-01 00:01:46 INFO worker request 900 completed in 52ms
+2024-01-01 00:01:48 INFO db handling GET /users ok
+2024-01-01 00:01:50 INFO worker connection pool size 820
+2024-01-01 00:01:51 CRITICAL db database connection pool exhausted
+2024-01-01 00:01:52 INFO cache connection pool size 822
+2024-01-01 00:01:54 INFO cache heartbeat ok
+2024-01-01 00:01:55 INFO worker connection pool size 116
+2024-01-01 00:01:57 INFO api request 671 completed in 165ms
+2024-01-01 00:01:58 FATAL gateway segmentation fault in pid 532
+2024-01-01 00:01:59 INFO gateway cache hit for key user:494
+2024-01-01 00:02:01 INFO cache handling GET /health ok
+2024-01-01 00:02:03 INFO db handling GET /users ok
+2024-01-01 00:02:05 INFO auth request 52 completed in 264ms
+2024-01-01 00:02:06 ERROR worker request 81 failed with status 500
+2024-01-01 00:02:08 DEBUG worker handling GET /users ok
+2024-01-01 00:02:10 INFO api connection pool size 764
+2024-01-01 00:02:11 INFO worker handling GET /health ok
+2024-01-01 00:02:12 INFO cache request 912 completed in 265ms
+2024-01-01 00:02:13 ERROR auth timeout waiting for upstream after 32ms
+2024-01-01 00:02:14 INFO auth connection pool size 734
+2024-01-01 00:02:16 INFO api cache hit for key user:3
+2024-01-01 00:02:18 INFO cache background job 719 finished
+2024-01-01 00:02:19 INFO worker handling POST /orders ok
+2024-01-01 00:02:20 CRITICAL cache out of memory: killing process 193
+2024-01-01 00:02:22 INFO worker cache hit for key user:734
+2024-01-01 00:02:23 INFO api handling GET /users ok
+2024-01-01 00:02:25 DEBUG cache handling POST /orders ok
+2024-01-01 00:02:26 DEBUG gateway handling GET /health ok
+2024-01-01 00:02:28 FATAL gateway data corruption detected in shard 178
+2024-01-01 00:02:29 INFO gateway background job 517 finished
+2024-01-01 00:02:31 DEBUG gateway cache hit for key user:281
+2024-01-01 00:02:33 INFO worker handling POST /orders ok
+2024-01-01 00:02:35 DEBUG auth cache hit for key user:206
+2024-01-01 00:02:37 CRITICAL gateway out of memory: killing process 728
+2024-01-01 00:02:39 INFO auth connection pool size 597
+2024-01-01 00:02:41 DEBUG auth heartbeat ok
+2024-01-01 00:02:42 INFO worker handling POST /orders ok
+2024-01-01 00:02:43 INFO db request 700 completed in 133ms
+2024-01-01 00:02:44 CRITICAL gateway disk full on /var/log
+2024-01-01 00:02:45 INFO worker handling GET /users ok
+2024-01-01 00:02:46 DEBUG worker cache hit for key user:524
+2024-01-01 00:02:47 INFO worker heartbeat ok
+2024-01-01 00:02:48 INFO gateway request 208 completed in 231ms
+2024-01-01 00:02:49 CRITICAL cache out of memory: killing process 795
+2024-01-01 00:02:51 INFO db handling GET /users ok
+2024-01-01 00:02:52 INFO api heartbeat ok
+2024-01-01 00:02:54 INFO db request 6 completed in 174ms
+2024-01-01 00:02:56 INFO api handling POST /orders ok
+2024-01-01 00:02:57 CRITICAL worker disk full on /var/log
+2024-01-01 00:02:58 INFO cache handling GET /users ok
+2024-01-01 00:02:59 INFO cache heartbeat ok
+2024-01-01 00:03:00 INFO gateway background job 340 finished
+2024-01-01 00:03:02 INFO cache connection pool size 575
+2024-01-01 00:03:03 CRITICAL worker out of memory: killing process 927
+2024-01-01 00:03:04 INFO worker handling GET /users ok
+2024-01-01 00:03:06 INFO cache background job 527 finished
+2024-01-01 00:03:08 INFO api request 920 completed in 103ms
+2024-01-01 00:03:10 DEBUG api handling GET /users ok
+2024-01-01 00:03:11 CRITICAL db out of memory: killing process 886
+2024-01-01 00:03:12 INFO cache heartbeat ok
+2024-01-01 00:03:13 INFO worker background job 39 finished
+2024-01-01 00:03:14 INFO db request 572 completed in 41ms
+2024-01-01 00:03:15 INFO worker heartbeat ok
+2024-01-01 00:03:17 CRITICAL api unhandled exception in worker 690
+2024-01-01 00:03:18 DEBUG api handling GET /health ok
+2024-01-01 00:03:20 DEBUG api request 806 completed in 159ms
+2024-01-01 00:03:21 INFO worker heartbeat ok
+2024-01-01 00:03:23 INFO cache cache hit for key user:140
+2024-01-01 00:03:25 FATAL auth data corruption detected in shard 909
+2024-01-01 00:03:26 DEBUG cache handling POST /orders ok
+2024-01-01 00:03:27 DEBUG cache heartbeat ok
+2024-01-01 00:03:28 INFO db background job 217 finished
+2024-01-01 00:03:29 INFO db cache hit for key user:632
+2024-01-01 00:03:30 CRITICAL db database connection pool exhausted
+2024-01-01 00:03:32 DEBUG api request 688 completed in 39ms
+2024-01-01 00:03:34 INFO db connection pool size 975
+2024-01-01 00:03:36 INFO gateway cache hit for key user:103
+2024-01-01 00:03:37 INFO auth connection pool size 462
+2024-01-01 00:03:39 FATAL cache data corruption detected in shard 374
+2024-01-01 00:03:41 INFO api background job 253 finished
+2024-01-01 00:03:43 INFO auth handling POST /orders ok
+2024-01-01 00:03:45 INFO worker background job 794 finished
+2024-01-01 00:03:47 DEBUG api handling POST /orders ok
+2024-01-01 00:03:49 FATAL cache kernel panic not syncing
+2024-01-01 00:03:50 INFO cache handling GET /health ok
+2024-01-01 00:03:51 INFO cache request 557 completed in 281ms
+2024-01-01 00:03:53 INFO auth heartbeat ok
+2024-01-01 00:03:54 INFO cache handling GET /users ok
+2024-01-01 00:03:55 FATAL cache data corruption detected in shard 170
+2024-01-01 00:03:56 INFO db handling POST /orders ok
+2024-01-01 00:03:57 INFO auth handling GET /health ok
+2024-01-01 00:03:58 INFO auth background job 240 finished
+2024-01-01 00:03:59 DEBUG auth heartbeat ok
+2024-01-01 00:04:00 CRITICAL gateway disk full on /var/log
+2024-01-01 00:04:02 INFO cache handling POST /orders ok
+2024-01-01 00:04:04 DEBUG gateway handling GET /users ok
+2024-01-01 00:04:06 INFO cache heartbeat ok
+2024-01-01 00:04:08 INFO cache handling GET /health ok
+2024-01-01 00:04:10 FATAL db kernel panic not syncing
+2024-01-01 00:04:11 INFO db handling POST /orders ok
+2024-01-01 00:04:12 INFO auth handling GET /users ok
+2024-01-01 00:04:14 INFO cache handling POST /orders ok
+2024-01-01 00:04:15 INFO api handling POST /orders ok
+2024-01-01 00:04:16 CRITICAL cache out of memory: killing process 58
+2024-01-01 00:04:18 INFO cache heartbeat ok
+2024-01-01 00:04:19 INFO api cache hit for key user:460
+2024-01-01 00:04:21 INFO db heartbeat ok
+2024-01-01 00:04:22 DEBUG gateway request 172 completed in 180ms
+2024-01-01 00:04:24 CRITICAL db unhandled exception in worker 395
+2024-01-01 00:04:25 INFO db heartbeat ok
+2024-01-01 00:04:26 INFO worker handling GET /health ok
+2024-01-01 00:04:27 INFO worker handling POST /orders ok
+2024-01-01 00:04:28 INFO cache heartbeat ok
+2024-01-01 00:04:30 FATAL worker segmentation fault in pid 359
+2024-01-01 00:04:31 INFO db request 489 completed in 124ms
+2024-01-01 00:04:32 INFO cache heartbeat ok
+2024-01-01 00:04:33 INFO cache handling GET /users ok
+2024-01-01 00:04:35 INFO gateway background job 419 finished
+2024-01-01 00:04:36 FATAL worker data corruption detected in shard 600
+2024-01-01 00:04:38 DEBUG worker background job 627 finished
+2024-01-01 00:04:40 INFO worker connection pool size 184
+2024-01-01 00:04:42 INFO auth background job 793 finished
+2024-01-01 00:04:43 INFO gateway cache hit for key user:458
+2024-01-01 00:04:44 FATAL cache segmentation fault in pid 805
+2024-01-01 00:04:45 INFO worker handling GET /health ok
+2024-01-01 00:04:46 INFO cache heartbeat ok
+2024-01-01 00:04:48 INFO auth handling GET /users ok
+2024-01-01 00:04:50 INFO cache request 729 completed in 34ms
+2024-01-01 00:04:51 ERROR worker connection refused host=db-207
+2024-01-01 00:04:53 INFO api cache hit for key user:630
+2024-01-01 00:04:54 INFO db handling GET /health ok
+2024-01-01 00:04:56 INFO auth heartbeat ok
+2024-01-01 00:04:57 INFO api request 744 completed in 291ms
+2024-01-01 00:04:59 CRITICAL auth out of memory: killing process 621
+2024-01-01 00:05:01 INFO cache handling GET /health ok
+2024-01-01 00:05:03 DEBUG api handling GET /users ok
+2024-01-01 00:05:05 INFO cache request 898 completed in 280ms
+2024-01-01 00:05:07 INFO worker connection pool size 789
+2024-01-01 00:05:09 ERROR gateway failed to acquire lock 919
+2024-01-01 00:05:11 INFO auth handling GET /users ok
+2024-01-01 00:05:12 INFO worker background job 529 finished
+2024-01-01 00:05:13 INFO db request 96 completed in 209ms
+2024-01-01 00:05:15 INFO cache handling POST /orders ok
+2024-01-01 00:05:17 FATAL cache segmentation fault in pid 188
+2024-01-01 00:05:19 INFO db cache hit for key user:894
+2024-01-01 00:05:20 INFO db cache hit for key user:857
+2024-01-01 00:05:21 INFO api handling GET /users ok
+2024-01-01 00:05:22 DEBUG api connection pool size 381
+2024-01-01 00:05:24 CRITICAL worker out of memory: killing process 783
+2024-01-01 00:05:26 INFO db handling POST /orders ok
+2024-01-01 00:05:28 INFO cache handling GET /health ok
+2024-01-01 00:05:30 INFO worker handling GET /users ok
+2024-01-01 00:05:32 INFO gateway handling GET /health ok
+2024-01-01 00:05:34 CRITICAL auth disk full on /var/log
+2024-01-01 00:05:35 DEBUG auth cache hit for key user:276
+2024-01-01 00:05:37 INFO db connection pool size 435
+2024-01-01 00:05:39 INFO auth heartbeat ok
+2024-01-01 00:05:40 DEBUG db cache hit for key user:834
+2024-01-01 00:05:42 FATAL cache segmentation fault in pid 877
+2024-01-01 00:05:43 INFO gateway handling POST /orders ok
+2024-01-01 00:05:44 INFO worker handling POST /orders ok
+2024-01-01 00:05:46 INFO auth request 576 completed in 295ms
+2024-01-01 00:05:47 INFO api handling POST /orders ok
+2024-01-01 00:05:49 ERROR gateway connection refused host=db-461
+2024-01-01 00:05:51 INFO auth request 353 completed in 15ms
+2024-01-01 00:05:53 INFO auth cache hit for key user:591
+2024-01-01 00:05:54 INFO auth background job 690 finished
+2024-01-01 00:05:56 INFO api heartbeat ok
+2024-01-01 00:05:58 FATAL db data corruption detected in shard 828
+2024-01-01 00:06:00 DEBUG cache heartbeat ok
+2024-01-01 00:06:01 INFO auth cache hit for key user:322
+2024-01-01 00:06:03 INFO cache heartbeat ok
+2024-01-01 00:06:05 DEBUG cache connection pool size 424
+2024-01-01 00:06:06 CRITICAL db out of memory: killing process 678
+2024-01-01 00:06:07 INFO db heartbeat ok
+2024-01-01 00:06:08 INFO cache handling GET /health ok
+2024-01-01 00:06:09 INFO auth handling POST /orders ok
+2024-01-01 00:06:11 INFO db request 454 completed in 69ms
+2024-01-01 00:06:12 FATAL api kernel panic not syncing
+2024-01-01 00:06:14 INFO worker request 562 completed in 232ms
+2024-01-01 00:06:15 DEBUG db connection pool size 647
+2024-01-01 00:06:17 DEBUG gateway request 931 completed in 182ms
+2024-01-01 00:06:19 DEBUG db handling GET /users ok
