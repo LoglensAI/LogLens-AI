@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import hashlib
 import json
 import os
 import sys
@@ -131,8 +132,8 @@ _FAIL_ON_RANK = {
 
 
 _INCIDENT_CRIT_LEVELS = {"EMERGENCY", "ALERT", "FATAL", "CRITICAL"}
-_INCIDENT_SEVERE_RATIO = 0.30
-_INCIDENT_BURST_FAMILIES = 5
+_INCIDENT_SEVERE_RATIO = 0.30  # fraction of parsed lines that are severe → burst
+_INCIDENT_BURST_FAMILIES = 5  # this many critical families → clear burst
 
 
 def _assess_incident(
@@ -196,6 +197,7 @@ def _seed_everything(seed: int) -> None:
 async def _collect_entries(
     source: str, sniff_n: int = 500
 ) -> tuple[list[Any], int, str, float, dict[str, Any]]:
+
     line_count = 0
     entries: list[Any] = []
     sample_buf: list[str] = []
@@ -258,6 +260,17 @@ def _family_item(
             if r.note:
                 reasons = [*reasons, r.note]
 
+    _agg = {"N": 0.0, "B": 0.0, "P": 0.0, "C": 0.0, "S": 0.0}
+    for m in members:
+        ms = (getattr(m, "metadata", None) or {}).get("scores")
+        if ms:
+            for k in _agg:
+                _agg[k] = max(_agg[k], float(ms.get(k, 0.0)))
+    scores_block: dict[str, float | None] = {k: round(v, 4) for k, v in _agg.items()}
+    scores_block["R"] = r_value
+
+    provisional = bool(confidence and confidence.startswith("Low"))
+
     return {
         "id": tid,
         "template_id": tid,
@@ -272,6 +285,7 @@ def _family_item(
         "sample_lines": samples,
         "message": g.sample,
         "calibrated_p": None,  # populated once conformal calibration lands (P3.G)
+        "scores": scores_block,  # per-detector sub-scores {N,B,P,R,C,S} (D12)
         "impact": _d.impact,  # blocking | non-blocking | unknown (message+severity based here)
         "trace_kind": _d.trace_kind,  # deep trace reconstruction only in `explain`
         "confidence": confidence,  # triage badge (blends score + routineness)
@@ -279,6 +293,9 @@ def _family_item(
         "r_status": r_status,  # measured | partial(k/4) | unknown
         "r_features_used": r_features,
         "r_applied": False,  # R is descriptive — it never changes the score (D11)
+        "provisional": provisional,  # low-confidence family — treat as tentative
+        "retracted": False,  # reserved for the streaming path (superseded families)
+        "incident_id": None,  # set by _emit_json when the run is an incident (D12)
         "reasons": reasons,
         "detector_votes": {},  # populated once the ensemble lands (P3.F)
     }
@@ -294,6 +311,22 @@ def _emit_json(
 ) -> None:
     """Print a machine-readable analysis result to stdout (for CI/CD)."""
     is_incident, incident_score, incident_reasons = _assess_incident(items, lines_parsed)
+
+    # incident_id (D12, light): when the run is an incident, the severe families that
+    # make it up share one deterministic id. Derived from the source + the sorted
+    # template_ids of the participating families, so it's stable across runs. D13
+    # refines this into multiple time-windowed incidents.
+    if is_incident and items:
+        parts = [
+            it for it in items if (it.get("level", "").upper() in ("CRITICAL", "FATAL", "ERROR"))
+        ]
+        parts = parts or items
+        key = source + "|" + "|".join(sorted(it.get("template_id", "") for it in parts))
+        inc_id = "inc_" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:10]
+        members = {id(it) for it in parts}
+        for it in items:
+            it["incident_id"] = inc_id if id(it) in members else None
+
     payload = {
         "schema": "loglens.v1",
         "version": __version__,
@@ -692,8 +725,11 @@ def analyze(
                     html_out, source, res.parsed_lines, rca_entries, rca_result, scores=turbo_scores
                 )
 
-            turbo_items = [
-                {
+            from loglens.detection.diagnosis import diagnose as _diagnose_turbo
+
+            def _turbo_item(a):
+                _d = _diagnose_turbo(a.sample, [], level=a.level)
+                return {
                     "id": _template_id(getattr(a, "template", "") or a.sample),
                     "template_id": _template_id(getattr(a, "template", "") or a.sample),
                     "template": getattr(a, "template", ""),
@@ -707,11 +743,22 @@ def analyze(
                     "sample_lines": [a.sample],
                     "message": a.sample,
                     "calibrated_p": None,
+                    "scores": {"N": 0.0, "B": 0.0, "P": 0.0, "C": 0.0, "S": 0.0, "R": None},
+                    "impact": _d.impact,
+                    "trace_kind": _d.trace_kind,
+                    "confidence": None,
+                    "r_value": None,
+                    "r_status": "unknown",
+                    "r_features_used": [],
+                    "r_applied": False,
+                    "provisional": False,
+                    "retracted": False,
+                    "incident_id": None,
                     "reasons": list(a.reasons or []),
                     "detector_votes": {},
                 }
-                for a in anomalies
-            ]
+
+            turbo_items = [_turbo_item(a) for a in anomalies]
             if as_json:
                 # incident/score/reasons are recomputed from items inside _emit_json.
                 _emit_json(source, "turbo", None, res.parsed_lines, False, turbo_items)
@@ -1227,7 +1274,9 @@ def explain(
         False, "--no-learn", help="Ignore the learned baseline (explain reads it, never writes)."
     ),
 ):
-
+    """Explain anomalies as descriptive incident cards — when it happened, how often
+    (frequency + timeline), and where (polished stack trace / source location) —
+    within a time window (default: the last 24h of the log)."""
     import datetime as _dt
 
     from rich.markup import escape

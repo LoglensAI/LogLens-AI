@@ -545,6 +545,12 @@ def detect(
     )
     scores, reasons = _score_entries(entries, sig, cfg)
 
+    comp_n = scores.copy()  # N: novelty / rarity / severity policy (the base score)
+    comp_s = np.zeros(n)  # S: sequence
+    comp_p = np.zeros(n)  # P: parameter
+    comp_b = np.zeros(n)  # B: rate / burst
+    comp_c = np.zeros(n)  # C: co-occurrence boost (delta)
+
     # P3.C: fuse in the session-sequence detector. It scores entries whose
     # session takes an unlikely turn (order anomalies line rarity can't see) and
     # is silent when the corpus isn't session-structured.
@@ -553,6 +559,7 @@ def detect(
         seq_scores, seq_reasons, seq_note = sequence_anomaly_scores(
             entries, flag_at=cfg.flag_threshold
         )
+        comp_s = np.asarray(seq_scores, dtype=float)
         for i in range(n):
             if seq_scores[i] > scores[i]:
                 scores[i] = seq_scores[i]
@@ -566,6 +573,7 @@ def detect(
         par_scores, par_reasons, param_note = parameter_anomaly_scores(
             entries, flag_at=cfg.flag_threshold
         )
+        comp_p = np.asarray(par_scores, dtype=float)
         for i in range(n):
             if par_scores[i] > scores[i]:
                 scores[i] = par_scores[i]
@@ -577,6 +585,7 @@ def detect(
         rate_scores, rate_reasons, rate_note = rate_burst_scores(
             entries, flag_at=cfg.flag_threshold
         )
+        comp_b = np.asarray(rate_scores, dtype=float)
         for i in range(n):
             if rate_scores[i] > scores[i]:
                 scores[i] = rate_scores[i]
@@ -585,9 +594,11 @@ def detect(
 
     cooc_note = ""
     if cfg.enable_cooccurrence:
+        _pre_cooc = scores.copy()
         scores, cooc_reasons, cooc_note = cooccurrence_boost(
             entries, scores, flag_at=cfg.flag_threshold
         )
+        comp_c = np.maximum(0.0, np.asarray(scores, dtype=float) - _pre_cooc)
         for i in range(n):
             if cooc_reasons[i]:
                 reasons[i] = list(reasons[i]) + cooc_reasons[i]
@@ -611,6 +622,13 @@ def detect(
     for i, e in enumerate(entries):
         e.anomaly_score = float(scores[i])
         e.anomaly_reasons = reasons[i]
+        e.metadata["scores"] = {
+            "N": round(float(comp_n[i]), 4),
+            "B": round(float(comp_b[i]), 4),
+            "P": round(float(comp_p[i]), 4),
+            "C": round(float(comp_c[i]), 4),
+            "S": round(float(comp_s[i]), 4),
+        }
 
     groups = _build_groups(registry, entries, scores, reasons, flagged)
     patterns = _build_patterns(registry, entries, group_sev, flagged, n, cfg)

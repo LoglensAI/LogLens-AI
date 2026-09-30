@@ -126,6 +126,36 @@ def test_analyze_format_json_is_valid(tmp_path):
         assert all(isinstance(n, int) and n >= 1 for n in a["line_numbers"])
 
 
+def test_analyze_json_d12_fields(tmp_path):
+    import json
+
+    log = _write_log(tmp_path)
+    result = runner.invoke(app, ["analyze", "--source", log, "--format", "json", "--no-learn"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["schema"] == "loglens.v1"  # schema name unchanged by the additions
+    assert data["anomalies"], "expected at least one family (the CRITICAL line)"
+    a = data["anomalies"][0]
+    for key in ("scores", "impact", "trace_kind", "provisional", "retracted", "incident_id"):
+        assert key in a
+    assert set(a["scores"]) == {"N", "B", "P", "R", "C", "S"}
+    assert all(isinstance(a["scores"][k], (int, float)) for k in ("N", "B", "P", "C", "S"))
+    assert isinstance(a["provisional"], bool) and a["retracted"] is False
+    assert a["r_applied"] is False  # R stays descriptive
+    if data["incident"]:
+        ids = {x["incident_id"] for x in data["anomalies"] if x["incident_id"]}
+        assert ids and all(i.startswith("inc_") for i in ids)
+
+
+def test_analyze_json_d12_deterministic(tmp_path):
+    import json
+
+    log = _write_log(tmp_path)
+    a1 = runner.invoke(app, ["analyze", "--source", log, "--format", "json", "--no-learn"]).output
+    a2 = runner.invoke(app, ["analyze", "--source", log, "--format", "json", "--no-learn"]).output
+    assert json.loads(a1) == json.loads(a2)  # incident_id + scores stable run-to-run
+
+
 def test_analyze_format_json_turbo(tmp_path):
     import json
 
@@ -174,6 +204,7 @@ def test_analyze_is_deterministic(tmp_path):
 
 
 def test_selflearn_writes_baseline(tmp_path):
+    # analyze learns a baseline for the source by default (zero-touch memory)
     import glob
     import os
 
@@ -182,7 +213,7 @@ def test_selflearn_writes_baseline(tmp_path):
     assert r.exit_code == 0
     state = os.environ["LOGLENS_STATE_DIR"]  # isolated by conftest
     files = glob.glob(os.path.join(state, "*.json"))
-    assert files
+    assert files  # a baseline file was written
     import json as _json
 
     b = _json.load(open(files[0]))
@@ -197,7 +228,7 @@ def test_no_learn_writes_nothing(tmp_path):
     r = runner.invoke(app, ["analyze", "--source", log, "--no-model", "--no-learn"])
     assert r.exit_code == 0
     state = os.environ["LOGLENS_STATE_DIR"]
-    assert not glob.glob(os.path.join(state, "*.json"))
+    assert not glob.glob(os.path.join(state, "*.json"))  # nothing persisted
 
 
 def test_grouping_sort_is_total_order():
@@ -213,4 +244,4 @@ def test_grouping_sort_is_total_order():
     scores = [0.9, 0.9, 0.9]  # all tied
     groups = group_anomalies(entries, scores, [[] for _ in entries])
     order = [g.service for g in groups]
-    assert order == sorted(order)
+    assert order == sorted(order)  # tiebreak sorts by service when score/count tie
