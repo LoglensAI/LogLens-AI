@@ -41,3 +41,4 @@ datasets/
 .coverage
 .coverage.*
 htmlcov/
+src/loglens/_build.py

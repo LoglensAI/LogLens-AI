@@ -290,10 +290,44 @@ def _write_html(html_out, source, total_lines, anomalies, rca_result=None, score
     console.print(f"[bold cyan][LogLens][/bold cyan] HTML report saved: [green]{html_out}[/green]")
 
 
+def _build_info() -> dict[str, str]:
+    import platform
+
+    commit = build_date = ""
+    try:
+        from loglens import _build as _b  # generated in CI, optional
+
+        commit = getattr(_b, "COMMIT", "") or ""
+        build_date = getattr(_b, "BUILD_DATE", "") or ""
+    except Exception:  # noqa: BLE001
+        pass
+    commit = (commit or os.environ.get("LOGLENS_COMMIT", "") or "unknown").strip()
+    build_date = (build_date or os.environ.get("LOGLENS_BUILD_DATE", "") or "unknown").strip()
+    return {
+        "version": __version__,
+        "commit": commit,
+        "build_date": build_date,
+        "python": platform.python_version(),
+    }
+
+
 @app.command()
-def version():
-    """Print the installed LogLens version."""
-    console.print(f"[bold cyan]LogLens AI[/bold cyan] version [bold]{__version__}[/bold]")
+def version(
+    as_json: bool = typer.Option(
+        False, "--json", help="Machine-readable version info (version, commit, build date, python)."
+    ),
+):
+    """Print the installed LogLens version (with --json for build provenance)."""
+    info = _build_info()
+    if as_json:
+        print(json.dumps(info))
+        return
+    console.print(f"[bold cyan]LogLens AI[/bold cyan] version [bold]{info['version']}[/bold]")
+    if info["commit"] != "unknown" or info["build_date"] != "unknown":
+        console.print(
+            f"[dim]commit {info['commit']} · built {info['build_date']} · "
+            f"python {info['python']}[/dim]"
+        )
 
 
 @app.command("help")

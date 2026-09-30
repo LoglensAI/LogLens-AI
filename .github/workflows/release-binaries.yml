@@ -51,6 +51,14 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
           echo "Building LogLens $V"
 
+      - name: Bake build provenance (commit + date)
+        shell: bash
+        run: |
+          # Written into the binary so `loglens version --json` reports real values.
+          printf 'COMMIT = "%s"\nBUILD_DATE = "%s"\n' \
+            "${GITHUB_SHA:0:12}" "$(date -u +%Y-%m-%d)" > src/loglens/_build.py
+          cat src/loglens/_build.py
+
       - name: Install build deps
         shell: bash
         run: |
@@ -179,13 +187,15 @@ jobs:
           shopt -s nullglob
           # 'any-distro/any-version' makes one package serve every Debian/Ubuntu (deb)
           # or RHEL/Fedora (rpm) release.
+          # --republish: re-pushing the same version overwrites it instead of
+          # erroring (safe for re-runs; real upgrades still need a version bump).
           pushed=0
           for f in dist/loglens_*_amd64.deb; do
-            cloudsmith push deb loglensai/loglensai-363o/any-distro/any-version "$f"
+            cloudsmith push deb --republish loglensai/loglensai-363o/any-distro/any-version "$f"
             pushed=1
           done
           for f in dist/loglens-*.x86_64.rpm; do
-            cloudsmith push rpm loglensai/loglensai-363o/any-distro/any-version "$f"
+            cloudsmith push rpm --republish loglensai/loglensai-363o/any-distro/any-version "$f"
             pushed=1
           done
           if [ "$pushed" = "0" ]; then

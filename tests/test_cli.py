@@ -24,6 +24,17 @@ def test_version():
     assert __version__ in strip_ansi(result.output)
 
 
+def test_version_json():
+    import json as _json
+
+    result = runner.invoke(app, ["version", "--json"])
+    assert result.exit_code == 0
+    data = _json.loads(result.output)
+    assert data["version"] == __version__
+    for key in ("commit", "build_date", "python"):
+        assert key in data
+
+
 def test_help_lists_commands():
     result = runner.invoke(app, ["help"])
     assert result.exit_code == 0
