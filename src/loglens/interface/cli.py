@@ -531,6 +531,18 @@ def analyze(
         "--seed",
         help="Random seed for reproducible runs — same input + same seed → identical output.",
     ),
+    learn: bool = typer.Option(
+        True,
+        "--learn/--no-learn",
+        help="Remember this source's normal baseline and improve on every run "
+        "(zero-touch self-learning). --no-learn scores cold and writes nothing.",
+    ),
+    profile: str = typer.Option(
+        "", "--profile", help="Name the learned baseline (else it's keyed to the source path)."
+    ),
+    state_dir: str = typer.Option(
+        "", "--state-dir", help="Where baselines are stored (default: ~/.loglens/baselines)."
+    ),
 ):
     """Analyze a log file for anomalies (fast / turbo / deep, with CI/CD gating)."""
     _load()
@@ -740,14 +752,36 @@ def analyze(
             f"[bold green]shape={vectors.shape}[/bold green]"
         )
 
+        from loglens.application import baseline_store as _bstore
+
+        _bkey = _bstore.baseline_key(source, profile)
+        _sdir = state_dir or None
+        _baseline = _bstore.load_baseline(_bkey, _sdir) if learn else None
+
         # --- anomaly detection ---
         with console.status(
             "[bold cyan]🔍 Detecting anomalies (clustering + scoring)…[/bold cyan]", spinner="dots"
         ):
             normal, anomalies, labels = detect_anomalies(
-                entries, vectors, config=DetectorConfig(seed=seed)
+                entries, vectors, config=DetectorConfig(seed=seed), baseline=_baseline
             )
         summary = cluster_summary(labels)
+
+        if learn:
+            _anom_ids = {id(a) for a in anomalies}
+            _flagged_mask = [id(e) in _anom_ids for e in entries]
+            _updated = _bstore.update_baseline(_baseline, entries, _flagged_mask)
+            try:
+                _bstore.save_baseline(_bkey, _updated, _sdir)
+                console.print(
+                    f"[bold cyan][LogLens][/bold cyan] 📚 baseline updated: "
+                    f"[bold]{_updated['total']:,}[/bold] normal lines learned across "
+                    f"[bold]{_updated['learned_runs']}[/bold] run(s), "
+                    f"{len(_updated['templates']):,} known templates"
+                    + ("" if _baseline else " [dim](first run — cold; next run is smarter)[/dim]")
+                )
+            except OSError as _exc:
+                console.print(f"[dim][LogLens] baseline not saved: {_exc}[/dim]")
 
         # --- supervised: explicit model, else bundled default, else unsupervised ---
         model_path = model
@@ -966,7 +1000,6 @@ def analyze(
                 html_out, source, len(entries), filtered_anomalies, rca_result, scores=entry_scores
             )
 
-        # --- machine-readable output + CI/CD gating ---
         line_of = {id(e): i + 1 for i, e in enumerate(entries)}
         classic_items = [
             _family_item(g, [filtered_anomalies[i] for i in g.indices], line_of) for g in groups
@@ -1253,6 +1286,7 @@ def bench_suite(
     ),
     as_json: bool = typer.Option(False, "--json", help="Print the full JSON report to stdout"),
 ):
+    """Score detection accuracy + throughput over a labeled suite (LogLens Bench)."""
     _load()
     _seed_everything(seed)
     if as_json:
@@ -1352,6 +1386,7 @@ def bench_fetch(
     ),
     max_lines: int = typer.Option(0, "--max-lines", help="Cap lines converted (0 = all)"),
 ):
+    """Fetch/convert a LogHub dataset into a bench suite, then run `bench-suite --dir`."""
     _load()
     sysname = system.strip().lower()
     cap = max_lines or None

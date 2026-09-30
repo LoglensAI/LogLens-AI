@@ -156,14 +156,52 @@ def test_fail_on_unknown_threshold_does_not_gate(tmp_path):
 
 def test_analyze_is_deterministic(tmp_path):
     log = _write_log(tmp_path)
-    args = ["analyze", "--source", log, "--format", "json", "--no-model", "--seed", "42"]
+    args = [
+        "analyze",
+        "--source",
+        log,
+        "--format",
+        "json",
+        "--no-model",
+        "--seed",
+        "42",
+        "--no-learn",
+    ]
     first = runner.invoke(app, args)
     second = runner.invoke(app, args)
     assert first.exit_code == 0 and second.exit_code == 0
     assert first.output == second.output
 
 
+def test_selflearn_writes_baseline(tmp_path):
+    import glob
+    import os
+
+    log = _write_log(tmp_path)
+    r = runner.invoke(app, ["analyze", "--source", log, "--no-model", "--seed", "1"])
+    assert r.exit_code == 0
+    state = os.environ["LOGLENS_STATE_DIR"]  # isolated by conftest
+    files = glob.glob(os.path.join(state, "*.json"))
+    assert files
+    import json as _json
+
+    b = _json.load(open(files[0]))
+    assert b["total"] >= 30 and b["learned_runs"] == 1
+
+
+def test_no_learn_writes_nothing(tmp_path):
+    import glob
+    import os
+
+    log = _write_log(tmp_path)
+    r = runner.invoke(app, ["analyze", "--source", log, "--no-model", "--no-learn"])
+    assert r.exit_code == 0
+    state = os.environ["LOGLENS_STATE_DIR"]
+    assert not glob.glob(os.path.join(state, "*.json"))
+
+
 def test_grouping_sort_is_total_order():
+    # tied-score families must land in a stable, seed-independent order
     from loglens.detection.grouping import group_anomalies
     from loglens.domain.models import LogEntry
 
