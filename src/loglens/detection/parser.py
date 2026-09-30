@@ -59,6 +59,10 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "SYSLOG": re.compile(
         r"(?P<time>\w+\s+\d+\s+[\d:]+) (?P<host>\S+) (?P<service>\S+?):? (?P<message>.+)"
     ),
+    "KUBE": re.compile(
+        r"^(?P<time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))\s+"
+        r"(?P<stream>stdout|stderr)\s+(?P<flag>[FP])\s+(?P<message>.*)$"
+    ),
     "STANDARD": re.compile(
         r"(?P<time>\d{4}-\d{2}-\d{2}T[\d:]+Z)\s+(?P<level>\w+)\s+\[(?P<service>[^\]]+)\]\s+(?P<message>.+)"
     ),
@@ -160,6 +164,73 @@ def status_to_level(status: int) -> str:
     return "INFO"
 
 
+_GENERIC_TS = re.compile(
+    r"^(?P<ts>"
+    r"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})?"
+    r"|\d{4}/\d{2}/\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d{1,9})?"
+    r"|\d{2}/\d{2}/\d{2}[ T]\d{2}:\d{2}:\d{2}"
+    r"|[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}"
+    r")(?=\s)"
+)
+
+_LEVEL_TOKENS = {
+    "emerg",
+    "emergency",
+    "alert",
+    "crit",
+    "critical",
+    "fatal",
+    "severe",
+    "error",
+    "err",
+    "warn",
+    "warning",
+    "notice",
+    "info",
+    "debug",
+    "trace",
+}
+
+_LOGFMT_PAIR = re.compile(r"(\w[\w.\-]*)=(\"(?:[^\"\\]|\\.)*\"|'[^']*'|\S+)")
+_LOGFMT_KEYS = {
+    "level",
+    "lvl",
+    "severity",
+    "msg",
+    "message",
+    "time",
+    "ts",
+    "timestamp",
+    "logger",
+    "service",
+    "caller",
+}
+_COMPONENT_RE = re.compile(r"^[A-Za-z][\w.\-/]*(?:\[\d+\])?:?$")
+
+
+def _is_logfmt(line: str) -> bool:
+    pairs = _LOGFMT_PAIR.findall(line)
+    if len(pairs) < 2:
+        return False
+    keys = {k.lower() for k, _ in pairs}
+    if not (keys & {"level", "lvl", "severity", "msg", "message"}):
+        return False
+    return len(keys & _LOGFMT_KEYS) >= 2
+
+
+def _looks_like_component(tok: str) -> bool:
+    core = tok.rstrip(":")
+    if not core or len(core) > 60 or not _COMPONENT_RE.match(tok):
+        return False
+    return (
+        any(c in core for c in "._-/")
+        or core.endswith("]")
+        or tok.endswith(":")
+        or (core.isupper() and len(core) >= 2)
+        or any(ch.isdigit() for ch in core)
+    )
+
+
 def detect_format(line: str) -> str:
     line = line.strip()
     if not line:
@@ -176,10 +247,102 @@ def detect_format(line: str) -> str:
             continue
         if pattern and pattern.match(probe):
             return fmt
+    if _is_logfmt(probe):
+        return "LOGFMT"
+    if _GENERIC_TS.match(probe):
+        return "GENERIC"
     return "PLAINTEXT"
 
 
-def parse_line(line: str, fmt: str) -> LogEntry | None:
+def _parse_kube(line: str) -> LogEntry | None:
+    m = PATTERNS["KUBE"].match(line)
+    if not m:
+        return None
+    msg = m.group("message").strip()
+    return LogEntry(
+        timestamp=m.group("time"),
+        level=infer_level(msg),
+        service="unknown",
+        message=msg,
+        raw=line,
+        metadata={"stream": m.group("stream")},
+    )
+
+
+def _parse_logfmt(line: str) -> LogEntry:
+    pairs: dict[str, str] = {}
+    for k, v in _LOGFMT_PAIR.findall(line):
+        if len(v) >= 2 and v[0] in "\"'" and v[-1] == v[0]:
+            v = v[1:-1]
+        pairs[k.lower()] = v
+    ts = pairs.get("time") or pairs.get("ts") or pairs.get("timestamp") or ""
+    lvl_raw = pairs.get("level") or pairs.get("lvl") or pairs.get("severity") or ""
+    level = _norm_level(lvl_raw) if lvl_raw else infer_level(line)
+    service = (
+        pairs.get("service")
+        or pairs.get("logger")
+        or pairs.get("component")
+        or pairs.get("app")
+        or "unknown"
+    )
+    message = pairs.get("msg") or pairs.get("message") or ""
+    reserved = _LOGFMT_KEYS | {"component", "app"}
+    meta = {k: v for k, v in pairs.items() if k not in reserved}
+    return LogEntry(
+        timestamp=ts,
+        level=level,
+        service=service,
+        message=message or line,
+        raw=line,
+        metadata=meta,
+    )
+
+
+def _parse_generic(line: str, layout: dict | None = None) -> LogEntry | None:
+    m = _GENERIC_TS.match(line)
+    if not m:
+        return None
+    ts = m.group("ts")
+    rest = line[m.end() :].strip()
+    tokens = rest.split()
+    if not tokens:
+        return LogEntry(timestamp=ts, level="INFO", service="unknown", message="", raw=line)
+
+    idx = 0
+    level: str | None = None
+    first = tokens[0].strip("[]").rstrip(":")
+    if first.lower() in _LEVEL_TOKENS:
+        level = _norm_level(first)
+        idx = 1
+
+    service = "unknown"
+    want_service = bool(layout and layout.get("service_col"))
+    if want_service and layout and layout.get("has_level") and level is None:
+        # Sniff learned the column sits after a level; this line has none, so
+        # don't misread the first message word as a service.
+        want_service = False
+    if idx < len(tokens) and (len(tokens) - idx) >= 2:
+        cand = tokens[idx].rstrip(":")
+        if want_service and cand:
+            service = cand
+            idx += 1
+        elif layout is None and _looks_like_component(tokens[idx]):
+            service = cand
+            idx += 1
+
+    message = " ".join(tokens[idx:]) if idx < len(tokens) else rest
+    if level is None:
+        level = infer_level(rest)
+    return LogEntry(
+        timestamp=ts,
+        level=level,
+        service=service or "unknown",
+        message=message,
+        raw=line,
+    )
+
+
+def parse_line(line: str, fmt: str, layout: dict | None = None) -> LogEntry | None:
     line = line.strip()
     if not line:
         return None
@@ -336,6 +499,16 @@ def parse_line(line: str, fmt: str) -> LogEntry | None:
                     message=m.group("message").strip(),
                     raw=line,
                 )
+        if fmt == "KUBE":
+            entry = _parse_kube(line)
+            if entry is not None:
+                return entry
+        if fmt == "LOGFMT":
+            return _parse_logfmt(line)
+        if fmt == "GENERIC":
+            entry = _parse_generic(line, layout)
+            if entry is not None:
+                return entry
         return LogEntry(
             timestamp="",
             level=infer_level(line),
@@ -356,6 +529,65 @@ def parse_line(line: str, fmt: str) -> LogEntry | None:
             raw=line,
             parsed=False,
         )
+
+
+def _sniff_generic_layout(samples: list[str]) -> dict:
+    with_level = 0
+    cands: list[str] = []
+    for s in samples:
+        m = _GENERIC_TS.match(s)
+        if not m:
+            continue
+        tokens = s[m.end() :].strip().split()
+        if not tokens:
+            continue
+        idx = 0
+        first = tokens[0].strip("[]").rstrip(":")
+        if first.lower() in _LEVEL_TOKENS:
+            with_level += 1
+            idx = 1
+        if idx < len(tokens) and (len(tokens) - idx) >= 2:
+            cands.append(tokens[idx].rstrip(":"))
+
+    has_level = bool(samples) and with_level >= 0.6 * len(samples)
+    service_col = False
+    if len(cands) >= 3:
+        distinct = set(cands)
+        id_like = sum(1 for c in cands if _COMPONENT_RE.match(c))
+        low_cardinality = len(distinct) <= 40 and len(distinct) <= 0.5 * len(cands)
+        mostly_id = id_like >= 0.8 * len(cands)
+        service_col = low_cardinality and mostly_id
+    return {"service_col": service_col, "has_level": has_level}
+
+
+def sniff_format(lines: list[str], sample: int = 200) -> tuple[str, float, dict]:
+    counts: dict[str, int] = {}
+    seen: list[tuple[str, str]] = []
+    for raw in lines:
+        s = raw.strip()
+        if not s:
+            continue
+        f = detect_format(s)
+        counts[f] = counts.get(f, 0) + 1
+        seen.append((s, f))
+        if len(seen) >= sample:
+            break
+    if not seen:
+        return "PLAINTEXT", 0.0, {}
+    # Prefer a concrete format over the PLAINTEXT/UNKNOWN catch-alls when a real
+    # one is present on a meaningful share of lines (headers/blank noise aside).
+    ranked = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+    fmt, hits = ranked[0]
+    if fmt in ("PLAINTEXT", "UNKNOWN"):
+        for cand, n in ranked:
+            if cand not in ("PLAINTEXT", "UNKNOWN") and n >= 0.4 * len(seen):
+                fmt, hits = cand, n
+                break
+    confidence = round(hits / len(seen), 3)
+    layout: dict = {}
+    if fmt == "GENERIC":
+        layout = _sniff_generic_layout([s for s, f in seen if f == "GENERIC"])
+    return fmt, confidence, layout
 
 
 _CONTINUATION_RE = re.compile(
@@ -393,8 +625,13 @@ class StreamParser:
             return line.lstrip().startswith("{")
         if fmt in ("PLAINTEXT", "UNKNOWN"):
             return False
+        probe = _PRI_RE.sub("", line)
+        if fmt == "GENERIC":
+            return bool(_GENERIC_TS.match(probe))
+        if fmt == "LOGFMT":
+            return _is_logfmt(probe)
         pattern = PATTERNS.get(fmt)
-        return bool(pattern and pattern.match(_PRI_RE.sub("", line)))
+        return bool(pattern and pattern.match(probe))
 
     def _format_for(self, line: str) -> str:
         if self.forced_fmt:

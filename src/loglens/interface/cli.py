@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from loglens.detection.embeddings import EmbeddingEngine
     from loglens.detection.grouping import group_anomalies
     from loglens.detection.ingestion import AsyncCommandReader, CommandError, stream_lines
-    from loglens.detection.parser import detect_format, parse_line
+    from loglens.detection.parser import parse_line, sniff_format
     from loglens.detection.speedbench import bench_file, to_markdown
     from loglens.detection.templates import TemplateRegistry
     from loglens.detection.turbo import scan_file as turbo_scan
@@ -73,7 +73,7 @@ def _load():
         CommandError,
         stream_lines,
     )
-    from loglens.detection.parser import detect_format, parse_line  # noqa: F401
+    from loglens.detection.parser import parse_line, sniff_format  # noqa: F401
     from loglens.detection.speedbench import bench_file, to_markdown  # noqa: F401
     from loglens.detection.templates import TemplateRegistry  # noqa: F401
     from loglens.detection.turbo import scan_file as turbo_scan  # noqa: F401
@@ -130,9 +130,10 @@ _FAIL_ON_RANK = {
 }
 
 
+# Severities that, on their own, indicate a real incident.
 _INCIDENT_CRIT_LEVELS = {"EMERGENCY", "ALERT", "FATAL", "CRITICAL"}
-_INCIDENT_SEVERE_RATIO = 0.30
-_INCIDENT_BURST_FAMILIES = 5
+_INCIDENT_SEVERE_RATIO = 0.30  # fraction of parsed lines that are severe → burst
+_INCIDENT_BURST_FAMILIES = 5  # this many critical families → clear burst
 
 
 def _assess_incident(
@@ -170,6 +171,42 @@ def _template_id(template: str) -> str:
     import hashlib
 
     return hashlib.sha1((template or "").encode("utf-8")).hexdigest()[:12]
+
+
+async def _collect_entries(
+    source: str, sniff_n: int = 500
+) -> tuple[list[Any], int, str, float, dict[str, Any]]:
+    line_count = 0
+    entries: list[Any] = []
+    sample_buf: list[str] = []
+    fmt: str | None = None
+    confidence = 0.0
+    layout: dict[str, Any] = {}
+
+    async for line in stream_lines(source):
+        line_count += 1
+        if fmt is None:
+            sample_buf.append(line)
+            if len(sample_buf) >= sniff_n:
+                fmt, confidence, layout = sniff_format(sample_buf)
+                for buffered in sample_buf:
+                    e = parse_line(buffered, fmt, layout)
+                    if e is not None:
+                        entries.append(e)
+                sample_buf = []
+            continue
+        e = parse_line(line, fmt, layout)
+        if e is not None:
+            entries.append(e)
+
+    if fmt is None:
+        fmt, confidence, layout = sniff_format(sample_buf)
+        for buffered in sample_buf:
+            e = parse_line(buffered, fmt, layout)
+            if e is not None:
+                entries.append(e)
+
+    return entries, line_count, fmt or "PLAINTEXT", confidence, layout
 
 
 def _family_item(g, members: list, line_of: dict[int, int]) -> dict[str, Any]:
@@ -610,26 +647,13 @@ def analyze(
             _apply_fail_on(fail_on, turbo_items)
             return  # turbo done — skip the classic pipeline
 
-        line_count = 0
-        fmt = None
-        sample_entry = None
-        entries = []
-
         console.print(f"\n[bold cyan][LogLens][/bold cyan] Source: [yellow]{source}[/yellow]")
-        async for line in stream_lines(source):
-            line_count += 1
-            if line_count == 1:
-                fmt = detect_format(line)
-                console.print(
-                    f"[bold cyan][LogLens][/bold cyan] Detected format: [yellow]{fmt}[/yellow]"
-                )
-
-            entry = parse_line(line, fmt)
-            if entry:
-                if sample_entry is None:
-                    sample_entry = entry
-                entries.append(entry)
-
+        entries, line_count, fmt, fmt_conf, _layout = await _collect_entries(source)
+        sample_entry = entries[0] if entries else None
+        console.print(
+            f"[bold cyan][LogLens][/bold cyan] Detected format: [yellow]{fmt}[/yellow] "
+            f"[dim](confidence {fmt_conf:.0%})[/dim]"
+        )
         console.print(
             f"[bold cyan][LogLens][/bold cyan] Lines: [bold]{line_count:,}[/bold] read "
             f"→ [bold]{len(entries):,}[/bold] parsed"
@@ -962,14 +986,7 @@ def ask(
 
     async def _run():
         console.print(f"\n[bold cyan][LogLens][/bold cyan] Source: [yellow]{source}[/yellow]")
-        entries = []
-        fmt = None
-        async for line in stream_lines(source):
-            if fmt is None:
-                fmt = detect_format(line)
-            entry = parse_line(line, fmt)
-            if entry:
-                entries.append(entry)
+        entries, _line_count, _fmt, _fmt_conf, _layout = await _collect_entries(source)
         if not entries:
             console.print("[bold red]No valid log entries found.[/bold red]")
             raise typer.Exit(code=1)
