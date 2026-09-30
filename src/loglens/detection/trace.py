@@ -84,7 +84,6 @@ def looks_like_frame(raw: str) -> bool:
 
 
 def reconstruct_trace(entries: list, idx: int, max_lines: int = 40) -> list[Frame]:
-
     if not (0 <= idx < len(entries)):
         return []
     anchor = entries[idx]
@@ -98,6 +97,20 @@ def reconstruct_trace(entries: list, idx: int, max_lines: int = 40) -> list[Fram
         frames.extend(extract_frames(raw))
         j += 1
     return frames
+
+
+def raw_block(entries: list, idx: int, max_lines: int = 40) -> str:
+    if not (0 <= idx < len(entries)):
+        return ""
+    parts = [getattr(entries[idx], "raw", "") or getattr(entries[idx], "message", "") or ""]
+    j = idx + 1
+    while j < len(entries) and (j - idx) <= max_lines:
+        raw = getattr(entries[j], "raw", "") or getattr(entries[j], "message", "") or ""
+        if not raw.strip() or is_new_record(raw):
+            break
+        parts.append(raw)
+        j += 1
+    return "\n".join(parts)
 
 
 def primary_site(frames: list[Frame]) -> Frame | None:

@@ -104,3 +104,35 @@ def test_explain_top_limits_cards(tmp_path):
     log = _write_trace_log(tmp_path)
     result = runner.invoke(app, ["explain", "--source", log, "--no-learn", "--top", "1"])
     assert result.exit_code == 0
+
+
+def test_explain_diagnosis_fields(tmp_path):
+    log = _write_trace_log(tmp_path)
+    result = runner.invoke(app, ["explain", "--source", log, "--no-learn", "--format", "json"])
+    data = json.loads(result.output)
+    assert "impact_summary" in data
+    fam = data["anomalies"][0]
+    for key in ("trace_kind", "impact", "impact_reason", "exception_type", "headline", "where"):
+        assert key in fam
+    assert fam["trace_kind"] == "application"
+    assert fam["impact"] == "blocking"
+    assert "orders.py" in fam["headline"]
+
+
+def test_explain_plain_hides_trace(tmp_path):
+    log = _write_trace_log(tmp_path)
+    full = runner.invoke(app, ["explain", "--source", log, "--no-learn"]).output
+    plain = runner.invoke(app, ["explain", "--source", log, "--no-learn", "--plain"]).output
+    assert "Trace" in full  # technical line present by default
+    assert "Trace" not in plain  # hidden in --plain
+    assert "What" in plain and "Impact" in plain  # human lines kept
+
+
+def test_explain_impact_filter(tmp_path):
+    log = _write_trace_log(tmp_path)
+    result = runner.invoke(
+        app,
+        ["explain", "--source", log, "--no-learn", "--impact", "non-blocking", "--format", "json"],
+    )
+    data = json.loads(result.output)
+    assert all(a["impact"] == "non-blocking" for a in data["anomalies"])

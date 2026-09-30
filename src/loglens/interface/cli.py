@@ -180,7 +180,6 @@ def _template_id(template: str) -> str:
 
 
 def _seed_everything(seed: int) -> None:
-
     import os
     import random as _random
 
@@ -197,7 +196,6 @@ def _seed_everything(seed: int) -> None:
 async def _collect_entries(
     source: str, sniff_n: int = 500
 ) -> tuple[list[Any], int, str, float, dict[str, Any]]:
-
     line_count = 0
     entries: list[Any] = []
     sample_buf: list[str] = []
@@ -234,12 +232,15 @@ async def _collect_entries(
 def _family_item(
     g, members: list, line_of: dict[int, int], rmap: dict | None = None
 ) -> dict[str, Any]:
-
     line_numbers = sorted(line_of[id(m)] for m in members if id(m) in line_of)
     timestamps = [m.timestamp for m in members if getattr(m, "timestamp", "")]
     samples = [(getattr(m, "raw", "") or m.message) for m in members[:3]]
     tid = _template_id(getattr(g, "template", "") or g.sample)
     reasons = list(getattr(g, "reasons", []) or [])
+
+    from loglens.detection.diagnosis import diagnose as _diagnose
+
+    _d = _diagnose(g.sample, [], level=g.level)
 
     confidence = None
     r_status = "unknown"
@@ -271,6 +272,8 @@ def _family_item(
         "sample_lines": samples,
         "message": g.sample,
         "calibrated_p": None,  # populated once conformal calibration lands (P3.G)
+        "impact": _d.impact,  # blocking | non-blocking | unknown (message+severity based here)
+        "trace_kind": _d.trace_kind,  # deep trace reconstruction only in `explain`
         "confidence": confidence,  # triage badge (blends score + routineness)
         "r_value": r_value,  # routineness 0..1 (higher = more routine); None if unknown
         "r_status": r_status,  # measured | partial(k/4) | unknown
@@ -582,7 +585,7 @@ def analyze(
     as_json = output_format.strip().lower() == "json"
     console.quiet = as_json
     if as_json:
-        pass
+        pass  # stdout stays clean for the JSON payload
 
     from loglens.detection.filetype import InvalidSourceError, check_source
 
@@ -831,6 +834,9 @@ def analyze(
             except Exception:
                 _auto_path, _auto_ready = None, False
 
+        # --- supervised: explicit model, else bundled default, else unsupervised ---
+        # `--model auto` uses the head auto-trained from this source's own usage.
+        # (Local copies so we never rebind the enclosing analyze() params.)
         model_sel = model
         no_model_eff = no_model
         if model_sel.strip().lower() == "auto":
@@ -1047,12 +1053,17 @@ def analyze(
         if groups:
             display = groups[:limit]
             console.print()
+            from loglens.detection.diagnosis import diagnose as _diagnose
+
             blocks = []
             for g in display:
                 col = _level_color(g.level)
                 r = _rmap.get(g.template)
                 conf, _ = confidence_label(g.max_score, r)
+                _d = _diagnose(g.sample, [], level=g.level)
+                _chip, _icol = _IMPACT_STYLE.get(_d.impact, ("❓ Unknown", "dim"))
                 head = (
+                    f"[{_icol}]{_chip.split()[0]}[/{_icol}] "
                     f"[{col}][{g.level}][/{col}] [yellow]{g.service}[/yellow] "
                     f"[dim](×{g.count:,} · score {g.max_score:.2f} · {_when_str(id(g), g.count)})[/dim]"
                     f"  {g.sample[:100]}"
@@ -1156,6 +1167,13 @@ def analyze(
     asyncio.run(_run())
 
 
+_IMPACT_STYLE = {
+    "blocking": ("⛔ Blocking", "red"),
+    "non-blocking": ("⚠ Non-blocking", "yellow"),
+    "unknown": ("❓ Unknown", "dim"),
+}
+
+
 def _explain_frames_str(frames: list) -> str:
     from rich.markup import escape
 
@@ -1189,6 +1207,16 @@ def explain(
     ),
     top: int = typer.Option(20, "--top", help="Max error cards to show (most recent first)."),
     buckets: int = typer.Option(24, "--buckets", help="Sparkline resolution across the window."),
+    plain: bool = typer.Option(
+        False,
+        "--plain",
+        help="Non-technical view: show What / Impact / When / File only (hide trace & internals).",
+    ),
+    impact_filter: str = typer.Option(
+        "",
+        "--impact",
+        help="Only show families with this impact: blocking | non-blocking | unknown.",
+    ),
     output_format: str = typer.Option("terminal", "--format", help="terminal (default) | json"),
     seed: int = typer.Option(
         0, "--seed", help="Reproducible runs (same input + seed → identical)."
@@ -1199,6 +1227,7 @@ def explain(
         False, "--no-learn", help="Ignore the learned baseline (explain reads it, never writes)."
     ),
 ):
+
     import datetime as _dt
 
     from rich.markup import escape
@@ -1215,7 +1244,7 @@ def explain(
         parse_ts,
         sparkline,
     )
-    from loglens.detection.trace import primary_site, reconstruct_trace
+    from loglens.detection.trace import primary_site, raw_block, reconstruct_trace
 
     _load()
     _seed_everything(seed)
@@ -1280,6 +1309,20 @@ def explain(
     _MIN = _dt.datetime.min
     groups.sort(key=lambda g: _g_times(g)[1] or _MIN, reverse=True)
 
+    from loglens.detection.diagnosis import diagnose
+
+    def _recovery_after(idx: int | None, service: str) -> bool:
+        from loglens.detection.diagnosis import _RECOVERY
+
+        if idx is None:
+            return False
+        for e in entries[idx + 1 : idx + 400]:
+            if getattr(e, "service", "") == service:
+                low = (getattr(e, "raw", "") or e.message).lower()
+                if any(w in low for w in _RECOVERY):
+                    return True
+        return False
+
     records = []
     for g in groups:
         members = _members(g)
@@ -1289,6 +1332,18 @@ def explain(
             reconstruct_trace(entries, rep.index) if getattr(rep, "index", None) is not None else []
         )
         site = primary_site(frames)
+        _ridx = getattr(rep, "index", None)
+        diag_text = (
+            raw_block(entries, _ridx)
+            if _ridx is not None
+            else (getattr(rep, "raw", "") or rep.message)
+        )
+        diag = diagnose(
+            diag_text,
+            frames,
+            level=g.level,
+            recovery_follows=_recovery_after(getattr(rep, "index", None), g.service),
+        )
         r = rmap.get(g.template)
         conf, conf_adj = confidence_label(g.max_score, r)
         times = [win_dts[id(m)] for m in members if win_dts.get(id(m)) is not None]
@@ -1307,6 +1362,12 @@ def explain(
                 "last_seen": last_dt.isoformat() if last_dt else None,
                 "frequency": g.count,
                 "sparkline": spark,
+                "trace_kind": diag.trace_kind,
+                "impact": diag.impact,
+                "impact_reason": diag.impact_reason,
+                "exception_type": diag.exception_type,
+                "headline": diag.headline,
+                "where": diag.where_human,
                 "site": site.location() if site else None,
                 "trace": [f.location() for f in frames[:8]],
                 "confidence": conf,
@@ -1319,8 +1380,13 @@ def explain(
                 "_last_dt": last_dt,
                 "_frames": frames,
                 "_site": site,
+                "_diag": diag,
             }
         )
+
+    _imp = impact_filter.strip().lower()
+    if _imp:
+        records = [r for r in records if r["impact"] == _imp]
 
     if as_json:
         payload = {
@@ -1336,6 +1402,10 @@ def explain(
             "anomaly_families": len(records),
             "events_in_window": len(win_anoms),
             "undated_events": len(undated),
+            "impact_summary": {
+                k: sum(1 for r in records if r["impact"] == k)
+                for k in ("blocking", "non-blocking", "unknown")
+            },
             "anomalies": [
                 {k: v for k, v in rec.items() if not k.startswith("_")} for rec in records
             ],
@@ -1345,19 +1415,23 @@ def explain(
 
     _conf_color = {"High": "red", "Medium": "yellow", "Low": "green"}
 
+    _shown_events = sum(r["count"] for r in records)
+    _filter_note = f" · filtered to {_imp}" if _imp else ""
+
     console.print()
     if windowed and win_lo is not None and win_hi is not None:
         console.print(
-            f"[bold cyan][LogLens][/bold cyan] Explaining [bold]{len(win_anoms)}[/bold] anomaly "
+            f"[bold cyan][LogLens][/bold cyan] Explaining [bold]{_shown_events}[/bold] anomaly "
             f"events in [bold]{len(records)}[/bold] families "
             f"[dim]· window {win_lo.strftime('%Y-%m-%d %H:%M')} → {win_hi.strftime('%Y-%m-%d %H:%M')} "
-            f"({'wall-clock' if now else 'newest event'} − {last if not since else 'since ' + since})[/dim]"
+            f"({'wall-clock' if now else 'newest event'} − {last if not since else 'since ' + since})"
+            f"{_filter_note}[/dim]"
         )
     else:
         console.print(
-            f"[bold cyan][LogLens][/bold cyan] Explaining [bold]{len(win_anoms)}[/bold] anomaly "
+            f"[bold cyan][LogLens][/bold cyan] Explaining [bold]{_shown_events}[/bold] anomaly "
             f"events in [bold]{len(records)}[/bold] families "
-            "[dim]· no parseable timestamps — showing all (time window not applied)[/dim]"
+            f"[dim]· no parseable timestamps — showing all (time window not applied){_filter_note}[/dim]"
         )
     if undated:
         console.print(
@@ -1390,11 +1464,34 @@ def explain(
         console.print()
         console.print(t)
 
+    _tally = {
+        k: sum(1 for r in records if r["impact"] == k)
+        for k in ("blocking", "non-blocking", "unknown")
+    }
+    console.print(
+        f"[dim][LogLens] Impact:[/dim] [red]⛔ {_tally['blocking']} blocking[/red] · "
+        f"[yellow]⚠ {_tally['non-blocking']} non-blocking[/yellow] · "
+        f"[dim]❓ {_tally['unknown']} unknown[/dim]"
+    )
+
     anchor_dt = win_hi or newest
     for rec in records[:top]:
         col = _level_color(rec["level"])
+        ilabel, icolor = _IMPACT_STYLE.get(rec["impact"], ("❓ Unknown", "dim"))
         lines = []
-        # When
+
+        lines.append(f"[bold]What[/bold]    {escape(rec['headline'])}")
+
+        impact_help = {
+            "blocking": "halted this request / flow",
+            "non-blocking": "system kept running",
+            "unknown": "impact unclear",
+        }[rec["impact"]]
+        lines.append(
+            f"[bold]Impact[/bold]  [{icolor}]{ilabel}[/{icolor}] — {impact_help}  "
+            f"[dim]({escape(rec['impact_reason'])})[/dim]"
+        )
+
         if rec["_last_dt"]:
             when = f"last [bold]{rec['_last_dt'].strftime('%Y-%m-%d %H:%M:%S')}[/bold]"
             if anchor_dt:
@@ -1406,27 +1503,54 @@ def explain(
                 )
         else:
             when = "[dim]no timestamp[/dim]"
-        lines.append(f"[bold]When[/bold]   {when}")
+        lines.append(f"[bold]When[/bold]    {when}")
+
         freq = f"[bold]{rec['count']:,}×[/bold] in window"
         if rec["sparkline"]:
             freq += f"   [cyan]{rec['sparkline']}[/cyan]"
-        lines.append(f"[bold]Freq[/bold]   {freq}")
-        if rec["_site"]:
-            lines.append(
-                f"[bold]Where[/bold]  [magenta]{escape(rec['_site'].location())}[/magenta]  [dim]← failure site[/dim]"
-            )
-        if rec["_frames"]:
-            lines.append(f"[bold]Trace[/bold]  {_explain_frames_str(rec['_frames'])}")
-        why = "; ".join(rec["reasons"]) or "no signals"
-        lines.append(f"[bold]Why[/bold]    [dim]{escape(why)}[/dim]")
-        cc = _conf_color.get(rec["confidence"].split()[0], "dim")
-        lines.append(
-            f"[bold]Conf[/bold]   [{cc}]{rec['confidence']}[/{cc}]  [dim](score {rec['score']:.2f})[/dim]"
-        )
+        lines.append(f"[bold]Freq[/bold]    {freq}")
 
+        diag = rec["_diag"]
+        site = rec["_site"]
+        if diag.trace_kind == "application" and site:
+            loc = f"[magenta]{escape(site.file)}[/magenta]"
+            loc += f" [bold]→ line {site.line}[/bold]" if site.line is not None else ""
+            loc += f" [dim]in {escape(site.func)}[/dim]" if site.func else ""
+            lines.append(f"[bold]File[/bold]    {loc}  [green]← your code[/green]")
+        elif diag.trace_kind == "library" and site:
+            lines.append(
+                f"[bold]File[/bold]    [magenta]{escape(site.file)}[/magenta]"
+                + (f":{site.line}" if site.line is not None else "")
+                + "  [dim]← inside a library (called from your code)[/dim]"
+            )
+        elif diag.trace_kind == "location_only" and site:
+            lines.append(
+                f"[bold]File[/bold]    [magenta]{escape(site.location())}[/magenta]  "
+                "[dim]← mentioned in the log[/dim]"
+            )
+        elif diag.trace_kind == "exception_only":
+            lines.append(
+                f"[bold]Cause[/bold]   {escape(diag.exception_type or 'exception')}  "
+                "[dim]← no source file in this log[/dim]"
+            )
+        else:  # plain — no trace at all: show the raw line so it's still actionable
+            lines.append(f"[bold]Detail[/bold]  [dim]{escape(rec['message'][:100])}[/dim]")
+
+        if not plain:
+            if rec["_frames"]:
+                lines.append(f"[bold]Trace[/bold]   {_explain_frames_str(rec['_frames'])}")
+            why = "; ".join(rec["reasons"]) or "no signals"
+            lines.append(f"[bold]Why[/bold]     [dim]{escape(why)}[/dim]")
+            cc = _conf_color.get(rec["confidence"].split()[0], "dim")
+            lines.append(
+                f"[bold]Conf[/bold]    [{cc}]{rec['confidence']}[/{cc}]  "
+                f"[dim](score {rec['score']:.2f})[/dim]"
+            )
+
+        chip = ilabel.split()[0]  # the emoji
         title = (
-            f"[{col}]{rec['level']}[/{col}] · [yellow]{rec['service']}[/yellow] · "
-            f"{escape(rec['message'][:80])}"
+            f"[{icolor}]{chip}[/{icolor}] [{col}]{rec['level']}[/{col}] · "
+            f"[yellow]{rec['service']}[/yellow] · {escape(rec['message'][:70])}"
         )
         console.print()
         console.print(Panel("\n".join(lines), title=title, title_align="left", border_style=col))
@@ -1434,7 +1558,7 @@ def explain(
     if len(records) > top:
         console.print(
             f"[dim]... and {len(records) - top} more families "
-            f"(use --top {top * 2}, or narrow with --last / --since)[/dim]"
+            f"(use --top {top * 2}, or narrow with --last / --since / --impact)[/dim]"
         )
 
 
@@ -1699,6 +1823,7 @@ def bench_suite(
     """Score detection accuracy + throughput over a labeled suite (LogLens Bench)."""
     _load()
     _seed_everything(seed)
+    # Unconditional: reset the shared console so a prior JSON run can't silence this one.
     console.quiet = as_json
 
     from loglens.application.suite_bench import run_suite, to_markdown
@@ -2085,7 +2210,6 @@ def _should_forward(argv: list[str]) -> bool:
 
 
 def main() -> None:
-
     argv = sys.argv[1:]
     if _should_forward(argv):
         try:
