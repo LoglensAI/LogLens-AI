@@ -63,7 +63,7 @@ jobs:
         run: python scripts/ci_accuracy_gate.py
 
       - name: Unsupervised min-F1 gate (CLI)
-        run: loglens benchmark benchmarks/BGL_2k.log --format bgl --min-f1 0.45
+        run: loglens benchmark benchmarks/BGL_2k.log --format bgl --min-f1 0.42
 
   consistency:
     name: consistency

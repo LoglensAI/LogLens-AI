@@ -105,7 +105,7 @@ class Reason:
     text: str
     weight: float = 0.0
 
-    def __str__(self) -> str:
+    def __str__(self) -> str:  
         return self.text
 
 
@@ -138,8 +138,8 @@ class Signals:
     level_total: int = 1
     file_total: int = 1
 
-    has_clusters: bool = False
-    cluster_label: int = 0
+    has_clusters: bool = False  # True when DBSCAN clustering was run (classic/deep)
+    cluster_label: int = 0  # -1 == unclustered noise point
     cluster_size: float = 0.0
     rare_min: int = 3
     rare_pct: float = 0.01
@@ -162,7 +162,7 @@ class Signals:
     is_surge: bool = False
 
     chronic: bool = False
-    history_routine: float = 0.0
+    history_routine: float = 0.0  
     group_span_ok: bool = False
 
     confidence: float = 1.0
@@ -264,7 +264,7 @@ def score(sig: Signals) -> ScoreResult:
         and sig.outlier_z >= OUTLIER_Z_EXEMPT
         and sig.outlier_dist > OUTLIER_DIST_FLOOR
     )
-    if sev >= 5 and sig.cluster_label != -1 and not extreme_outlier:
+    if sev >= 5 and not extreme_outlier:
         rarity *= sig.safe_rarity_damp
     if sig.chronic:
         rarity *= CHRONIC_DAMP
