@@ -105,7 +105,7 @@ class Reason:
     text: str
     weight: float = 0.0
 
-    def __str__(self) -> str:  
+    def __str__(self) -> str:
         return self.text
 
 
@@ -162,7 +162,7 @@ class Signals:
     is_surge: bool = False
 
     chronic: bool = False
-    history_routine: float = 0.0  
+    history_routine: float = 0.0
     group_span_ok: bool = False
 
     confidence: float = 1.0
