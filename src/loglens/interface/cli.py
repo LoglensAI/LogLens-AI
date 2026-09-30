@@ -131,8 +131,8 @@ _FAIL_ON_RANK = {
 
 
 _INCIDENT_CRIT_LEVELS = {"EMERGENCY", "ALERT", "FATAL", "CRITICAL"}
-_INCIDENT_SEVERE_RATIO = 0.30
-_INCIDENT_BURST_FAMILIES = 5
+_INCIDENT_SEVERE_RATIO = 0.30  
+_INCIDENT_BURST_FAMILIES = 5 
 
 
 def _assess_incident(
@@ -1223,6 +1223,103 @@ def bench(
         with open(out, "w", encoding="utf-8") as f:
             f.write(to_markdown(results, source))
         console.print(f"[bold cyan][LogLens][/bold cyan] Results saved: [green]{out}[/green]")
+
+
+@app.command("bench-suite")
+def bench_suite(
+    directory: str = typer.Option(
+        "testlogs", "--dir", help="Directory containing log files + a labels.json ground truth"
+    ),
+    mode: str = typer.Option("fast", "--mode", help="Detection mode: fast | deep"),
+    seed: int = typer.Option(0, "--seed", help="Seed for reproducible scoring"),
+    exclude: str = typer.Option(
+        "", "--exclude", help="Comma-separated filenames to skip (e.g. big.log)"
+    ),
+    out: str = typer.Option("", "--out", help="Write a JSON report to this path"),
+    md_out: str = typer.Option("", "--md", help="Write a markdown report to this path"),
+    min_f1: float = typer.Option(
+        None, "--min-f1", help="Exit non-zero (code 1) if micro-F1 is below this — a CI gate"
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Print the full JSON report to stdout"),
+):
+    _load()
+    _seed_everything(seed)
+    if as_json:
+        console.quiet = True
+
+    from loglens.application.suite_bench import run_suite, to_markdown
+
+    try:
+        report = run_suite(
+            directory,
+            mode=mode,
+            seed=seed,
+            exclude=[e.strip() for e in exclude.split(",") if e.strip()],
+        )
+    except FileNotFoundError as exc:
+        console.print(f"[bold red][LogLens][/bold red] {exc}")
+        raise typer.Exit(code=1) from None
+
+    if not report.files:
+        console.print(f"[bold red][LogLens][/bold red] No labeled files found in {directory!r}.")
+        raise typer.Exit(code=1)
+
+    if as_json:
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        table = Table(title=f"LogLens Bench — {directory}", header_style="bold cyan")
+        for col in [
+            "File",
+            "Fmt",
+            "Lines",
+            "Labeled",
+            "Flagged",
+            "P",
+            "R",
+            "F1",
+            "P@k",
+            "Compress",
+            "Lines/s",
+        ]:
+            table.add_column(col, justify="right")
+        for fm in report.files:
+            table.add_row(
+                fm.name,
+                fm.fmt,
+                f"{fm.lines:,}",
+                str(fm.labeled),
+                str(fm.flagged),
+                f"{fm.precision:.3f}",
+                f"{fm.recall:.3f}",
+                f"{fm.f1:.3f}",
+                f"{fm.precision_at_k:.3f}",
+                f"{fm.compression:.1f}×",
+                f"{fm.lines_per_sec:,.0f}",
+            )
+        console.print(table)
+        m, ma, tot = report.micro, report.macro, report.totals
+        console.print(
+            f"\n[bold cyan][LogLens][/bold cyan] Micro "
+            f"[bold green]F1 {m.get('f1', 0):.3f}[/bold green] "
+            f"(P {m.get('precision', 0):.3f} R {m.get('recall', 0):.3f}) · "
+            f"Macro F1 {ma.get('f1', 0):.3f} · "
+            f"{tot.get('lines', 0):,} lines @ {tot.get('lines_per_sec', 0):,.0f} lines/s"
+        )
+
+    if out:
+        with open(out, "w", encoding="utf-8") as fh:
+            json.dump(report.to_dict(), fh, indent=2)
+        console.print(f"[bold cyan][LogLens][/bold cyan] JSON report → [green]{out}[/green]")
+    if md_out:
+        with open(md_out, "w", encoding="utf-8") as fh:
+            fh.write(to_markdown(report))
+        console.print(f"[bold cyan][LogLens][/bold cyan] Markdown report → [green]{md_out}[/green]")
+
+    if min_f1 is not None and report.micro.get("f1", 0.0) < min_f1:
+        console.print(
+            f"[bold red]✗ FAIL: micro-F1 {report.micro.get('f1', 0):.3f} < {min_f1:.3f}[/bold red]"
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command()

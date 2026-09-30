@@ -94,7 +94,6 @@ def gen_point_fatal(rng: random.Random, t0: datetime, n: int = 200) -> Writer:
 
 
 def gen_error_burst(rng: random.Random, t0: datetime, n: int = 300) -> Writer:
-
     w = Writer()
     ts = t0
     for _ in range(n // 2):
@@ -157,6 +156,57 @@ def gen_service_outage(rng: random.Random, t0: datetime, n: int = 300) -> Writer
     return w
 
 
+def gen_hdfs_sessions(rng: random.Random, t0: datetime, n_sessions: int = 90) -> Writer:
+    w = Writer()
+    normal_steps = [
+        "Receiving block {blk} src: /10.0.0.{a} dest: /10.0.0.{b}",
+        "Received block {blk} of size {n} from /10.0.0.{a}",
+        "PacketResponder {p} for block {blk} terminating",
+        "BLOCK* NameSystem.addStoredBlock: blockMap updated for {blk}",
+        "Deleting block {blk} file /data/current/{blk}",
+    ]
+
+    def render(step: str, blk: str) -> str:
+        return step.format(
+            blk=blk,
+            a=rng.randint(1, 254),
+            b=rng.randint(1, 254),
+            n=rng.randint(1000, 9_000_000),
+            p=rng.randint(0, 3),
+        )
+
+    queues: list[list[tuple[str, bool]]] = []
+    for _ in range(n_sessions):
+        blk = f"blk_{rng.randint(10**9, 10**10)}"
+        anomalous = rng.random() < 0.12
+        steps = list(normal_steps)
+        if anomalous:
+            kind = rng.choice(["reorder", "truncate", "duplicate", "foreign"])
+            if kind == "reorder":
+                i = rng.randint(0, len(steps) - 2)
+                steps[i], steps[i + 1] = steps[i + 1], steps[i]
+            elif kind == "truncate":
+                steps = steps[: rng.randint(1, 3)]  # block never finished
+            elif kind == "duplicate":
+                i = rng.randint(0, len(steps) - 1)
+                steps.insert(i, steps[i])
+            else:  # foreign event that never appears in a healthy block
+                steps.insert(
+                    rng.randint(1, len(steps) - 1),
+                    "Exception writing block {blk} to mirror /10.0.0.{a}",
+                )
+        queues.append([(render(s, blk), anomalous) for s in steps])
+
+    ts = t0
+    while any(queues):
+        live = [i for i, q in enumerate(queues) if q]
+        qi = rng.choice(live)
+        msg, anom = queues[qi].pop(0)
+        ts += timedelta(seconds=rng.randint(0, 2))
+        w.add(_fmt(ts, "INFO", "hdfs", msg), anomaly=anom)
+    return w
+
+
 def gen_big(rng: random.Random, t0: datetime, n: int) -> Writer:
     w = Writer()
     ts = t0
@@ -194,6 +244,7 @@ def main() -> int:
         "incident_heavy.log": gen_incident_heavy(rng, t0),
         "param_anomaly.log": gen_param_anomaly(rng, t0),
         "service_outage.log": gen_service_outage(rng, t0),
+        "hdfs_sessions.log": gen_hdfs_sessions(rng, t0),
         "big.log": gen_big(rng, t0, args.big),
     }
 

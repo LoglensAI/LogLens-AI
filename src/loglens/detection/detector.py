@@ -9,6 +9,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 
+from loglens.detection.sequence import sequence_anomaly_scores
 from loglens.detection.templates import TemplateRegistry, parse_timestamp
 from loglens.domain.models import LogEntry
 from loglens.domain.scoring import (
@@ -78,7 +79,8 @@ class DetectorConfig:
     recurring_share: float = 0.002
     recurring_min: int = 5
     rarity_confidence_k: float = 0.0
-    seed: int = 0
+    seed: int = 0  # RNG seed for any sampling (e.g. eps estimation) — P1.5 determinism
+    enable_sequence: bool = True  # P3.C session-order detector (auto-silent w/o sessions)
 
     @classmethod
     def from_sensitivity(cls, sensitivity: str = "normal", **overrides) -> DetectorConfig:
@@ -535,6 +537,18 @@ def detect(
     )
     scores, reasons = _score_entries(entries, sig, cfg)
 
+
+    seq_note = ""
+    if cfg.enable_sequence:
+        seq_scores, seq_reasons, seq_note = sequence_anomaly_scores(
+            entries, flag_at=cfg.flag_threshold
+        )
+        for i in range(n):
+            if seq_scores[i] > scores[i]:
+                scores[i] = seq_scores[i]
+            if seq_reasons[i]:
+                reasons[i] = list(reasons[i]) + seq_reasons[i]
+
     threshold = cfg.flag_threshold
     if cfg.auto_threshold:
         auto = otsu_threshold(scores)
@@ -563,6 +577,8 @@ def detect(
     }
     if burst_note:
         meta["burst_note"] = burst_note
+    if seq_note:
+        meta["sequence_note"] = seq_note
 
     return DetectionResult(
         entries=entries,
