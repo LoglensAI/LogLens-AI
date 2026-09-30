@@ -42,3 +42,4 @@ datasets/
 .coverage.*
 htmlcov/
 src/loglens/_build.py
+testlogs/
