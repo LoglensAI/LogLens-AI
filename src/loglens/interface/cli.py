@@ -223,6 +223,11 @@ async def _collect_entries(
 
 
 def _family_item(g, members: list, line_of: dict[int, int]) -> dict[str, Any]:
+    """Build a rich loglens.v1 anomaly-family record from a group + its members.
+
+    ``members`` are the LogEntry objects in this family; ``line_of`` maps each
+    entry's identity to its 1-based line number in the source.
+    """
     line_numbers = sorted(line_of[id(m)] for m in members if id(m) in line_of)
     timestamps = [m.timestamp for m in members if getattr(m, "timestamp", "")]
     samples = [(getattr(m, "raw", "") or m.message) for m in members[:3]]
@@ -1320,6 +1325,64 @@ def bench_suite(
             f"[bold red]✗ FAIL: micro-F1 {report.micro.get('f1', 0):.3f} < {min_f1:.3f}[/bold red]"
         )
         raise typer.Exit(code=1)
+
+
+@app.command("bench-fetch")
+def bench_fetch(
+    system: str = typer.Option(..., "--system", help="Dataset: bgl | hdfs"),
+    out: str = typer.Option("benchdata", "--out", help="Output directory (log + labels.json)"),
+    sample: bool = typer.Option(
+        False, "--sample", help="BGL only: download the 2k labeled sample from GitHub"
+    ),
+    src: str = typer.Option(
+        "", "--from", help="Path to a full local dataset log (BGL.log or HDFS.log from Zenodo)"
+    ),
+    labels: str = typer.Option(
+        "", "--labels", help="HDFS only: path to anomaly_label.csv (block → Normal/Anomaly)"
+    ),
+    max_lines: int = typer.Option(0, "--max-lines", help="Cap lines converted (0 = all)"),
+):
+    _load()
+    sysname = system.strip().lower()
+    cap = max_lines or None
+
+    from loglens.application import loghub
+
+    try:
+        if sysname == "bgl":
+            if sample:
+                console.print("[bold cyan][LogLens][/bold cyan] Downloading BGL 2k sample…")
+                name, total, anom = loghub.fetch_bgl_sample(out)
+            elif src:
+                name, total, anom = loghub.convert_bgl(src, out, max_lines=cap)
+            else:
+                console.print(
+                    "[bold red][LogLens][/bold red] BGL needs --sample or --from <BGL.log>"
+                )
+                raise typer.Exit(code=1)
+        elif sysname == "hdfs":
+            if not src or not labels:
+                console.print(
+                    "[bold red][LogLens][/bold red] HDFS needs --from <HDFS.log> and "
+                    "--labels <anomaly_label.csv>"
+                )
+                raise typer.Exit(code=1)
+            name, total, anom = loghub.convert_hdfs(src, labels, out, max_lines=cap)
+        else:
+            console.print(f"[bold red][LogLens][/bold red] Unknown system {system!r} (bgl | hdfs)")
+            raise typer.Exit(code=1)
+    except FileNotFoundError as exc:
+        console.print(f"[bold red][LogLens][/bold red] {exc}")
+        raise typer.Exit(code=1) from None
+    except OSError as exc:
+        console.print(f"[bold red][LogLens][/bold red] download/convert failed: {exc}")
+        raise typer.Exit(code=1) from None
+
+    console.print(
+        f"[bold green]✓[/bold green] Wrote [yellow]{out}/{name}[/yellow] — "
+        f"[bold]{total:,}[/bold] lines, [bold red]{anom:,}[/bold red] labeled anomalies"
+    )
+    console.print(f"[dim]  Now run: loglens bench-suite --dir {out}[/dim]")
 
 
 @app.command()

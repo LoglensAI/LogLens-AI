@@ -43,3 +43,5 @@ datasets/
 htmlcov/
 src/loglens/_build.py
 testlogs/
+
+benchdata/

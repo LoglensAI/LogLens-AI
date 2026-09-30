@@ -79,6 +79,7 @@ def gen_clean(rng: random.Random, t0: datetime, n: int = 200) -> Writer:
 
 
 def gen_point_fatal(rng: random.Random, t0: datetime, n: int = 200) -> Writer:
+    
     w = Writer()
     ts = t0
     inject_at = {rng.randint(20, n - 5) for _ in range(4)}
@@ -94,6 +95,7 @@ def gen_point_fatal(rng: random.Random, t0: datetime, n: int = 200) -> Writer:
 
 
 def gen_error_burst(rng: random.Random, t0: datetime, n: int = 300) -> Writer:
+    
     w = Writer()
     ts = t0
     for _ in range(n // 2):
@@ -128,6 +130,7 @@ def gen_incident_heavy(rng: random.Random, t0: datetime, n: int = 250) -> Writer
 
 
 def gen_param_anomaly(rng: random.Random, t0: datetime, n: int = 200) -> Writer:
+    
     w = Writer()
     ts = t0
     inject_at = {rng.randint(20, n - 5) for _ in range(5)}
@@ -153,6 +156,28 @@ def gen_service_outage(rng: random.Random, t0: datetime, n: int = 300) -> Writer
         ts += timedelta(milliseconds=rng.randint(50, 200))
         svc = rng.choice(["api", "auth", "api"])
         w.add(_fmt(ts, "ERROR", svc, "connection refused host=db-1"), anomaly=True)
+    return w
+
+
+def gen_rate_burst(rng: random.Random, t0: datetime, n: int = 360) -> Writer:
+    w = Writer()
+    ts = t0
+
+    def background() -> None:
+        nonlocal ts
+        ts += timedelta(seconds=rng.randint(1, 3))
+        if rng.random() < 0.03:  
+            w.add(_fmt(ts, "INFO", "db", "reconnecting to database primary"))
+        else:
+            w.add(_fmt(ts, rng.choice(LEVELS_NORMAL), rng.choice(SERVICES), _msg(rng, INFO_MSGS)))
+
+    for _ in range(n // 2):
+        background()
+    for _ in range(50):
+        ts += timedelta(milliseconds=rng.randint(20, 150))
+        w.add(_fmt(ts, "INFO", "db", "reconnecting to database primary"), anomaly=True)
+    for _ in range(n // 2):
+        background()
     return w
 
 
@@ -244,6 +269,7 @@ def main() -> int:
         "incident_heavy.log": gen_incident_heavy(rng, t0),
         "param_anomaly.log": gen_param_anomaly(rng, t0),
         "service_outage.log": gen_service_outage(rng, t0),
+        "rate_burst.log": gen_rate_burst(rng, t0),
         "hdfs_sessions.log": gen_hdfs_sessions(rng, t0),
         "big.log": gen_big(rng, t0, args.big),
     }

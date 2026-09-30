@@ -10,6 +10,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 
 from loglens.detection.parameters import parameter_anomaly_scores
+from loglens.detection.rate import rate_burst_scores
 from loglens.detection.sequence import sequence_anomaly_scores
 from loglens.detection.templates import TemplateRegistry, parse_timestamp
 from loglens.domain.models import LogEntry
@@ -82,7 +83,8 @@ class DetectorConfig:
     rarity_confidence_k: float = 0.0
     seed: int = 0  # RNG seed for any sampling (e.g. eps estimation) — P1.5 determinism
     enable_sequence: bool = True  # P3.C session-order detector (auto-silent w/o sessions)
-    enable_parameters: bool = True  
+    enable_parameters: bool = True  # P3.D numeric-parameter outlier detector
+    enable_rate: bool = True  # P3.B per-template rate/burst change-point detector
 
     @classmethod
     def from_sensitivity(cls, sensitivity: str = "normal", **overrides) -> DetectorConfig:
@@ -539,7 +541,9 @@ def detect(
     )
     scores, reasons = _score_entries(entries, sig, cfg)
 
-
+    # P3.C: fuse in the session-sequence detector. It scores entries whose
+    # session takes an unlikely turn (order anomalies line rarity can't see) and
+    # is silent when the corpus isn't session-structured.
     seq_note = ""
     if cfg.enable_sequence:
         seq_scores, seq_reasons, seq_note = sequence_anomaly_scores(
@@ -550,6 +554,9 @@ def detect(
                 scores[i] = seq_scores[i]
             if seq_reasons[i]:
                 reasons[i] = list(reasons[i]) + seq_reasons[i]
+
+    # P3.D: fuse in the parameter-outlier detector — a normal template carrying an
+    # abnormal numeric value (latency spike, odd status code) that rarity can't see.
     param_note = ""
     if cfg.enable_parameters:
         par_scores, par_reasons, param_note = parameter_anomaly_scores(
@@ -560,6 +567,17 @@ def detect(
                 scores[i] = par_scores[i]
             if par_reasons[i]:
                 reasons[i] = list(reasons[i]) + par_reasons[i]
+
+    rate_note = ""
+    if cfg.enable_rate:
+        rate_scores, rate_reasons, rate_note = rate_burst_scores(
+            entries, flag_at=cfg.flag_threshold
+        )
+        for i in range(n):
+            if rate_scores[i] > scores[i]:
+                scores[i] = rate_scores[i]
+            if rate_reasons[i]:
+                reasons[i] = list(reasons[i]) + rate_reasons[i]
 
     threshold = cfg.flag_threshold
     if cfg.auto_threshold:
@@ -593,6 +611,8 @@ def detect(
         meta["sequence_note"] = seq_note
     if param_note:
         meta["parameter_note"] = param_note
+    if rate_note:
+        meta["rate_note"] = rate_note
 
     return DetectionResult(
         entries=entries,
