@@ -78,6 +78,7 @@ class DetectorConfig:
     recurring_share: float = 0.002
     recurring_min: int = 5
     rarity_confidence_k: float = 0.0
+    seed: int = 0
 
     @classmethod
     def from_sensitivity(cls, sensitivity: str = "normal", **overrides) -> DetectorConfig:
@@ -146,13 +147,15 @@ class DetectionResult:
         }
 
 
-def estimate_eps(vectors: np.ndarray, k: int = 4, lo: float = 0.15, hi: float = 0.90) -> float:
+def estimate_eps(
+    vectors: np.ndarray, k: int = 4, lo: float = 0.15, hi: float = 0.90, seed: int = 0
+) -> float:
     n = len(vectors)
     if n <= k + 1:
         return 0.5
     sample = vectors
     if n > 5000:
-        rng = np.random.default_rng(0)
+        rng = np.random.default_rng(seed)
         sample = vectors[rng.choice(n, 5000, replace=False)]
     nn = NearestNeighbors(n_neighbors=min(k + 1, len(sample))).fit(sample)
     dists, _ = nn.kneighbors(sample)
@@ -232,7 +235,11 @@ def _cluster_templates(
         group_vectors[gi] = vectors[g.indices].mean(axis=0)
     group_vectors = normalize(group_vectors, norm="l2")
 
-    eps = cfg.eps if cfg.eps is not None else estimate_eps(group_vectors, k=cfg.min_samples)
+    eps = (
+        cfg.eps
+        if cfg.eps is not None
+        else estimate_eps(group_vectors, k=cfg.min_samples, seed=cfg.seed)
+    )
     db = DBSCAN(eps=eps, min_samples=cfg.min_samples, metric="euclidean", n_jobs=-1)
     group_labels = db.fit_predict(group_vectors, sample_weight=group_counts)
 

@@ -148,7 +148,7 @@ def score_templates(
                 threshold=threshold,
             )
         )
-    out.sort(key=lambda t: t.score, reverse=True)
+    out.sort(key=lambda t: (-t.score, t.level, t.service, t.template))
     return out
 
 
@@ -168,7 +168,7 @@ def scan_file(
             import multiprocessing as mp
 
             with mp.Pool(w) as pool:
-                for local in pool.imap_unordered(_process_range, [(path, s, e) for s, e in chunks]):
+                for local in pool.imap(_process_range, [(path, s, e) for s, e in chunks]):
                     for k, v in local.items():
                         slot = merged.get(k)
                         if slot is None:

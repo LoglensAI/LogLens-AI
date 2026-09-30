@@ -130,10 +130,9 @@ _FAIL_ON_RANK = {
 }
 
 
-# Severities that, on their own, indicate a real incident.
 _INCIDENT_CRIT_LEVELS = {"EMERGENCY", "ALERT", "FATAL", "CRITICAL"}
-_INCIDENT_SEVERE_RATIO = 0.30  # fraction of parsed lines that are severe → burst
-_INCIDENT_BURST_FAMILIES = 5  # this many critical families → clear burst
+_INCIDENT_SEVERE_RATIO = 0.30
+_INCIDENT_BURST_FAMILIES = 5
 
 
 def _assess_incident(
@@ -173,6 +172,20 @@ def _template_id(template: str) -> str:
     return hashlib.sha1((template or "").encode("utf-8")).hexdigest()[:12]
 
 
+def _seed_everything(seed: int) -> None:
+    import os
+    import random as _random
+
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    _random.seed(seed)
+    try:
+        import numpy as _np
+
+        _np.random.seed(seed)
+    except Exception:  # numpy always present in practice; never fail a run on this
+        pass
+
+
 async def _collect_entries(
     source: str, sniff_n: int = 500
 ) -> tuple[list[Any], int, str, float, dict[str, Any]]:
@@ -199,7 +212,7 @@ async def _collect_entries(
         if e is not None:
             entries.append(e)
 
-    if fmt is None:
+    if fmt is None:  # source smaller than the sniff window
         fmt, confidence, layout = sniff_format(sample_buf)
         for buffered in sample_buf:
             e = parse_line(buffered, fmt, layout)
@@ -508,9 +521,15 @@ def analyze(
         help="Exit non-zero (code 2) if any anomaly is this severity or worse: "
         "critical | error | warning | fatal | any. For gating CI/CD builds.",
     ),
+    seed: int = typer.Option(
+        0,
+        "--seed",
+        help="Random seed for reproducible runs — same input + same seed → identical output.",
+    ),
 ):
     """Analyze a log file for anomalies (fast / turbo / deep, with CI/CD gating)."""
     _load()
+    _seed_everything(seed)
     as_json = output_format.strip().lower() == "json"
     if as_json:
         # Keep stdout clean for the JSON payload — human/status output is silenced.
@@ -643,6 +662,7 @@ def analyze(
                 for a in anomalies
             ]
             if as_json:
+                # incident/score/reasons are recomputed from items inside _emit_json.
                 _emit_json(source, "turbo", None, res.parsed_lines, False, turbo_items)
             _apply_fail_on(fail_on, turbo_items)
             return  # turbo done — skip the classic pipeline
@@ -719,7 +739,9 @@ def analyze(
         with console.status(
             "[bold cyan]🔍 Detecting anomalies (clustering + scoring)…[/bold cyan]", spinner="dots"
         ):
-            normal, anomalies, labels = detect_anomalies(entries, vectors)
+            normal, anomalies, labels = detect_anomalies(
+                entries, vectors, config=DetectorConfig(seed=seed)
+            )
         summary = cluster_summary(labels)
 
         # --- supervised: explicit model, else bundled default, else unsupervised ---

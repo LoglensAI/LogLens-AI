@@ -102,6 +102,7 @@ def test_analyze_format_json_is_valid(tmp_path):
     assert data.get("schema") == "loglens.v1"
     if data["anomalies"]:
         a = data["anomalies"][0]
+        # rich loglens.v1 family schema (P1.3)
         expected = {
             "id",
             "template_id",
@@ -151,3 +152,27 @@ def test_fail_on_unknown_threshold_does_not_gate(tmp_path):
     log = _write_log(tmp_path)
     result = runner.invoke(app, ["analyze", "--source", log, "--fail-on", "bogus", "--no-model"])
     assert result.exit_code == 0  # a typo must never silently fail (or pass) a build wrongly
+
+
+def test_analyze_is_deterministic(tmp_path):
+    log = _write_log(tmp_path)
+    args = ["analyze", "--source", log, "--format", "json", "--no-model", "--seed", "42"]
+    first = runner.invoke(app, args)
+    second = runner.invoke(app, args)
+    assert first.exit_code == 0 and second.exit_code == 0
+    assert first.output == second.output
+
+
+def test_grouping_sort_is_total_order():
+    from loglens.detection.grouping import group_anomalies
+    from loglens.domain.models import LogEntry
+
+    entries = [
+        LogEntry(level="ERROR", service="zeta", message="disk full"),
+        LogEntry(level="ERROR", service="alpha", message="disk full"),
+        LogEntry(level="ERROR", service="mid", message="disk full"),
+    ]
+    scores = [0.9, 0.9, 0.9]  # all tied
+    groups = group_anomalies(entries, scores, [[] for _ in entries])
+    order = [g.service for g in groups]
+    assert order == sorted(order)

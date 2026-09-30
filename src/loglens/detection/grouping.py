@@ -49,5 +49,5 @@ def group_anomalies(
         elif not g.reasons:
             g.reasons = list(getattr(a, "anomaly_reasons", []) or [])
     out = list(groups.values())
-    out.sort(key=lambda g: (g.max_score, g.count), reverse=True)
+    out.sort(key=lambda g: (-g.max_score, -g.count, g.level, g.service, g.template))
     return out
