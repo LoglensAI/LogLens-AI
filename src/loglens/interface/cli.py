@@ -130,6 +130,7 @@ _FAIL_ON_RANK = {
 }
 
 
+# Severities that, on their own, indicate a real incident.
 _INCIDENT_CRIT_LEVELS = {"EMERGENCY", "ALERT", "FATAL", "CRITICAL"}
 _INCIDENT_SEVERE_RATIO = 0.30  # fraction of parsed lines that are severe → burst
 _INCIDENT_BURST_FAMILIES = 5  # this many critical families → clear burst
@@ -309,6 +310,7 @@ def _family_item(
 
 
 def _build_incidents(source: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+
     from loglens.detection.incidents import Family, group_incidents
     from loglens.detection.timeutil import parse_ts
 
@@ -351,6 +353,7 @@ def _build_incidents(source: str, items: list[dict[str, Any]]) -> list[dict[str,
 
 
 def _alert_budget_payload(items: list[dict[str, Any]], budget_per_day: float) -> dict[str, Any]:
+    """Per-service alert budget (D14) over the observed window. Report-only."""
     from loglens.detection.calibration import calibrate, to_payload
     from loglens.detection.timeutil import parse_ts
 
@@ -591,6 +594,15 @@ def help_command(ctx: typer.Context):
     console.print(root.get_help())
 
 
+def _is_local_file(source: str) -> bool:
+
+    if not source or source == "stdin":
+        return False
+    if source.startswith(("http://", "https://", "cmd:")):
+        return False
+    return os.path.isfile(source)
+
+
 @app.command()
 def analyze(
     source: str = typer.Option(..., help="Log source: file path, URL, or stdin"),
@@ -608,6 +620,24 @@ def analyze(
         False,
         "--turbo",
         help="Fast multiprocess scan for huge files (byte-range + template dedup, skips embeddings)",
+    ),
+    auto_scale: bool = typer.Option(
+        True,
+        "--auto-scale/--no-auto-scale",
+        help="Auto-distribute load: a very large file is switched to the fast parallel "
+        "scan by itself, leaving CPU headroom free. --no-auto-scale forces the exact pipeline.",
+    ),
+    headroom: int = typer.Option(
+        -1,
+        "--headroom",
+        help="CPU cores to leave free for your other work when auto-scaling "
+        "(default: ~25%% of cores, at least 1).",
+    ),
+    max_exact_lines: int = typer.Option(
+        0,
+        "--max-exact-lines",
+        help="Line estimate above which auto-scale switches a single file to the fast "
+        "parallel scan (0 = default 500k).",
     ),
     explain: int = typer.Option(
         0,
@@ -686,7 +716,7 @@ def analyze(
     as_json = output_format.strip().lower() == "json"
     console.quiet = as_json
     if as_json:
-        pass  # stdout stays clean for the JSON payload
+        pass  
 
     from loglens.detection.filetype import InvalidSourceError, check_source
 
@@ -696,9 +726,24 @@ def analyze(
         console.print(f"[bold red][LogLens][/bold red] {_e}")
         raise typer.Exit(code=1) from None
 
+    use_turbo = turbo
+    eff_workers = workers
+    if auto_scale and not turbo and _is_local_file(source):
+        from loglens.application.autoscale import describe_plan, plan_for_file
+
+        plan = plan_for_file(
+            source,
+            headroom=(None if headroom < 0 else headroom),
+            max_exact_lines=(max_exact_lines or None),
+        )
+        if plan.strategy == "scan":
+            use_turbo = True
+            eff_workers = plan.workers
+            console.print(describe_plan(plan))
+
     async def _run():
 
-        if turbo:
+        if use_turbo:
             console.print(f"\n[bold cyan][LogLens][/bold cyan] Source: [yellow]{source}[/yellow]")
             console.print(
                 "[bold cyan][LogLens][/bold cyan] Mode: [bold magenta]⚡ Turbo (parallel scan)[/bold magenta] "
@@ -709,7 +754,9 @@ def analyze(
             with console.status("[bold magenta]⚡ Turbo scanning…[/bold magenta]", spinner="dots"):
                 res = await loop.run_in_executor(
                     None,
-                    functools.partial(turbo_scan, source, workers=(workers if workers else None)),
+                    functools.partial(
+                        turbo_scan, source, workers=(eff_workers if eff_workers else None)
+                    ),
                 )
             console.print(f"[bold cyan][LogLens][/bold cyan] Workers: [bold]{res.workers}[/bold]")
             console.print(
@@ -1256,8 +1303,6 @@ def analyze(
                     "[/magenta]); for labelled data, [magenta]loglens train <file>[/magenta].[/dim]"
                 )
 
-        # --- AI root-cause analysis (classic path) ---
-        # Phase 1: send ONE representative entry per family (×N in message) — far cheaper tokens
         rca_result = None
         rca_input = []
         if groups:
@@ -1272,7 +1317,6 @@ def analyze(
             else:
                 console.print("[dim]RCA skipped — no anomalies to analyze.[/dim]")
 
-        # --- HTML report (Phase 3: with score distribution) ---
         if html_out:
             entry_scores = [getattr(e, "anomaly_score", 0.0) for e in entries]
             _write_html(
@@ -1370,9 +1414,7 @@ def explain(
         False, "--no-learn", help="Ignore the learned baseline (explain reads it, never writes)."
     ),
 ):
-    """Explain anomalies as descriptive incident cards — when it happened, how often
-    (frequency + timeline), and where (polished stack trace / source location) —
-    within a time window (default: the last 24h of the log)."""
+
     import datetime as _dt
 
     from rich.markup import escape
@@ -1466,7 +1508,6 @@ def explain(
                     return True
         return False
 
-    # --- build structured records (used by both terminal + json) ----------- #
     records = []
     for g in groups:
         members = _members(g)
