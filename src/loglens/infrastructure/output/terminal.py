@@ -5,8 +5,10 @@ from rich.progress import (
     Progress,
     SpinnerColumn,
     TaskID,
+    TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
+    TimeRemainingColumn,
 )
 
 
@@ -18,8 +20,11 @@ class LiveProgress:
             SpinnerColumn(),
             TextColumn("[bold cyan]{task.description}"),
             BarColumn(),
+            TaskProgressColumn(),  # percent complete
             TextColumn("[green]{task.completed:,}[/green] lines"),
             TimeElapsedColumn(),
+            TextColumn("eta"),
+            TimeRemainingColumn(),  # ETA to completion
             TextColumn("[yellow]{task.fields[speed]}[/yellow]"),
         )
         self.task_id: TaskID | None = None

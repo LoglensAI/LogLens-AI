@@ -3,6 +3,7 @@ import functools
 import json
 import os
 import sys
+import time
 from typing import TYPE_CHECKING, Any, cast
 
 import typer
@@ -720,6 +721,7 @@ def analyze(
     ),
 ):
     """Analyze a log file for anomalies (fast / turbo / deep, with CI/CD gating)."""
+    _run_start = time.perf_counter()
     _load()
     _seed_everything(seed)
     as_json = output_format.strip().lower() == "json"
@@ -1414,6 +1416,11 @@ def analyze(
             console.print(table)
 
     asyncio.run(_run())
+    _elapsed = time.perf_counter() - _run_start
+    console.print(
+        f"[bold cyan][LogLens][/bold cyan] ✓ completed in [bold]{_elapsed:.2f}s[/bold]",
+        highlight=False,
+    )
 
 
 _IMPACT_STYLE = {
@@ -2210,6 +2217,9 @@ def bench_suite(
 def _fetch_with_progress(
     sysname: str, out: str, max_lines: int | None, *, quiet: bool = False
 ) -> tuple[str, int, int, float]:
+    """Fetch a dataset with a live single-line progress read-out (download MB, then
+    parse line count) and return ``(name, total, anom, seconds)``. Progress is
+    suppressed when ``quiet`` (e.g. JSON output)."""
     import time
 
     from loglens.application import loghub
@@ -2899,6 +2909,7 @@ def _should_forward(argv: list[str]) -> bool:
 
 
 def main() -> None:
+    
     argv = sys.argv[1:]
     if _should_forward(argv):
         try:
