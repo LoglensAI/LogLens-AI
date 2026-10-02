@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-@dataclass
+@dataclass(slots=True)
 class LogEntry:
     timestamp: str = ""
     level: str = "INFO"
@@ -27,7 +27,7 @@ class LogEntry:
         }
 
 
-@dataclass
+@dataclass(slots=True)
 class Anomaly:
     level: str
     score: float

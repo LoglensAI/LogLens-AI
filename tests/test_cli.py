@@ -341,7 +341,9 @@ def test_bench_routineness_download_is_ephemeral(tmp_path, monkeypatch):
         ti = tarfile.TarInfo("BGL.log")
         ti.size = len(raw)
         tf.addfile(ti, io.BytesIO(raw))
-    monkeypatch.setattr(loghub, "_download", lambda url, dest: shutil.copyfile(arc, dest))
+    monkeypatch.setattr(
+        loghub, "_download", lambda url, dest, on_progress=None: shutil.copyfile(arc, dest)
+    )
 
     before = set(glob.glob("/tmp/loglens_bench_*"))
     result = runner.invoke(app, ["bench-routineness", "--download", "bgl", "--boot", "50"])

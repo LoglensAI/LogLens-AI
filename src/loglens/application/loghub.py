@@ -4,7 +4,6 @@ import csv
 import json
 import os
 import re
-import shutil
 import tarfile
 import tempfile
 import urllib.request
@@ -19,17 +18,27 @@ DATASET_ARCHIVES = {
 }
 
 
-def _download(url: str, dest: str) -> None:
+def _download(url: str, dest: str, on_progress=None) -> None:
     req = urllib.request.Request(url, headers={"User-Agent": "loglens-bench"})
     with (
         urllib.request.urlopen(req, timeout=300) as resp,  # noqa: S310
         open(dest, "wb") as out,
     ):
-        shutil.copyfileobj(resp, out, length=1 << 20)  # stream to disk (large files)
+        total_hdr = resp.headers.get("Content-Length")
+        total = int(total_hdr) if total_hdr and total_hdr.isdigit() else None
+        done = 0
+        while True:
+            chunk = resp.read(1 << 20)
+            if not chunk:
+                break
+            out.write(chunk)
+            done += len(chunk)
+            if on_progress is not None:
+                on_progress(done, total)
 
 
 def _convert_label_prefixed(
-    lines, out_dir: str, name: str, max_lines: int | None
+    lines, out_dir: str, name: str, max_lines: int | None, on_line=None
 ) -> tuple[str, int, int]:
     kept: list[str] = []
     anomaly_lines: list[int] = []
@@ -41,6 +50,8 @@ def _convert_label_prefixed(
         kept.append(line)
         if label != "-":
             anomaly_lines.append(len(kept))  # 1-based ordinal
+        if on_line is not None and len(kept) % 50_000 == 0:
+            on_line(len(kept))
         if max_lines and len(kept) >= max_lines:
             break
     _write(out_dir, name, kept, anomaly_lines)
@@ -74,7 +85,14 @@ def convert_thunderbird(
     return convert_bgl(src, out_dir, name=name, max_lines=max_lines)
 
 
-def fetch_dataset(system: str, out_dir: str, max_lines: int | None = None) -> tuple[str, int, int]:
+def fetch_dataset(
+    system: str,
+    out_dir: str,
+    max_lines: int | None = None,
+    on_download=None,
+    on_line=None,
+) -> tuple[str, int, int]:
+
     key = system.strip().lower()
     if key not in DATASET_ARCHIVES:
         raise ValueError(f"no downloadable archive for {system!r} (bgl | thunderbird)")
@@ -84,7 +102,7 @@ def fetch_dataset(system: str, out_dir: str, max_lines: int | None = None) -> tu
     tmp = tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False)
     tmp.close()
     try:
-        _download(url, tmp.name)
+        _download(url, tmp.name, on_progress=on_download)
         with tarfile.open(tmp.name, "r:gz") as tf:
             member = _pick_log_member(tf)
             if member is None:
@@ -93,7 +111,7 @@ def fetch_dataset(system: str, out_dir: str, max_lines: int | None = None) -> tu
             if fh is None:
                 raise OSError(f"could not read {member.name} from {archive}")
             lines = (raw.decode("utf-8", "replace") for raw in fh)
-            return _convert_label_prefixed(lines, out_dir, name, max_lines)
+            return _convert_label_prefixed(lines, out_dir, name, max_lines, on_line=on_line)
     finally:
         try:
             os.unlink(tmp.name)

@@ -196,6 +196,13 @@ def _seed_everything(seed: int) -> None:
 async def _collect_entries(
     source: str, sniff_n: int = 500
 ) -> tuple[list[Any], int, str, float, dict[str, Any]]:
+    """Stream a source, pick its format from a sample, and parse every line.
+
+    Sniffing from a sample (rather than only line 1) is what lets the parser
+    recover ``service`` for generic ``<ts> LEVEL service message`` logs instead
+    of falling back to ``service=unknown``. Returns
+    ``(entries, line_count, fmt, confidence, layout)``.
+    """
     line_count = 0
     entries: list[Any] = []
     sample_buf: list[str] = []
@@ -535,7 +542,9 @@ def _write_html(html_out, source, total_lines, anomalies, rca_result=None, score
 
 
 def _build_info() -> dict[str, str]:
-
+    """Version + build provenance. Commit/date are baked at build time via a
+    generated ``loglens._build`` module, or the ``LOGLENS_COMMIT`` /
+    ``LOGLENS_BUILD_DATE`` env vars; otherwise ``unknown``."""
     import platform
 
     commit = build_date = ""
@@ -1025,7 +1034,6 @@ def analyze(
                 )
             )
 
-        # Use len(anomalies) — actual score-flagged count, not just noise points
         n_anomalies = len(anomalies)
         incident_flag = ""
         inc_score = 0.0
@@ -1039,7 +1047,6 @@ def analyze(
             if is_incident:
                 incident_flag = " [bold red blink]⚠ INCIDENT[/bold red blink]"
 
-        # --- category-wise breakdown ---
         level_counts: dict = {}
         for a in anomalies:
             lvl = a.level.upper()
@@ -1058,9 +1065,7 @@ def analyze(
                 f"[bold]{inc_score:.2f}[/bold] [dim]— {'; '.join(inc_reasons)}[/dim]"
             )
 
-        # print breakdown tree
         ordered_levels = [lvl for lvl in CATEGORY_ORDER if lvl in level_counts]
-        # also catch any unexpected levels
         for lvl in level_counts:
             if lvl not in ordered_levels:
                 ordered_levels.append(lvl)
@@ -1073,7 +1078,6 @@ def analyze(
                 f"[{color}]{lvl:<10}[/{color}] : [bold]{level_counts[lvl]:,}[/bold]"
             )
 
-        # --- worker pool ---
         progress = LiveProgress(total=len(entries))
         processed_count = 0
 
@@ -1106,7 +1110,6 @@ def analyze(
             f"[bold cyan][LogLens][/bold cyan] Skipped:   [bold red]{stats['skipped']}[/bold red]"
         )
 
-        # --- severity ranking (suppress INFO false positives) ---
         filtered_anomalies = [
             a
             for a in anomalies
@@ -2093,6 +2096,42 @@ def bench_suite(
         raise typer.Exit(code=1)
 
 
+def _fetch_with_progress(
+    sysname: str, out: str, max_lines: int | None, *, quiet: bool = False
+) -> tuple[str, int, int, float]:
+    import time
+
+    from loglens.application import loghub
+
+    t0 = time.perf_counter()
+    if quiet:
+        name, total, anom = loghub.fetch_dataset(sysname, out, max_lines=max_lines)
+        return name, total, anom, time.perf_counter() - t0
+
+    from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("{task.description}"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=True,
+    ) as prog:
+        task = prog.add_task("starting…", total=None)
+
+        def on_dl(done: int, total_bytes: int | None) -> None:
+            pct = f" ({done / total_bytes:.0%})" if total_bytes else ""
+            prog.update(task, description=f"↓ downloading {done / 1e6:,.0f} MB{pct}")
+
+        def on_ln(count: int) -> None:
+            prog.update(task, description=f"⚙ parsing {count:,} lines")
+
+        name, total, anom = loghub.fetch_dataset(
+            sysname, out, max_lines=max_lines, on_download=on_dl, on_line=on_ln
+        )
+    return name, total, anom, time.perf_counter() - t0
+
+
 @app.command("bench-fetch")
 def bench_fetch(
     system: str = typer.Option(..., "--system", help="Dataset: bgl | hdfs | thunderbird"),
@@ -2129,7 +2168,8 @@ def bench_fetch(
                 f"[bold cyan][LogLens][/bold cyan] Downloading {archive} from LogHub/Zenodo"
                 + (f" (first {cap:,} lines)…" if cap else " (full)…")
             )
-            name, total, anom = loghub.fetch_dataset(sysname, out, max_lines=cap)
+            name, total, anom, secs = _fetch_with_progress(sysname, out, cap)
+            console.print(f"[dim]  fetched in {secs:.1f}s[/dim]")
         elif sysname == "bgl":
             if sample:
                 console.print("[bold cyan][LogLens][/bold cyan] Downloading BGL 2k sample…")
@@ -2229,7 +2269,14 @@ def bench_routineness(
                 f"[bold cyan][LogLens][/bold cyan] Fetching {sysname} from LogHub/Zenodo "
                 f"(ephemeral{', first ' + format(max_lines, ',') + ' lines' if max_lines else ''})…"
             )
-            loghub.fetch_dataset(sysname, directory, max_lines=max_lines or None)
+            _name, _total, _anom, _secs = _fetch_with_progress(
+                sysname, directory, max_lines or None, quiet=as_json
+            )
+            if not as_json:
+                console.print(
+                    f"[bold green]✓[/bold green] fetched [bold]{_total:,}[/bold] lines "
+                    f"([bold red]{_anom:,}[/bold red] anomalies) in [bold]{_secs:.1f}s[/bold]"
+                )
         except Exception as exc:
             shutil.rmtree(_tmp_dir, ignore_errors=True)
             console.print(f"[bold red][LogLens][/bold red] fetch failed: {exc}")
@@ -2259,6 +2306,7 @@ def _bench_routineness_eval(
     """Score one suite dir (shared by --dir and --download paths)."""
     import json
     import os
+    import time
 
     from loglens.application.routineness_bench import best_variant, evaluate
     from loglens.detection.parser import parse_line, sniff_format
@@ -2280,15 +2328,29 @@ def _bench_routineness_eval(
             continue
         with open(path, encoding="utf-8", errors="replace") as fh:
             raw = fh.readlines()
+        # time the engine parse (P1.6: documented parse+template lines/sec)
+        _t_parse = time.perf_counter()
         fmt, _conf, layout = sniff_format(raw)
         entries = [e for line in raw if (e := parse_line(line, fmt, layout)) is not None]
+        parse_secs = time.perf_counter() - _t_parse
+        lps = (len(entries) / parse_secs) if parse_secs > 0 else None
+        if not as_json and len(entries) >= 50_000:
+            console.print(
+                f"[dim][LogLens] {name}: parsed {len(entries):,} lines in "
+                f"{parse_secs:.1f}s ({lps:,.0f} lines/s)[/dim]"
+            )
         anom = set(labels[name].get("anomaly_lines", []))
+        _t_eval = time.perf_counter()
         res = evaluate(entries, anom, min_count=min_count, n_boot=n_boot, seed=seed)
+        eval_secs = time.perf_counter() - _t_eval
         best = best_variant(res)
         report["files"][name] = {
             "best_mode": best.mode,
             "best_auc": best.auc,
             "promotable": best.promotable,
+            "parse_seconds": round(parse_secs, 3),
+            "parse_lines_per_sec": round(lps) if lps else None,
+            "eval_seconds": round(eval_secs, 3),
             "variants": {
                 m: {
                     "auc": v.auc,
@@ -2594,7 +2656,6 @@ def _should_forward(argv: list[str]) -> bool:
 
 
 def main() -> None:
-
     argv = sys.argv[1:]
     if _should_forward(argv):
         try:

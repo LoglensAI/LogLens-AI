@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from collections.abc import Iterable, Iterator
+from functools import lru_cache
 
 from loglens.detection.cloud import map_cloud_json
 from loglens.domain.models import LogEntry
@@ -148,6 +149,7 @@ def infer_level(text: str) -> str:
     return "INFO"
 
 
+@lru_cache(maxsize=4096)
 def _norm_level(tok: str) -> str:
     return _PLAINTEXT_LEVEL_MAP.get(tok.lower(), tok.upper())
 

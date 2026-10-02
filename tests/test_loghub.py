@@ -27,7 +27,9 @@ def test_fetch_dataset_downloads_extracts_converts(tmp_path, monkeypatch):
         tf.addfile(ti, io.BytesIO(raw))
 
     # stub the network: copy our local archive into the requested dest
-    monkeypatch.setattr(loghub, "_download", lambda url, dest: shutil.copyfile(arc, dest))
+    monkeypatch.setattr(
+        loghub, "_download", lambda url, dest, on_progress=None: shutil.copyfile(arc, dest)
+    )
 
     out = tmp_path / "suite"
     name, total, anom = loghub.fetch_dataset("bgl", str(out), max_lines=None)
@@ -38,6 +40,28 @@ def test_fetch_dataset_downloads_extracts_converts(tmp_path, monkeypatch):
     # max_lines takes a slice without reading the whole log
     _n, t2, a2 = loghub.fetch_dataset("bgl", str(tmp_path / "suite2"), max_lines=2)
     assert t2 == 2 and a2 == 1
+
+
+def test_fetch_dataset_fires_progress_callbacks(tmp_path, monkeypatch):
+    raw = ("\n".join([f"- {i} n1 INFO ok" for i in range(10)]) + "\n").encode()
+    arc = tmp_path / "BGL.tar.gz"
+    with tarfile.open(arc, "w:gz") as tf:
+        ti = tarfile.TarInfo("BGL.log")
+        ti.size = len(raw)
+        tf.addfile(ti, io.BytesIO(raw))
+
+    # a stub _download that honours the on_progress callback
+    def fake_dl(url, dest, on_progress=None):
+        shutil.copyfile(arc, dest)
+        if on_progress:
+            on_progress(len(raw), len(raw))
+
+    monkeypatch.setattr(loghub, "_download", fake_dl)
+    seen = {"dl": 0}
+    loghub.fetch_dataset(
+        "bgl", str(tmp_path / "out"), on_download=lambda d, t: seen.__setitem__("dl", d)
+    )
+    assert seen["dl"] == len(raw)  # download progress was reported
 
 
 def test_convert_thunderbird_labels_from_alert_tag(tmp_path):

@@ -4,6 +4,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import lru_cache
 
 from loglens.domain.models import LogEntry
 
@@ -34,14 +35,44 @@ _MASKS: list[tuple[re.Pattern, str]] = [
 ]
 
 _WS = re.compile(r"\s+")
+_HAS_DIGIT = re.compile(r"\d")
+
+
+def _template_key_uncached(message: str) -> str:
+    t = message.strip()
+    has_digit = bool(_HAS_DIGIT.search(t))
+
+    if "-" in t:  # uuid (requires hyphens)
+        t = _MASKS[0][0].sub(_MASKS[0][1], t)
+    if "0x" in t or "0X" in t:  # hex 0x…
+        t = _MASKS[1][0].sub(_MASKS[1][1], t)
+    if len(t) >= 12:  # long hex run (needs ≥12 chars)
+        t = _MASKS[2][0].sub(_MASKS[2][1], t)
+    if has_digit and "." in t:  # ipv4
+        t = _MASKS[3][0].sub(_MASKS[3][1], t)
+    if has_digit and "-" in t and ":" in t:  # iso timestamp
+        t = _MASKS[4][0].sub(_MASKS[4][1], t)
+    if has_digit:  # number + unit
+        t = _MASKS[5][0].sub(_MASKS[5][1], t)
+    if has_digit:  # bare number
+        t = _MASKS[6][0].sub(_MASKS[6][1], t)
+    if '"' in t:  # double-quoted string
+        t = _MASKS[7][0].sub(_MASKS[7][1], t)
+    if "'" in t:  # single-quoted string
+        t = _MASKS[8][0].sub(_MASKS[8][1], t)
+    if has_digit:  # catch-all token containing a digit
+        t = _MASKS[9][0].sub(_MASKS[9][1], t)
+
+    return _WS.sub(" ", t).lower()
+
+
+@lru_cache(maxsize=131_072)
+def _template_key_cached(message: str) -> str:
+    return _template_key_uncached(message)
 
 
 def template_key(message: str) -> str:
-    t = message.strip()
-    for pattern, repl in _MASKS:
-        t = pattern.sub(repl, t)
-    t = _WS.sub(" ", t).lower()
-    return t
+    return _template_key_cached(message)
 
 
 _ISO_RE = re.compile(
