@@ -9,8 +9,8 @@ from loglens.detection.templates import template_key
 
 @dataclass
 class Routineness:
-    r: float | None
-    status: str
+    r: float | None  # None when status == "unknown"
+    status: str  # "measured" | "partial(k/4)" | "unknown"
     features: dict[str, float] = field(default_factory=dict)
     note: str = ""
     count: int = 0
@@ -43,8 +43,8 @@ def compute_routineness(
     baseline: dict | None = None,
     buckets: int = 24,
     min_count: int = 5,
+    host_spread_mode: str = "normal",
 ) -> dict[str, Routineness]:
-
     n = len(entries)
     buckets = max(1, buckets)
     known: set[str] = set()
@@ -73,9 +73,10 @@ def compute_routineness(
         seen_buckets = {min(int(p / n * nb), nb - 1) for p in pos}
         feats["stationarity"] = len(seen_buckets) / nb
 
-        hs = _entropy_norm(services[tk])
-        if hs is not None:
-            feats["host_spread"] = hs
+        if host_spread_mode != "drop":
+            hs = _entropy_norm(services[tk])
+            if hs is not None:
+                feats["host_spread"] = (1.0 - hs) if host_spread_mode == "invert" else hs
 
         if tk in known:
             feats["age"] = 1.0

@@ -1,6 +1,63 @@
+import io
 import json
+import shutil
+import tarfile
 
-from loglens.application.loghub import convert_bgl, convert_hdfs
+from loglens.application import loghub
+from loglens.application.loghub import convert_bgl, convert_hdfs, convert_thunderbird
+
+
+def test_fetch_dataset_downloads_extracts_converts(tmp_path, monkeypatch):
+    # build a fake BGL.tar.gz with the label-prefixed format
+    raw = (
+        "\n".join(
+            [
+                "- 1 node1 INFO ok",
+                "KERNEL 2 node1 FATAL tlb",
+                "- 3 node1 INFO ok",
+                "APPREAD 4 node1 ERROR read",
+            ]
+        )
+        + "\n"
+    ).encode()
+    arc = tmp_path / "BGL.tar.gz"
+    with tarfile.open(arc, "w:gz") as tf:
+        ti = tarfile.TarInfo("BGL.log")
+        ti.size = len(raw)
+        tf.addfile(ti, io.BytesIO(raw))
+
+    # stub the network: copy our local archive into the requested dest
+    monkeypatch.setattr(loghub, "_download", lambda url, dest: shutil.copyfile(arc, dest))
+
+    out = tmp_path / "suite"
+    name, total, anom = loghub.fetch_dataset("bgl", str(out), max_lines=None)
+    assert name == "bgl.log" and total == 4 and anom == 2
+    labels = json.load(open(out / "labels.json"))
+    assert labels["bgl.log"]["anomaly_lines"] == [2, 4]
+
+    # max_lines takes a slice without reading the whole log
+    _n, t2, a2 = loghub.fetch_dataset("bgl", str(tmp_path / "suite2"), max_lines=2)
+    assert t2 == 2 and a2 == 1
+
+
+def test_convert_thunderbird_labels_from_alert_tag(tmp_path):
+    src = tmp_path / "Thunderbird.log"
+    src.write_text(
+        "\n".join(
+            [
+                "- 1131566461 2005.11.09 tbird-admin1 Nov 9 ok",
+                "VAPI 1131566462 2005.11.09 tbird-admin1 Nov 9 kernel fault",
+                "- 1131566463 2005.11.09 tbird-admin1 Nov 9 ok again",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    name, total, anom = convert_thunderbird(str(src), str(tmp_path / "out"))
+    assert name == "thunderbird.log"
+    assert total == 3 and anom == 1
+    labels = json.load(open(tmp_path / "out" / "labels.json"))
+    assert labels[name]["anomaly_lines"] == [2]  # the one alert-tagged line
 
 
 def test_convert_bgl_labels_from_alert_tag(tmp_path):

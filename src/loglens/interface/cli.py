@@ -343,6 +343,24 @@ def _build_incidents(source: str, items: list[dict[str, Any]]) -> list[dict[str,
     ]
 
 
+def _alert_budget_payload(items: list[dict[str, Any]], budget_per_day: float) -> dict[str, Any]:
+    from loglens.detection.calibration import calibrate, to_payload
+    from loglens.detection.timeutil import parse_ts
+
+    dts = [
+        d
+        for it in items
+        for k in ("first_seen", "last_seen")
+        if (d := parse_ts(it.get(k) or "")) is not None
+    ]
+    window = (max(dts) - min(dts)).total_seconds() if len(dts) >= 2 else None
+    alerts = [(it.get("service", "unknown"), float(it.get("score", 0.0))) for it in items]
+    budgets = calibrate(alerts, budget_per_day=budget_per_day, window_seconds=window)
+    payload = to_payload(budgets, budget_per_day)
+    payload["window_seconds"] = int(window) if window else None
+    return payload
+
+
 def _emit_json(
     source: str,
     mode: str,
@@ -350,6 +368,7 @@ def _emit_json(
     lines_parsed: int,
     incident: bool,  # kept for signature stability; recomputed from items below
     items: list[dict[str, Any]],
+    alert_budget: float = 5.0,
 ) -> None:
     """Print a machine-readable analysis result to stdout (for CI/CD)."""
     is_incident, incident_score, incident_reasons = _assess_incident(items, lines_parsed)
@@ -370,6 +389,7 @@ def _emit_json(
         "incident_score": incident_score,
         "incident_reasons": incident_reasons,
         "incidents": incidents,
+        "alert_budget": _alert_budget_payload(items, alert_budget),
         "anomaly_count": len(items),
         "anomalies": items,
     }
@@ -515,6 +535,7 @@ def _write_html(html_out, source, total_lines, anomalies, rca_result=None, score
 
 
 def _build_info() -> dict[str, str]:
+
     import platform
 
     commit = build_date = ""
@@ -643,6 +664,11 @@ def analyze(
     ),
     state_dir: str = typer.Option(
         "", "--state-dir", help="Where baselines are stored (default: ~/.loglens/baselines)."
+    ),
+    alert_budget: float = typer.Option(
+        5.0,
+        "--alert-budget",
+        help="Target alerts/day/service for the calibrated budget report (default 5). Report-only.",
     ),
 ):
     """Analyze a log file for anomalies (fast / turbo / deep, with CI/CD gating)."""
@@ -795,8 +821,9 @@ def analyze(
 
             turbo_items = [_turbo_item(a) for a in anomalies]
             if as_json:
-                # incident/score/reasons are recomputed from items inside _emit_json.
-                _emit_json(source, "turbo", None, res.parsed_lines, False, turbo_items)
+                _emit_json(
+                    source, "turbo", None, res.parsed_lines, False, turbo_items, alert_budget
+                )
             _apply_fail_on(fail_on, turbo_items)
             return  # turbo done — skip the classic pipeline
 
@@ -1090,8 +1117,6 @@ def analyze(
             filtered_anomalies.sort(key=_severity)
         elif sort_by == "service":
             filtered_anomalies.sort(key=lambda a: a.service)
-
-        # --- Phase 1: template grouping (families, ×N) ---
         groups = group_anomalies(filtered_anomalies)
 
         from loglens.detection.routineness import compute_routineness, confidence_label
@@ -1109,6 +1134,7 @@ def analyze(
             if last_dt and (_anchor is None or last_dt > _anchor):
                 _anchor = last_dt
 
+        # --- Family display order (newest-first by default) ---
         _MIN_DT = __import__("datetime").datetime.min
         if sort_by == "recent":
             groups.sort(key=lambda g: _gtimes[id(g)][1] or _MIN_DT, reverse=True)
@@ -1116,6 +1142,7 @@ def analyze(
             groups.sort(key=lambda g: _gtimes[id(g)][0] or _MIN_DT)
         elif sort_by == "service":
             groups.sort(key=lambda g: (g.service, -g.max_score))
+        # "severity" keeps group_anomalies' score-desc order
 
         def _conf_color(label: str) -> str:
             head = label.split()[0]
@@ -1178,6 +1205,35 @@ def analyze(
             suppressed = len(anomalies) - len(filtered_anomalies)
             if suppressed:
                 console.print(f"[dim]{suppressed} INFO-level false positives suppressed[/dim]")
+
+            from loglens.detection.calibration import calibrate
+
+            _bud_dts = [d for gid in _gtimes for d in _gtimes[gid] if d is not None]
+            _window = (
+                (max(_bud_dts) - min(_bud_dts)).total_seconds() if len(_bud_dts) >= 2 else None
+            )
+            _budgets = calibrate(
+                [(g.service, g.max_score) for g in groups],
+                budget_per_day=alert_budget,
+                window_seconds=_window,
+            )
+            _over = [b for b in _budgets if not b.within_budget]
+            if _over:
+                parts = [
+                    f"[yellow]{b.service}[/yellow] ~{b.measured_per_day:g}/day" for b in _over[:4]
+                ]
+                basis = _over[0].basis
+                console.print(
+                    f"[dim][LogLens] Alert budget (~{alert_budget:g}/day/service): "
+                    f"⚠ over for {', '.join(parts)}"
+                    + (f" [dim](rate {basis})[/dim]" if basis != "measured" else "")
+                    + "[/dim]"
+                )
+            elif _budgets:
+                console.print(
+                    f"[dim][LogLens] Alert budget (~{alert_budget:g}/day/service): "
+                    "✓ within budget[/dim]"
+                )
         else:
             console.print("\n[bold green] No anomalies detected![/bold green]")
 
@@ -1233,6 +1289,7 @@ def analyze(
                 len(entries),
                 bool(incident_flag),
                 classic_items,
+                alert_budget,
             )
         _apply_fail_on(fail_on, classic_items)
 
@@ -1389,7 +1446,6 @@ def explain(
         ds = [win_dts[id(m)] for m in _members(g) if win_dts.get(id(m)) is not None]
         return (min(ds), max(ds)) if ds else (None, None)
 
-    # order newest-first
     _MIN = _dt.datetime.min
     groups.sort(key=lambda g: _g_times(g)[1] or _MIN, reverse=True)
 
@@ -2039,16 +2095,23 @@ def bench_suite(
 
 @app.command("bench-fetch")
 def bench_fetch(
-    system: str = typer.Option(..., "--system", help="Dataset: bgl | hdfs"),
+    system: str = typer.Option(..., "--system", help="Dataset: bgl | hdfs | thunderbird"),
     out: str = typer.Option("benchdata", "--out", help="Output directory (log + labels.json)"),
     sample: bool = typer.Option(
         False, "--sample", help="BGL only: download the 2k labeled sample from GitHub"
     ),
     src: str = typer.Option(
-        "", "--from", help="Path to a full local dataset log (BGL.log or HDFS.log from Zenodo)"
+        "",
+        "--from",
+        help="Path to a full local dataset log (BGL.log / HDFS.log / Thunderbird.log from Zenodo)",
     ),
     labels: str = typer.Option(
         "", "--labels", help="HDFS only: path to anomaly_label.csv (block → Normal/Anomaly)"
+    ),
+    download: bool = typer.Option(
+        False,
+        "--download",
+        help="Download the full dataset from LogHub/Zenodo (bgl | thunderbird), then convert.",
     ),
     max_lines: int = typer.Option(0, "--max-lines", help="Cap lines converted (0 = all)"),
 ):
@@ -2060,7 +2123,14 @@ def bench_fetch(
     from loglens.application import loghub
 
     try:
-        if sysname == "bgl":
+        if download and sysname in ("bgl", "thunderbird"):
+            archive = loghub.DATASET_ARCHIVES[sysname][0]
+            console.print(
+                f"[bold cyan][LogLens][/bold cyan] Downloading {archive} from LogHub/Zenodo"
+                + (f" (first {cap:,} lines)…" if cap else " (full)…")
+            )
+            name, total, anom = loghub.fetch_dataset(sysname, out, max_lines=cap)
+        elif sysname == "bgl":
             if sample:
                 console.print("[bold cyan][LogLens][/bold cyan] Downloading BGL 2k sample…")
                 name, total, anom = loghub.fetch_bgl_sample(out)
@@ -2068,7 +2138,7 @@ def bench_fetch(
                 name, total, anom = loghub.convert_bgl(src, out, max_lines=cap)
             else:
                 console.print(
-                    "[bold red][LogLens][/bold red] BGL needs --sample or --from <BGL.log>"
+                    "[bold red][LogLens][/bold red] BGL needs --download, --sample or --from <BGL.log>"
                 )
                 raise typer.Exit(code=1)
         elif sysname == "hdfs":
@@ -2079,8 +2149,18 @@ def bench_fetch(
                 )
                 raise typer.Exit(code=1)
             name, total, anom = loghub.convert_hdfs(src, labels, out, max_lines=cap)
+        elif sysname == "thunderbird":
+            if not src:
+                console.print(
+                    "[bold red][LogLens][/bold red] Thunderbird needs --download or "
+                    "--from <Thunderbird.log>"
+                )
+                raise typer.Exit(code=1)
+            name, total, anom = loghub.convert_thunderbird(src, out, max_lines=cap)
         else:
-            console.print(f"[bold red][LogLens][/bold red] Unknown system {system!r} (bgl | hdfs)")
+            console.print(
+                f"[bold red][LogLens][/bold red] Unknown system {system!r} (bgl | hdfs | thunderbird)"
+            )
             raise typer.Exit(code=1)
     except FileNotFoundError as exc:
         console.print(f"[bold red][LogLens][/bold red] {exc}")
@@ -2094,6 +2174,178 @@ def bench_fetch(
         f"[bold]{total:,}[/bold] lines, [bold red]{anom:,}[/bold red] labeled anomalies"
     )
     console.print(f"[dim]  Now run: loglens bench-suite --dir {out}[/dim]")
+
+
+@app.command("bench-routineness")
+def bench_routineness(
+    directory: str = typer.Option(
+        "", "--dir", help="Labeled suite dir with labels.json (from bench-fetch)."
+    ),
+    download: str = typer.Option(
+        "",
+        "--download",
+        help="Fetch a dataset (bgl | thunderbird), evaluate, then DELETE it — leaves "
+        "nothing on disk. Use instead of --dir.",
+    ),
+    max_lines: int = typer.Option(
+        0, "--max-lines", help="With --download: cap lines fetched (0 = all)."
+    ),
+    keep: bool = typer.Option(
+        False, "--keep", help="With --download: keep the fetched suite instead of deleting it."
+    ),
+    min_count: int = typer.Option(5, "--min-count", help="Min occurrences before R is measured."),
+    n_boot: int = typer.Option(1000, "--boot", help="Bootstrap resamples for the CI."),
+    seed: int = typer.Option(0, "--seed", help="Reproducible bootstrap."),
+    output_format: str = typer.Option("terminal", "--format", help="terminal | json"),
+):
+    """Re-test routineness R on labeled data (B3): template-AUC per host-spread variant
+    (normal / drop / invert), with a bootstrap CI and a promote-or-keep-badge verdict.
+    Promote R to a scored signal only if AUC ≥ 0.65 and the 95% CI excludes 0.5.
+
+    With ``--download bgl|thunderbird`` it fetches the dataset, evaluates, and removes
+    everything afterwards (nothing persists on disk) unless ``--keep`` is given."""
+    _load()
+    import shutil
+    import tempfile
+
+    from loglens.application import loghub
+
+    as_json = output_format.strip().lower() == "json"
+    console.quiet = as_json
+
+    # --download: fetch into a temp dir we delete at the end (no permanent footprint).
+    _tmp_dir: str | None = None
+    if download:
+        sysname = download.strip().lower()
+        if sysname not in loghub.DATASET_ARCHIVES:
+            console.print(
+                f"[bold red][LogLens][/bold red] --download takes bgl | thunderbird (got {download!r})"
+            )
+            raise typer.Exit(code=1)
+        _tmp_dir = tempfile.mkdtemp(prefix="loglens_bench_")
+        directory = _tmp_dir
+        try:
+            console.print(
+                f"[bold cyan][LogLens][/bold cyan] Fetching {sysname} from LogHub/Zenodo "
+                f"(ephemeral{', first ' + format(max_lines, ',') + ' lines' if max_lines else ''})…"
+            )
+            loghub.fetch_dataset(sysname, directory, max_lines=max_lines or None)
+        except Exception as exc:
+            shutil.rmtree(_tmp_dir, ignore_errors=True)
+            console.print(f"[bold red][LogLens][/bold red] fetch failed: {exc}")
+            raise typer.Exit(code=1) from None
+    elif not directory:
+        console.print(
+            "[bold red][LogLens][/bold red] give --dir <suite> or --download bgl|thunderbird."
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        _bench_routineness_eval(
+            directory, min_count=min_count, n_boot=n_boot, seed=seed, as_json=as_json
+        )
+    finally:
+        if _tmp_dir and not keep:
+            shutil.rmtree(_tmp_dir, ignore_errors=True)
+            if not as_json:
+                console.print("[dim][LogLens] fetched data deleted (nothing kept on disk).[/dim]")
+        elif _tmp_dir and keep:
+            console.print(f"[dim][LogLens] fetched suite kept at {_tmp_dir}[/dim]")
+
+
+def _bench_routineness_eval(
+    directory: str, *, min_count: int, n_boot: int, seed: int, as_json: bool
+) -> None:
+    """Score one suite dir (shared by --dir and --download paths)."""
+    import json
+    import os
+
+    from loglens.application.routineness_bench import best_variant, evaluate
+    from loglens.detection.parser import parse_line, sniff_format
+
+    labels_path = os.path.join(directory, "labels.json")
+    if not os.path.isfile(labels_path):
+        console.print(
+            f"[bold red][LogLens][/bold red] no labels.json in {directory!r} "
+            "— build one with `loglens bench-fetch`."
+        )
+        raise typer.Exit(code=1)
+    with open(labels_path, encoding="utf-8") as fh:
+        labels = json.load(fh)
+
+    report: dict[str, Any] = {"dir": directory, "files": {}}
+    for name in sorted(labels):
+        path = os.path.join(directory, name)
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            raw = fh.readlines()
+        fmt, _conf, layout = sniff_format(raw)
+        entries = [e for line in raw if (e := parse_line(line, fmt, layout)) is not None]
+        anom = set(labels[name].get("anomaly_lines", []))
+        res = evaluate(entries, anom, min_count=min_count, n_boot=n_boot, seed=seed)
+        best = best_variant(res)
+        report["files"][name] = {
+            "best_mode": best.mode,
+            "best_auc": best.auc,
+            "promotable": best.promotable,
+            "variants": {
+                m: {
+                    "auc": v.auc,
+                    "ci_low": v.ci_low,
+                    "ci_high": v.ci_high,
+                    "n_benign": v.n_benign,
+                    "n_anomalous": v.n_anomalous,
+                }
+                for m, v in res.items()
+            },
+        }
+
+    if as_json:
+        print(json.dumps(report, indent=2))
+        return
+
+    if not report["files"]:
+        console.print("[yellow][LogLens][/yellow] No labeled files found to score.")
+        return
+
+    table = Table(title="Routineness R re-test (template-AUC)", title_style="bold cyan")
+    table.add_column("File")
+    table.add_column("Variant")
+    table.add_column("AUC", justify="right")
+    table.add_column("95% CI", justify="center")
+    table.add_column("benign/anom", justify="right")
+    table.add_column("verdict")
+    for name, fr in report["files"].items():
+        for i, (m, v) in enumerate(fr["variants"].items()):
+            auc = f"{v['auc']:.3f}" if v["auc"] is not None else "—"
+            ci = f"[{v['ci_low']:.2f},{v['ci_high']:.2f}]" if v["ci_low"] is not None else "—"
+            promotable = (
+                v["auc"] is not None
+                and v["ci_low"] is not None
+                and v["auc"] >= 0.65
+                and v["ci_low"] > 0.5
+            )
+            verdict = "[green]promote[/green]" if promotable else "[dim]keep badge[/dim]"
+            table.add_row(
+                name if i == 0 else "",
+                m,
+                auc,
+                ci,
+                f"{v['n_benign']}/{v['n_anomalous']}",
+                verdict,
+            )
+    console.print(table)
+    any_promote = any(fr["promotable"] for fr in report["files"].values())
+    if any_promote:
+        console.print(
+            "\n[bold green]→ R clears the bar on at least one file[/bold green] "
+            "[dim](AUC ≥ 0.65, CI excludes 0.5) — consider flipping r_applied=true for that class.[/dim]"
+        )
+    else:
+        console.print(
+            "\n[dim]→ R stays badge-only (no variant clears AUC ≥ 0.65 with CI excluding 0.5).[/dim]"
+        )
 
 
 @app.command()
@@ -2342,6 +2594,7 @@ def _should_forward(argv: list[str]) -> bool:
 
 
 def main() -> None:
+
     argv = sys.argv[1:]
     if _should_forward(argv):
         try:
