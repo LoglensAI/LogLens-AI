@@ -22,6 +22,7 @@ def cooccurrence_boost(
     base_gate: float = 0.40,
     boost: float = 0.30,
     flag_at: float = 0.70,
+    template_keys: Sequence[str] | None = None,
 ) -> tuple[np.ndarray, list[list[str]], str]:
     n = len(entries)
     scores = np.asarray(base_scores, dtype=np.float64).copy()
@@ -32,7 +33,10 @@ def cooccurrence_boost(
     n_bins = _bin_count(n)
     bin_of = [min(n_bins - 1, i * n_bins // n) for i in range(n)]
 
-    tmpl_of = [template_key(e.message or "") for e in entries]
+    if template_keys is not None:
+        tmpl_of = list(template_keys)
+    else:
+        tmpl_of = [template_key(e.message or "") for e in entries]
     counts: dict[tuple[int, str], list[int]] = defaultdict(list)
     per_template_total: dict[str, int] = defaultdict(int)
     for i in range(n):

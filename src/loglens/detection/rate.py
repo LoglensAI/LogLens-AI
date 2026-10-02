@@ -21,6 +21,7 @@ def rate_burst_scores(
     factor: float = 6.0,
     min_active_windows: int = 4,
     flag_at: float = 0.70,
+    template_keys: Sequence[str] | None = None,
 ) -> tuple[np.ndarray, list[list[str]], str]:
 
     n = len(entries)
@@ -30,20 +31,22 @@ def rate_burst_scores(
         return scores, reasons, ""
 
     n_bins = _bin_count(n)
-    bin_of = [min(n_bins - 1, i * n_bins // n) for i in range(n)]
+    bin_of = np.minimum(n_bins - 1, np.arange(n) * n_bins // n)
 
     by_template: dict[str, list[int]] = defaultdict(list)
-    for i, e in enumerate(entries):
-        by_template[template_key(e.message or "")].append(i)
+    if template_keys is not None:
+        for i, k in enumerate(template_keys):
+            by_template[k].append(i)
+    else:
+        for i, e in enumerate(entries):
+            by_template[template_key(e.message or "")].append(i)
 
     bursts = 0
     for idxs in by_template.values():
         total = len(idxs)
         if total < min_count:
             continue
-        counts = np.zeros(n_bins, dtype=np.int64)
-        for i in idxs:
-            counts[bin_of[i]] += 1
+        counts = np.bincount(bin_of[np.asarray(idxs)], minlength=n_bins).astype(np.int64)
         active = counts[counts > 0]
         if active.size < min_active_windows:
             continue

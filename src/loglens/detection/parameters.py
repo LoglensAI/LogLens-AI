@@ -48,7 +48,9 @@ def parameter_anomaly_scores(
     z_cutoff: float = 5.0,
     min_ratio: float = 3.0,
     flag_at: float = 0.70,
+    template_keys: Sequence[str] | None = None,
 ) -> tuple[np.ndarray, list[list[str]], str]:
+    
     n = len(entries)
     scores = np.zeros(n, dtype=np.float64)
     reasons: list[list[str]] = [[] for _ in range(n)]
@@ -56,8 +58,12 @@ def parameter_anomaly_scores(
         return scores, reasons, ""
 
     groups: dict[str, list[int]] = defaultdict(list)
-    for i, e in enumerate(entries):
-        groups[template_key(e.message or "")].append(i)
+    if template_keys is not None:
+        for i, k in enumerate(template_keys):
+            groups[k].append(i)
+    else:
+        for i, e in enumerate(entries):
+            groups[template_key(e.message or "")].append(i)
 
     flagged = 0
     for idxs in groups.values():
@@ -75,11 +81,11 @@ def parameter_anomaly_scores(
             vals = np.array([slotlists[i][slot] for i in members], dtype=np.float64)
             med = float(np.median(vals))
             mad = float(np.median(np.abs(vals - med)))
-            if mad <= 0:
+            if mad <= 0:  # a steady/constant slot — nothing to flag
                 continue
             for i in members:
                 x = slotlists[i][slot]
-                z = 0.6745 * abs(x - med) / mad
+                z = 0.6745 * abs(x - med) / mad 
                 ratio = abs(x - med) / max(abs(med), 1.0)
                 if z >= z_cutoff and ratio >= min_ratio:
                     score = min(1.0, 0.7 + 0.3 * min(1.0, (z - z_cutoff) / z_cutoff))

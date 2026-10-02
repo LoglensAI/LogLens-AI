@@ -48,8 +48,8 @@ def sequence_anomaly_scores(
     min_coverage: float = 0.5,
     min_pred: int = 5,
     flag_at: float = 0.70,
+    template_keys: Sequence[str] | None = None,
 ) -> tuple[np.ndarray, list[list[str]], str]:
-
     n = len(entries)
     scores = np.zeros(n, dtype=np.float64)
     reasons: list[list[str]] = [[] for _ in range(n)]
@@ -63,7 +63,8 @@ def sequence_anomaly_scores(
         if key is None:
             continue
         keyed += 1
-        sessions[key].append((i, template_key(e.message or "")))
+        tk = template_keys[i] if template_keys is not None else template_key(e.message or "")
+        sessions[key].append((i, tk))
 
     coverage = keyed / n
     if len(sessions) < min_sessions or coverage < min_coverage:
@@ -90,7 +91,7 @@ def sequence_anomaly_scores(
         pred[prev] += 1
 
     v = len(vocab)
-    alpha = 1.0
+    alpha = 1.0  # add-one (Laplace) smoothing
 
     flagged_sessions = 0
     for key, events in sessions.items():
@@ -99,7 +100,7 @@ def sequence_anomaly_scores(
         prev = _BOS
         prev_idx = -1
         for idx, tmpl in events:
-            if pred[prev] >= min_pred:
+            if pred[prev] >= min_pred: 
                 p = (trans[prev].get(tmpl, 0) + alpha) / (pred[prev] + alpha * v)
                 surprise = 1.0 - p
                 if surprise > scores[idx]:

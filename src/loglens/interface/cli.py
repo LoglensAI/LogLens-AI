@@ -140,13 +140,6 @@ _INCIDENT_BURST_FAMILIES = 5  # this many critical families → clear burst
 def _assess_incident(
     items: list[dict[str, Any]], lines_parsed: int
 ) -> tuple[bool, float, list[str]]:
-    """Decide whether the run is an incident, with a 0-1 score and reasons.
-
-    An incident fires when ANY of: at least one CRITICAL/FATAL family, a severe
-    burst (≥30% of parsed lines severe), or many critical families. This replaces
-    the old "≥30% of all lines" rule, which never fired on realistic logs where a
-    few catastrophic families sit among mostly-normal traffic.
-    """
     crit = [it for it in items if str(it.get("level", "")).upper() in _INCIDENT_CRIT_LEVELS]
     errs = [it for it in items if str(it.get("level", "")).upper() in ("ERROR",)]
     severe_lines = sum(int(it.get("count", 1) or 1) for it in (*crit, *errs))
@@ -182,6 +175,13 @@ def _template_id(template: str) -> str:
 
 
 def _seed_everything(seed: int) -> None:
+    """Seed every RNG so a run is reproducible (P1.5).
+
+    The detection pipeline is already deterministic given fixed seeds; this pins
+    the global Python/NumPy generators too, for any third-party library or future
+    stochastic detector that reads them, and exports PYTHONHASHSEED so forked
+    turbo workers inherit it.
+    """
     import os
     import random as _random
 
@@ -618,7 +618,12 @@ def analyze(
     source: str = typer.Option(..., help="Log source: file path, URL, or stdin"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Stop after ingestion, show stats only"),
     verbose: bool = typer.Option(False, "--verbose", help="Show sample parsed entry"),
-    workers: int = typer.Option(4, "--workers", help="Number of parallel workers"),
+    workers: int = typer.Option(
+        0,
+        "--workers",
+        help="Parallel workers for the scan (0 = auto: cgroup/affinity-aware, leaves CPU "
+        "headroom free). Explicit value overrides the auto budget.",
+    ),
     deep: bool = typer.Option(False, "--deep", help="Use neural embeddings (accurate, slower)"),
     limit: int = typer.Option(20, "--limit", help="Max anomaly families to display (default: 20)"),
     sort_by: str = typer.Option(
@@ -739,6 +744,11 @@ def analyze(
         console.print(f"[bold red][LogLens][/bold red] {_e}")
         raise typer.Exit(code=1) from None
 
+    # --- self-tuning load distribution -----------------------------------
+    # For a plain `analyze <file>`, decide by ourselves whether the file is big
+    # enough to warrant the fast parallel scan, and how many workers to use while
+    # leaving CPU headroom for the user's other work. Explicit --turbo or
+    # --no-auto-scale skip the heuristic; non-file sources (URL/stdin/cmd) too.
     use_turbo = turbo
     eff_workers = workers
     if auto_scale and not turbo and _is_local_file(source):
@@ -766,6 +776,11 @@ def analyze(
                 use_turbo = True
                 eff_workers = plan.workers
                 console.print(describe_plan(plan))
+
+    if use_turbo and workers <= 0:
+        from loglens.application.autoscale import worker_budget
+
+        eff_workers = worker_budget(headroom=(None if headroom < 0 else headroom))
 
     async def _run():
 
@@ -1189,7 +1204,7 @@ def analyze(
         stats = await run_worker_pool(
             entry_stream(),
             process_fn,
-            num_workers=workers,
+            num_workers=(workers or 4),  # 0 = auto → the classic default
         )
 
         if not as_json:
@@ -1569,12 +1584,14 @@ def explain(
         ds = [win_dts[id(m)] for m in _members(g) if win_dts.get(id(m)) is not None]
         return (min(ds), max(ds)) if ds else (None, None)
 
+    # order newest-first
     _MIN = _dt.datetime.min
     groups.sort(key=lambda g: _g_times(g)[1] or _MIN, reverse=True)
 
     from loglens.detection.diagnosis import diagnose
 
     def _recovery_after(idx: int | None, service: str) -> bool:
+        """Does a later line from the same service signal recovery? (→ non-blocking)"""
         from loglens.detection.diagnosis import _RECOVERY
 
         if idx is None:
@@ -1651,6 +1668,7 @@ def explain(
         )
 
     explain_incidents = _build_incidents(source, records)
+
     _imp = impact_filter.strip().lower()
     if _imp:
         records = [r for r in records if r["impact"] == _imp]
@@ -2909,7 +2927,12 @@ def _should_forward(argv: list[str]) -> bool:
 
 
 def main() -> None:
-    
+    """Console-script entry point.
+
+    Eligible commands are forwarded to the warm daemon when it's enabled; if the
+    daemon is down, unreachable, or errors, we fall straight through to running
+    in-process, so behaviour never regresses.
+    """
     argv = sys.argv[1:]
     if _should_forward(argv):
         try:

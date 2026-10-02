@@ -432,6 +432,7 @@ def detect(
 
     registry = TemplateRegistry(entries)
     n_groups = len(registry)
+    _tkeys = [registry.groups[gi].template for gi in registry.entry_group]
     group_vectors, group_counts, group_labels, cluster_sizes, eps = _cluster_templates(
         vectors, registry, cfg
     )
@@ -557,7 +558,7 @@ def detect(
     seq_note = ""
     if cfg.enable_sequence:
         seq_scores, seq_reasons, seq_note = sequence_anomaly_scores(
-            entries, flag_at=cfg.flag_threshold
+            entries, flag_at=cfg.flag_threshold, template_keys=_tkeys
         )
         comp_s = np.asarray(seq_scores, dtype=float)
         for i in range(n):
@@ -571,7 +572,7 @@ def detect(
     param_note = ""
     if cfg.enable_parameters:
         par_scores, par_reasons, param_note = parameter_anomaly_scores(
-            entries, flag_at=cfg.flag_threshold
+            entries, flag_at=cfg.flag_threshold, template_keys=_tkeys
         )
         comp_p = np.asarray(par_scores, dtype=float)
         for i in range(n):
@@ -583,7 +584,7 @@ def detect(
     rate_note = ""
     if cfg.enable_rate:
         rate_scores, rate_reasons, rate_note = rate_burst_scores(
-            entries, flag_at=cfg.flag_threshold
+            entries, flag_at=cfg.flag_threshold, template_keys=_tkeys
         )
         comp_b = np.asarray(rate_scores, dtype=float)
         for i in range(n):
@@ -596,7 +597,7 @@ def detect(
     if cfg.enable_cooccurrence:
         _pre_cooc = scores.copy()
         scores, cooc_reasons, cooc_note = cooccurrence_boost(
-            entries, scores, flag_at=cfg.flag_threshold
+            entries, scores, flag_at=cfg.flag_threshold, template_keys=_tkeys
         )
         comp_c = np.maximum(0.0, np.asarray(scores, dtype=float) - _pre_cooc)
         for i in range(n):

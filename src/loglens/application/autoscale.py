@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from loglens.application.scheduler import detect_cores
 
+# Above this estimated line count a single file auto-switches to the fast scan.
 DEFAULT_MAX_EXACT_LINES = 500_000
 _SAMPLE_BYTES = 262_144
 
@@ -76,6 +77,11 @@ def plan(
         else f"fast parallel scan (forced) on {workers} worker(s)"
     )
     return ScalePlan("scan", workers, cores, reserved, est_lines, size_bytes, threshold, reason)
+
+
+def worker_budget(headroom: int | None = None, cores: int | None = None) -> int:
+    cores = cores or detect_cores()
+    return max(1, cores - _reserved_cores(cores, headroom))
 
 
 def plan_for_file(
