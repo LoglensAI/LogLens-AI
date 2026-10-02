@@ -2524,6 +2524,138 @@ def watch(
         )
 
 
+@app.command("analyze-multi")
+def analyze_multi(
+    source: list[str] = typer.Option(
+        ...,
+        "--source",
+        help="A log source (repeatable). Forms: PATH, ID=PATH, ID=cmd:CMD, ID=https://URL. "
+        "Each source gets its own pipeline; a noisy source can't distort another's baseline.",
+    ),
+    mode: str = typer.Option("fast", "--mode", help="Detection mode: fast | deep"),
+    sensitivity: str = typer.Option("normal", "--sensitivity", help="low | normal | high"),
+    workers: int = typer.Option(
+        0,
+        "--workers",
+        help="Worker processes (0 = auto: cgroup/affinity-aware, one core reserved for the "
+        "coordinator). Sources are analysed in parallel across workers.",
+    ),
+    overflow: str = typer.Option(
+        "block",
+        "--overflow",
+        help="Backpressure policy for live sources: block (lossless, default) | drop-oldest | "
+        "drop-newest | sample. ERROR and above are never dropped; every shed line is counted.",
+    ),
+    max_memory: int = typer.Option(
+        0,
+        "--max-memory",
+        help="Soft per-source queue bound in MB (0 = default). Drives backpressure/shedding.",
+    ),
+    gap: float = typer.Option(
+        30.0,
+        "--gap",
+        help="Seconds within which anomalies from different sources are correlated into one "
+        "cross-source incident.",
+    ),
+    output_format: str = typer.Option(
+        "terminal", "--format", help="Output format: terminal (default) | json."
+    ),
+) -> None:
+    """Analyse several log sources at once, each on its own pipeline, across cores.
+
+    Per-source results are byte-identical to analysing each source alone — the
+    parallelism and load handling never touch detection accuracy. Cross-source
+    incidents are correlated on a shared UTC timeline after detection.
+    """
+    from loglens.application.multisource import analyze_sources
+    from loglens.application.pipeline import OverflowPolicy
+    from loglens.application.sources import parse_sources
+
+    as_json = output_format.lower() == "json"
+    console.quiet = as_json
+
+    # Validate the overflow policy early (even though live streaming shedding is
+    # engaged by the pipeline, not the whole-file path) so a typo fails loudly.
+    try:
+        OverflowPolicy(overflow.lower())
+    except ValueError:
+        valid = ", ".join(p.value for p in OverflowPolicy)
+        raise typer.BadParameter(f"--overflow must be one of: {valid}") from None
+    _ = max_memory  # reserved for the streaming pipeline; accepted now for stability
+
+    try:
+        specs = parse_sources(list(source))
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from None
+
+    events: list[tuple[str, str]] = []
+    console.print(
+        f"[bold cyan][LogLens][/bold cyan] analysing {len(specs)} source(s)…", highlight=False
+    )
+    result = analyze_sources(
+        specs,
+        mode=mode,
+        sensitivity=sensitivity,
+        workers=(workers or None),
+        gap_seconds=gap,
+        on_event=lambda k, d: events.append((k, d)),
+    )
+
+    if as_json:
+        payload = result.to_dict()
+        payload["overflow_policy"] = overflow.lower()
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    table = Table(title="LogLens Multi-Source", title_style="bold cyan")
+    table.add_column("Source")
+    table.add_column("Worker", justify="right")
+    table.add_column("Format")
+    table.add_column("Lines", justify="right")
+    table.add_column("Anomalies", justify="right")
+    table.add_column("Lines/s", justify="right")
+    table.add_column("Status")
+    for st in result.stats.to_dict()["by_source"]:
+        row = next((s for s in result.per_source if s["id"] == st["source"]), {})
+        status = (
+            "[red]FAULT[/red]"
+            if not st["ok"]
+            else ("[yellow]degraded[/yellow]" if st["mode"] != "full" else "[green]ok[/green]")
+        )
+        table.add_row(
+            st["source"],
+            str(st["worker"]) if st["worker"] is not None else "-",
+            str(row.get("format") or "-"),
+            f"{st['lines_parsed']:,}",
+            f"{len(row.get('anomalies', [])):,}",
+            f"{st['lines_per_sec']:,.0f}",
+            status,
+        )
+    console.print(table)
+
+    console.print(
+        f"[bold cyan][LogLens][/bold cyan] {result.workers} worker(s) · "
+        f"{result.total_lines:,} lines · {result.total_anomalies:,} anomalies · "
+        f"{len(result.cross_incidents)} cross-source incident(s)",
+        highlight=False,
+    )
+    for ci in result.cross_incidents:
+        d = ci.to_dict()
+        console.print(
+            f"  [bold]cross-incident[/bold] [{d['worst_level']}] "
+            f"{', '.join(d['sources'])} · {d['anomaly_count']} anomalies "
+            f"over {d['duration_seconds']}s",
+            highlight=False,
+        )
+    if result.stats.total_dropped:
+        console.print(
+            f"[yellow][LogLens][/yellow] shed {result.stats.total_dropped:,} line(s) under "
+            f"backpressure (policy: {overflow.lower()}; ERROR+ never dropped)."
+        )
+    for kind, detail in events:
+        console.print(f"[dim][LogLens] {kind}: {detail}[/dim]")
+
+
 # --------------------------------------------------------------------------- #
 # Daemon: a resident warm process that keeps scikit-learn imported so each
 # `loglens analyze` is a sub-100 ms round-trip instead of paying ~1.7 s of
