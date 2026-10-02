@@ -246,6 +246,8 @@ def _family_item(
     tid = _template_id(getattr(g, "template", "") or g.sample)
     reasons = list(getattr(g, "reasons", []) or [])
 
+    # Lightweight impact + trace-kind from the family's sample + severity (the deep,
+    # trace-reconstructed version lives in `loglens explain`).
     from loglens.detection.diagnosis import diagnose as _diagnose
 
     _d = _diagnose(g.sample, [], level=g.level)
@@ -266,6 +268,10 @@ def _family_item(
             if r.note:
                 reasons = [*reasons, r.note]
 
+    # Per-detector sub-scores (D12): the max each detector contributed across this
+    # family's members. N novelty · B rate/burst · P parameter · C co-occurrence ·
+    # S sequence · R routineness (0..1, descriptive). Defaults to 0 on fast paths
+    # (e.g. turbo) that don't compute component scores.
     _agg = {"N": 0.0, "B": 0.0, "P": 0.0, "C": 0.0, "S": 0.0}
     for m in members:
         ms = (getattr(m, "metadata", None) or {}).get("scores")
@@ -275,6 +281,9 @@ def _family_item(
     scores_block: dict[str, float | None] = {k: round(v, 4) for k, v in _agg.items()}
     scores_block["R"] = r_value
 
+    # provisional: a low-confidence family the reader should treat as tentative.
+    # retracted: reserved for the streaming path (a family later superseded); always
+    # False in batch analysis today.
     provisional = bool(confidence and confidence.startswith("Low"))
 
     return {
@@ -310,7 +319,8 @@ def _family_item(
 
 
 def _build_incidents(source: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-
+    """Group families into incidents (D13), stamp each item's ``incident_id`` in place,
+    and return a serialisable incident summary list for the JSON payload."""
     from loglens.detection.incidents import Family, group_incidents
     from loglens.detection.timeutil import parse_ts
 
@@ -595,7 +605,6 @@ def help_command(ctx: typer.Context):
 
 
 def _is_local_file(source: str) -> bool:
-
     if not source or source == "stdin":
         return False
     if source.startswith(("http://", "https://", "cmd:")):
@@ -714,9 +723,11 @@ def analyze(
     _load()
     _seed_everything(seed)
     as_json = output_format.strip().lower() == "json"
+    # Set unconditionally: `console` is a module singleton, so a prior JSON run
+    # would otherwise leave it quiet and silence this terminal run.
     console.quiet = as_json
     if as_json:
-        pass  
+        pass  # stdout stays clean for the JSON payload
 
     from loglens.detection.filetype import InvalidSourceError, check_source
 
@@ -729,7 +740,7 @@ def analyze(
     use_turbo = turbo
     eff_workers = workers
     if auto_scale and not turbo and _is_local_file(source):
-        from loglens.application.autoscale import describe_plan, plan_for_file
+        from loglens.application.autoscale import plan_for_file
 
         plan = plan_for_file(
             source,
@@ -737,9 +748,22 @@ def analyze(
             max_exact_lines=(max_exact_lines or None),
         )
         if plan.strategy == "scan":
-            use_turbo = True
-            eff_workers = plan.workers
-            console.print(describe_plan(plan))
+            chose_model = bool(deep) or bool(model and model.strip())
+            if chose_model:
+                mb = plan.size_bytes / 1e6
+                which = "deep (neural)" if deep else "supervised"
+                console.print(
+                    f"[bold cyan][LogLens][/bold cyan] large input (~{plan.est_lines:,} lines, "
+                    f"{mb:,.0f} MB): running your chosen [bold]{which}[/bold] model in full "
+                    f"(exact, accuracy preserved). [dim]This is slower on a single huge file; "
+                    f"use --turbo for a fast approximate scan.[/dim]"
+                )
+            else:
+                from loglens.application.autoscale import describe_plan
+
+                use_turbo = True
+                eff_workers = plan.workers
+                console.print(describe_plan(plan))
 
     async def _run():
 
@@ -840,6 +864,9 @@ def analyze(
                     html_out, source, res.parsed_lines, rca_entries, rca_result, scores=turbo_scores
                 )
 
+            # --- machine-readable output + CI/CD gating ---
+            # Turbo is a byte-range/template scan, so it has no per-line numbers;
+            # line_numbers[] is intentionally empty here (use fast mode for those).
             from loglens.detection.diagnosis import diagnose as _diagnose_turbo
 
             def _turbo_item(a):
@@ -858,6 +885,8 @@ def analyze(
                     "sample_lines": [a.sample],
                     "message": a.sample,
                     "calibrated_p": None,
+                    # turbo skips embeddings + component detectors, so sub-scores aren't
+                    # computed here; keys stay present (zeros / null) for schema parity.
                     "scores": {"N": 0.0, "B": 0.0, "P": 0.0, "C": 0.0, "S": 0.0, "R": None},
                     "impact": _d.impact,
                     "trace_kind": _d.trace_kind,
@@ -877,6 +906,7 @@ def analyze(
 
             turbo_items = [_turbo_item(a) for a in anomalies]
             if as_json:
+                # incident/score/reasons are recomputed from items inside _emit_json.
                 _emit_json(
                     source, "turbo", None, res.parsed_lines, False, turbo_items, alert_budget
                 )
@@ -951,6 +981,10 @@ def analyze(
             f"[bold green]shape={vectors.shape}[/bold green]"
         )
 
+        # --- self-learning baseline (zero-touch memory) ---
+        # Load what we've learned as "normal" for this source so genuinely new
+        # templates score as novel; after detection we fold this run's normal lines
+        # back in, so the next run is smarter. No training step, no user action.
         from loglens.application import baseline_store as _bstore
 
         _bkey = _bstore.baseline_key(source, profile)
@@ -982,6 +1016,10 @@ def analyze(
             except OSError as _exc:
                 console.print(f"[dim][LogLens] baseline not saved: {_exc}[/dim]")
 
+            # Auto-prepare the supervised head from usage: bank this run's features +
+            # the detector's own verdicts (pseudo-labels), fit when enough of both
+            # classes accumulate. Lets the user switch to --model auto with no train
+            # step. (It imitates the unsupervised detector; real gains need labels.)
             try:
                 import numpy as _np
 
@@ -1081,6 +1119,7 @@ def analyze(
                 )
             )
 
+        # Use len(anomalies) — actual score-flagged count, not just noise points
         n_anomalies = len(anomalies)
         incident_flag = ""
         inc_score = 0.0
@@ -1094,6 +1133,7 @@ def analyze(
             if is_incident:
                 incident_flag = " [bold red blink]⚠ INCIDENT[/bold red blink]"
 
+        # --- category-wise breakdown ---
         level_counts: dict = {}
         for a in anomalies:
             lvl = a.level.upper()
@@ -1112,7 +1152,9 @@ def analyze(
                 f"[bold]{inc_score:.2f}[/bold] [dim]— {'; '.join(inc_reasons)}[/dim]"
             )
 
+        # print breakdown tree
         ordered_levels = [lvl for lvl in CATEGORY_ORDER if lvl in level_counts]
+        # also catch any unexpected levels
         for lvl in level_counts:
             if lvl not in ordered_levels:
                 ordered_levels.append(lvl)
@@ -1125,6 +1167,7 @@ def analyze(
                 f"[{color}]{lvl:<10}[/{color}] : [bold]{level_counts[lvl]:,}[/bold]"
             )
 
+        # --- worker pool ---
         progress = LiveProgress(total=len(entries))
         processed_count = 0
 
@@ -1157,23 +1200,31 @@ def analyze(
             f"[bold cyan][LogLens][/bold cyan] Skipped:   [bold red]{stats['skipped']}[/bold red]"
         )
 
+        # --- severity ranking (suppress INFO false positives) ---
         filtered_anomalies = [
             a
             for a in anomalies
             if a.level.upper() != "INFO" or any(kw in a.message.lower() for kw in INFO_KEYWORDS)
         ]
 
+        # Sort the *members* (affects which sample/reasons a family shows first).
         if sort_by == "severity":
             filtered_anomalies.sort(key=_severity)
         elif sort_by == "service":
             filtered_anomalies.sort(key=lambda a: a.service)
+        # "time" / "recent" = keep original (chronological) member order
+
+        # --- Phase 1: template grouping (families, ×N) ---
         groups = group_anomalies(filtered_anomalies)
 
+        # Routineness (D11) — descriptive badge only, never changes a score.
         from loglens.detection.routineness import compute_routineness, confidence_label
         from loglens.detection.timeutil import humanize_delta, humanize_span, parse_ts
 
         _rmap = compute_routineness(entries, baseline=_baseline)
 
+        # Per-family time span (from member timestamps) + a global "now" anchor so
+        # the display can order by recency and show when each family last fired.
         _gtimes: dict[int, tuple] = {}
         _anchor = None
         for g in groups:
@@ -1256,6 +1307,7 @@ def analyze(
             if suppressed:
                 console.print(f"[dim]{suppressed} INFO-level false positives suppressed[/dim]")
 
+            # --- calibrated alert budget (D14): measured alerts/day vs budget --------
             from loglens.detection.calibration import calibrate
 
             _bud_dts = [d for gid in _gtimes for d in _gtimes[gid] if d is not None]
@@ -1287,6 +1339,11 @@ def analyze(
         else:
             console.print("\n[bold green] No anomalies detected![/bold green]")
 
+        # --- recommend the supervised head (second opinion) when we ran unsupervised ---
+        # Fire on the zero-config path (no explicit model requested). Gate on the
+        # user's own `--model` choice, NOT on `model_path`: `model_path` also picks
+        # up the *bundled* default head, which would wrongly suppress the hint. If
+        # the user already asked for a specific model (incl. `--model auto`), stay quiet.
         if not as_json and not model.strip():
             from loglens.application import autotrain as _at2
 
@@ -1303,6 +1360,8 @@ def analyze(
                     "[/magenta]); for labelled data, [magenta]loglens train <file>[/magenta].[/dim]"
                 )
 
+        # --- AI root-cause analysis (classic path) ---
+        # Phase 1: send ONE representative entry per family (×N in message) — far cheaper tokens
         rca_result = None
         rca_input = []
         if groups:
@@ -1317,12 +1376,16 @@ def analyze(
             else:
                 console.print("[dim]RCA skipped — no anomalies to analyze.[/dim]")
 
+        # --- HTML report (Phase 3: with score distribution) ---
         if html_out:
             entry_scores = [getattr(e, "anomaly_score", 0.0) for e in entries]
             _write_html(
                 html_out, source, len(entries), filtered_anomalies, rca_result, scores=entry_scores
             )
 
+        # --- machine-readable output + CI/CD gating ---
+        # Map each entry's identity to its 1-based line number so families can
+        # carry real line_numbers[] (unblocks benchmarking against labels.json).
         line_of = {id(e): i + 1 for i, e in enumerate(entries)}
         classic_items = [
             _family_item(g, [filtered_anomalies[i] for i in g.indices], line_of, _rmap)
@@ -1414,7 +1477,9 @@ def explain(
         False, "--no-learn", help="Ignore the learned baseline (explain reads it, never writes)."
     ),
 ):
-
+    """Explain anomalies as descriptive incident cards — when it happened, how often
+    (frequency + timeline), and where (polished stack trace / source location) —
+    within a time window (default: the last 24h of the log)."""
     import datetime as _dt
 
     from rich.markup import escape
@@ -1436,6 +1501,7 @@ def explain(
     _load()
     _seed_everything(seed)
     as_json = output_format.strip().lower() == "json"
+    # Unconditional: reset the shared console so a prior JSON run can't silence this one.
     console.quiet = as_json
 
     from loglens.detection.filetype import InvalidSourceError, check_source
@@ -1446,6 +1512,7 @@ def explain(
         console.print(f"[bold red][LogLens][/bold red] {_e}")
         raise typer.Exit(code=1) from None
 
+    # Read (never write) the learned baseline so novelty + routineness `age` are informed.
     from loglens.application import baseline_store as _bstore
 
     _sdir = state_dir or None
@@ -1453,12 +1520,15 @@ def explain(
     if not no_learn:
         _baseline = _bstore.load_baseline(_bstore.baseline_key(source, profile), _sdir)
 
+    # Use the same ingestion as `analyze` (sniffs format + recovers the service
+    # column) so cards show real services, then score via the shared engine.
     entries, _line_count, _fmt, _fmt_conf, _layout = asyncio.run(_collect_entries(source))
     res = _analyze_entries(entries, RunConfig(mode="fast"), baseline=_baseline, fmt=_fmt)
     entries = res.entries
     anoms = list(res.anomalies)
     rmap = compute_routineness(entries, baseline=_baseline)
 
+    # --- resolve the time window ------------------------------------------- #
     dated = [(a, parse_ts(getattr(a, "timestamp", ""))) for a in anoms]
     parsed = [(a, d) for a, d in dated if d is not None]
     undated = [a for a, d in dated if d is None]
@@ -1476,6 +1546,7 @@ def explain(
         in_window = parsed
         windowed = False
 
+    # --- group the in-window anomalies ------------------------------------- #
     win_anoms = [a for a, _ in in_window]
     win_dts = {id(a): d for a, d in in_window}
     groups = _group(
@@ -1573,7 +1644,6 @@ def explain(
         )
 
     explain_incidents = _build_incidents(source, records)
-
     _imp = impact_filter.strip().lower()
     if _imp:
         records = [r for r in records if r["impact"] == _imp]

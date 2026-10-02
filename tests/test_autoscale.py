@@ -13,7 +13,7 @@ from loglens.application.autoscale import (
 def test_small_file_runs_exact():
     p = plan(est_lines=10_000, size_bytes=1_000_000, cores=12)
     assert p.strategy == "exact"
-    assert p.workers == 1  
+    assert p.workers == 1
 
 
 def test_large_file_switches_to_scan():
@@ -25,7 +25,7 @@ def test_large_file_switches_to_scan():
 def test_headroom_default_reserves_quarter():
     p = plan(est_lines=10_000_000, size_bytes=1, cores=12)
     assert p.reserved == 3  # ~25% of 12
-    assert p.workers == 9  
+    assert p.workers == 9
 
 
 def test_headroom_explicit():
