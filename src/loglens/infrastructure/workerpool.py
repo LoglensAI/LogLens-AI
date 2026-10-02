@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import multiprocessing as mp
 from collections.abc import Callable, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
@@ -8,6 +9,13 @@ from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger("loglens.workerpool")
+
+
+def _ctx():
+    try:
+        return mp.get_context("spawn")
+    except ValueError:  
+        return mp.get_context()
 
 
 @dataclass(slots=True)
@@ -25,6 +33,19 @@ def _is_error(x: Any) -> bool:
     return isinstance(x, TaskError)
 
 
+class _ProgressCounter:
+
+    def __init__(self, total: int, cb: Callable[[int, int], None] | None):
+        self.total = total
+        self.completed = 0
+        self.cb = cb
+
+    def tick(self) -> None:
+        self.completed += 1
+        if self.cb:
+            self.cb(self.completed, self.total)
+
+
 def run_pool(
     func: Callable[[Any], Any],
     args: Sequence[Any],
@@ -32,15 +53,21 @@ def run_pool(
     *,
     max_attempts: int = 2,
     on_event: Callable[[str, str], None] | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> list[Any]:
-
     n = len(args)
     results: list[Any] = [None] * n
     if n == 0:
         return results
 
+    progress = _ProgressCounter(n, on_progress)
+
     if workers <= 1:
-        return [_safe_serial(func, a, i) for i, a in enumerate(args)]
+        out = []
+        for i, a in enumerate(args):
+            out.append(_safe_serial(func, a, i))
+            progress.tick()
+        return out
 
     done = [False] * n
     attempts = [0] * n
@@ -59,7 +86,9 @@ def run_pool(
             break
 
         try:
-            broke = _run_batch(func, args, pending, attempts, results, done, workers, isolate)
+            broke = _run_batch(
+                func, args, pending, attempts, results, done, workers, isolate, progress
+            )
         except (BrokenProcessPool, OSError) as exc:
             logger.warning("process pool unavailable (%s); running serially", exc)
             if on_event:
@@ -67,6 +96,7 @@ def run_pool(
             for i in pending:
                 results[i] = _safe_serial(func, args[i], i)
                 done[i] = True
+                progress.tick()
             break
 
         if broke:
@@ -86,6 +116,7 @@ def _run_batch(
     done: list[bool],
     workers: int,
     isolate: bool,
+    progress: _ProgressCounter | None = None,
 ) -> bool:
     from concurrent.futures import as_completed
 
@@ -94,21 +125,25 @@ def _run_batch(
         for i in pending:
             attempts[i] += 1
             try:
-                with ProcessPoolExecutor(max_workers=1) as ex:
+                with ProcessPoolExecutor(max_workers=1, mp_context=_ctx()) as ex:
                     fut = ex.submit(func, args[i])
                     try:
                         results[i] = fut.result()
                         done[i] = True
+                        if progress:
+                            progress.tick()
                     except BrokenProcessPool:
-                        broke_any = True
+                        broke_any = True 
                     except Exception as exc:
                         results[i] = TaskError(i, "exception", f"{type(exc).__name__}: {exc}")
                         done[i] = True
+                        if progress:
+                            progress.tick()
             except BrokenProcessPool:
                 broke_any = True
         return broke_any
 
-    with ProcessPoolExecutor(max_workers=workers) as ex:
+    with ProcessPoolExecutor(max_workers=workers, mp_context=_ctx()) as ex:
         fut_to_i = {}
         for i in pending:
             attempts[i] += 1
@@ -119,11 +154,15 @@ def _run_batch(
                 try:
                     results[i] = fut.result()
                     done[i] = True
+                    if progress:
+                        progress.tick()
                 except BrokenProcessPool:
                     return True
                 except Exception as exc:  # task-level fault → isolate the result
                     results[i] = TaskError(i, "exception", f"{type(exc).__name__}: {exc}")
                     done[i] = True
+                    if progress:
+                        progress.tick()
         except BrokenProcessPool:
             return True
     return False

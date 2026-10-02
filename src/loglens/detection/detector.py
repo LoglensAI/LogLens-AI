@@ -18,7 +18,10 @@ from loglens.detection.templates import TemplateRegistry, parse_timestamp
 from loglens.domain.models import LogEntry
 from loglens.domain.scoring import (
     HISTORY_HEAD,
+    ScoreResult,
     Signals,
+    has_catastrophe,
+    has_failure,
     soft_cap,  # noqa: F401  (re-exported for callers/tests)
     volume_confidence,
 )
@@ -37,6 +40,7 @@ CHRONIC_SHARE = 0.15
 CHRONIC_MIN_COUNT = 25
 CHRONIC_SPREAD = 0.50
 GLOBAL_RARE_SHARE = 0.005
+_SCORE_CACHE_ENABLED = True
 
 
 def otsu_threshold(
@@ -235,16 +239,13 @@ class _Signals:
     group_surge: np.ndarray
 
 
-def _cluster_templates(
-    vectors: np.ndarray, registry: TemplateRegistry, cfg: DetectorConfig
+def _cluster_from_group_vectors(
+    group_vectors: np.ndarray,
+    group_counts: np.ndarray,
+    registry: TemplateRegistry,
+    cfg: DetectorConfig,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[int, float], float]:
-    n_groups = len(registry)
-    group_counts = np.array(registry.counts, dtype=np.float64)
-    group_vectors = np.zeros((n_groups, vectors.shape[1]), dtype=np.float32)
-    for gi, g in enumerate(registry.groups):
-        group_vectors[gi] = vectors[g.indices].mean(axis=0)
     group_vectors = normalize(group_vectors, norm="l2")
-
     eps = (
         cfg.eps
         if cfg.eps is not None
@@ -257,6 +258,31 @@ def _cluster_templates(
     for gl, c in zip(group_labels, group_counts, strict=False):
         cluster_sizes[int(gl)] = cluster_sizes.get(int(gl), 0.0) + c
     return group_vectors, group_counts, group_labels, cluster_sizes, eps
+
+
+def _cluster_templates(
+    vectors: np.ndarray, registry: TemplateRegistry, cfg: DetectorConfig
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[int, float], float]:
+    n_groups = len(registry)
+    group_counts = np.array(registry.counts, dtype=np.float64)
+    group_vectors = np.zeros((n_groups, vectors.shape[1]), dtype=np.float32)
+    for gi, g in enumerate(registry.groups):
+        group_vectors[gi] = vectors[g.indices].mean(axis=0)
+    return _cluster_from_group_vectors(group_vectors, group_counts, registry, cfg)
+
+
+def _cluster_templates_grouped(
+    group_raw: np.ndarray, registry: TemplateRegistry, cfg: DetectorConfig
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[int, float], float]:
+    n_groups = len(registry)
+    group_counts = np.array(registry.counts, dtype=np.float64)
+    dim = group_raw.shape[1]
+    per_group_norm = normalize(np.asarray(group_raw, dtype=np.float32), norm="l2")
+    group_vectors = np.zeros((n_groups, dim), dtype=np.float32)
+    for gi, g in enumerate(registry.groups):
+        k = len(g.indices)
+        group_vectors[gi] = np.broadcast_to(per_group_norm[gi], (k, dim)).mean(axis=0)
+    return _cluster_from_group_vectors(group_vectors, group_counts, registry, cfg)
 
 
 def _level_outliers(
@@ -315,9 +341,28 @@ def _score_entries(
     reasons: list[list[str]] = [[] for _ in range(n)]
     conf = volume_confidence(n, cfg.rarity_confidence_k)
 
+    cache: dict[tuple[int, bool, bool, bool], ScoreResult] | None = (
+        {} if _SCORE_CACHE_ENABLED else None
+    )
+
     for i, e in enumerate(entries):
         gi = registry.entry_group[i]
         g = registry.groups[gi]
+        burst_i = bool(burst_mask[i])
+
+        if cache is not None:
+            if get_severity(g.level) <= 4 and not bool(group_chronic[gi]):
+                cat = has_catastrophe(e.message)
+                fail = has_failure(e.message)
+            else:
+                cat = fail = False
+            key = (gi, burst_i, cat, fail)
+            cached = cache.get(key)
+            if cached is not None:
+                scores[i] = cached.score
+                reasons[i] = list(cached.reason_texts)
+                continue
+
         gl = int(group_labels[gi])
         level_total = level_totals.get(levels[i], 1)
         sig_i = Signals(
@@ -335,7 +380,7 @@ def _score_entries(
             is_outlier=bool(group_outlier[gi]),
             outlier_z=float(group_outlier_z[gi]),
             outlier_dist=float(group_outlier_dist[gi]),
-            burst=bool(burst_mask[i]),
+            burst=burst_i,
             burst_factor=cfg.burst_factor,
             burst_window=cfg.burst_window,
             is_flood=bool(group_flood[gi]),
@@ -350,7 +395,11 @@ def _score_entries(
         )
         result = policy_score(sig_i)
         scores[i] = result.score
-        reasons[i] = result.reason_texts
+        if cache is not None:
+            cache[key] = result
+            reasons[i] = list(result.reason_texts)
+        else:
+            reasons[i] = result.reason_texts
     return scores, reasons
 
 
@@ -417,9 +466,11 @@ def _build_patterns(
 
 def detect(
     entries: Sequence[LogEntry],
-    embeddings: np.ndarray,
+    embeddings: np.ndarray | None = None,
     cfg: DetectorConfig | None = None,
     baseline: dict | None = None,
+    *,
+    group_embeddings: np.ndarray | None = None,
 ) -> DetectionResult:
     cfg = cfg or DetectorConfig()
     n = len(entries)
@@ -428,14 +479,19 @@ def detect(
             entries, np.zeros(0), np.zeros(0, bool), [], np.zeros(0, int), [], [], False, "", {}
         )
 
-    vectors = normalize(np.asarray(embeddings, dtype=np.float32), norm="l2")
-
     registry = TemplateRegistry(entries)
     n_groups = len(registry)
     _tkeys = [registry.groups[gi].template for gi in registry.entry_group]
-    group_vectors, group_counts, group_labels, cluster_sizes, eps = _cluster_templates(
-        vectors, registry, cfg
-    )
+
+    if group_embeddings is not None:
+        group_vectors, group_counts, group_labels, cluster_sizes, eps = _cluster_templates_grouped(
+            group_embeddings, registry, cfg
+        )
+    else:
+        vectors = normalize(np.asarray(embeddings, dtype=np.float32), norm="l2")
+        group_vectors, group_counts, group_labels, cluster_sizes, eps = _cluster_templates(
+            vectors, registry, cfg
+        )
 
     severities = np.array([get_severity(e.level) for e in entries])
     levels = np.array([e.level.upper() for e in entries])
@@ -545,6 +601,7 @@ def detect(
         group_surge=group_surge,
     )
     scores, reasons = _score_entries(entries, sig, cfg)
+
 
     comp_n = scores.copy()  # N: novelty / rarity / severity policy (the base score)
     comp_s = np.zeros(n)  # S: sequence

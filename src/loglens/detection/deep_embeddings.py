@@ -140,11 +140,16 @@ class DeepEmbeddingEngine:
         combined = np.hstack([(1.0 - wf) * _row_normalize(text_block), wf * feats])
         return _row_normalize(combined)
 
-    def embed_templates(self, entries: list[LogEntry], registry) -> np.ndarray:
+    def embed_group_templates(self, entries: list[LogEntry], registry) -> np.ndarray:
         if not entries:
             return np.zeros((0, 384 + self.tfidf_dims + N_LOG_FEATURES), dtype=np.float32)
         reps = [entries[i] for i in registry.representative_indices()]
-        group_vecs = self.embed(reps)  # (n_groups, dim)
+        return self.embed(reps) 
+
+    def embed_templates(self, entries: list[LogEntry], registry) -> np.ndarray:
+        if not entries:
+            return np.zeros((0, 384 + self.tfidf_dims + N_LOG_FEATURES), dtype=np.float32)
+        group_vecs = self.embed_group_templates(entries, registry)
         out = np.empty((len(entries), group_vecs.shape[1]), dtype=np.float32)
         for gi, g in enumerate(registry.groups):
             out[g.indices] = group_vecs[gi]

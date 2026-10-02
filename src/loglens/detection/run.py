@@ -55,10 +55,10 @@ def run(
     engine = _build_engine(cfg.mode)
     engine.fit(entries)
 
-    if cfg.template_level and hasattr(engine, "embed_templates"):
+    if cfg.template_level and hasattr(engine, "embed_group_templates"):
         registry = TemplateRegistry(entries)
-        embeddings = engine.embed_templates(entries, registry)
-    else:
-        embeddings = engine.embed(entries)
+        group_embeddings = engine.embed_group_templates(entries, registry)
+        return detect(entries, cfg=det_cfg, baseline=baseline, group_embeddings=group_embeddings)
 
+    embeddings = engine.embed(entries)
     return detect(entries, embeddings, det_cfg, baseline=baseline)

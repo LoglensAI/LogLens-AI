@@ -140,6 +140,7 @@ _INCIDENT_BURST_FAMILIES = 5  # this many critical families → clear burst
 def _assess_incident(
     items: list[dict[str, Any]], lines_parsed: int
 ) -> tuple[bool, float, list[str]]:
+   
     crit = [it for it in items if str(it.get("level", "")).upper() in _INCIDENT_CRIT_LEVELS]
     errs = [it for it in items if str(it.get("level", "")).upper() in ("ERROR",)]
     severe_lines = sum(int(it.get("count", 1) or 1) for it in (*crit, *errs))
@@ -606,11 +607,118 @@ def help_command(ctx: typer.Context):
 
 
 def _is_local_file(source: str) -> bool:
+    """True for a readable local file path (not a URL / stdin / command stream),
+    so auto-scaling only engages where byte-range splitting is meaningful."""
     if not source or source == "stdin":
         return False
     if source.startswith(("http://", "https://", "cmd:")):
         return False
     return os.path.isfile(source)
+
+
+def _run_parallel(
+    source: str,
+    *,
+    mode: str,
+    workers: int | None,
+    headroom: int | None,
+    limit: int,
+    as_json: bool,
+    started: float,
+) -> None:
+    import time as _time
+
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        TextColumn,
+        TimeElapsedColumn,
+        TimeRemainingColumn,
+    )
+
+    from loglens.application.autoscale import worker_budget
+    from loglens.application.parallel_scan import parallel_analyze_file
+
+    pw = workers if workers else worker_budget(headroom=headroom)
+
+    console.print(
+        f"\n[bold cyan][LogLens][/bold cyan] Source: [yellow]{source}[/yellow]", highlight=False
+    )
+    console.print(
+        f"[bold cyan][LogLens][/bold cyan] Mode: [bold magenta]⧉ Parallel "
+        f"({mode}, {pw} workers)[/bold magenta] [dim]— full detector per byte-range slice; "
+        f"results are per-slice approximate (like --turbo), not a whole-file run[/dim]"
+    )
+
+    if as_json:
+        result = parallel_analyze_file(
+            source, mode=mode, workers=pw, limit=limit, on_event=None, on_progress=None
+        )
+        result["elapsed_seconds"] = round(_time.perf_counter() - started, 3)
+        typer.echo(json.dumps(result, indent=2, sort_keys=True))
+        return
+
+    bar = Progress(
+        TextColumn("[bold cyan]  slices"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        TextColumn("eta"),
+        TimeRemainingColumn(),
+        console=console,
+    )
+    with bar:
+        task = bar.add_task("slices", total=pw)
+
+        def _progress(done: int, total: int) -> None:
+            bar.update(task, completed=done, total=total)
+
+        result = parallel_analyze_file(
+            source,
+            mode=mode,
+            workers=pw,
+            limit=limit,
+            on_progress=_progress,
+            on_event=lambda k, d: None,
+        )
+
+    console.print(
+        f"[bold cyan][LogLens][/bold cyan] Slices: [bold]{result['slices']}[/bold] "
+        f"· Lines: [bold]{result['lines_parsed']:,}[/bold] parsed"
+        + (
+            f" · [red]{result['faulted_slices']} slice fault(s)[/red]"
+            if result["faulted_slices"]
+            else ""
+        )
+    )
+    inc = " [bold red]⚠ INCIDENT[/bold red]" if result["incident"] else ""
+    console.print(
+        f"[bold cyan][LogLens][/bold cyan] Anomalies: [bold]{result['anomaly_count']:,}[/bold]{inc}"
+    )
+    top = result["top_anomalies"]
+    if top:
+        table = Table(
+            title=f"TOP ANOMALIES ({result['anomaly_count']:,} total)", title_style="bold"
+        )
+        table.add_column("Level")
+        table.add_column("Score", justify="right")
+        table.add_column("Message")
+        for a in top:
+            table.add_row(
+                str(a.get("level", "")),
+                f"{float(a.get('score', 0.0)):.2f}",
+                str(a.get("message", ""))[:100],
+            )
+        console.print(table)
+    console.print(
+        "[dim](parallel is per-slice approximate — drop --parallel for the exact "
+        "whole-file verdict)[/dim]"
+    )
+    console.print(
+        f"[bold cyan][LogLens][/bold cyan] ✓ completed in "
+        f"[bold]{_time.perf_counter() - started:.2f}s[/bold]",
+        highlight=False,
+    )
 
 
 @app.command()
@@ -635,6 +743,13 @@ def analyze(
         False,
         "--turbo",
         help="Fast multiprocess scan for huge files (byte-range + template dedup, skips embeddings)",
+    ),
+    parallel: bool = typer.Option(
+        False,
+        "--parallel",
+        help="Run the FULL detector on byte-range slices across cores, then merge "
+        "(progress bar + ETA). Fast on huge files; results are per-slice approximate "
+        "(like --turbo), not identical to a whole-file run. Honours --workers / --headroom.",
     ),
     auto_scale: bool = typer.Option(
         True,
@@ -777,10 +892,23 @@ def analyze(
                 eff_workers = plan.workers
                 console.print(describe_plan(plan))
 
+
     if use_turbo and workers <= 0:
         from loglens.application.autoscale import worker_budget
 
         eff_workers = worker_budget(headroom=(None if headroom < 0 else headroom))
+
+    if parallel and _is_local_file(source):
+        _run_parallel(
+            source,
+            mode=("deep" if deep else "fast"),
+            workers=(workers if workers > 0 else None),
+            headroom=(None if headroom < 0 else headroom),
+            limit=limit,
+            as_json=as_json,
+            started=_run_start,
+        )
+        return
 
     async def _run():
 
@@ -1603,6 +1731,7 @@ def explain(
                     return True
         return False
 
+    # --- build structured records (used by both terminal + json) ----------- #
     records = []
     for g in groups:
         members = _members(g)
