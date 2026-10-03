@@ -65,6 +65,9 @@ jobs:
       - name: Unsupervised min-F1 gate (CLI)
         run: loglens benchmark benchmarks/BGL_2k.log --format bgl --min-f1 0.42
 
+      - name: Synthetic suite micro-F1 gate (G1 — fails PR on any accuracy drop)
+        run: loglens bench-suite --dir testlogs --exclude big.log --min-f1 0.99
+
   consistency:
     name: consistency
     runs-on: ubuntu-latest
