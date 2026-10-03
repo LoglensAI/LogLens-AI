@@ -1,28 +1,35 @@
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
 from loglens.infrastructure.workerpool import TaskError, run_pool
+
+_THREAD_VARS = (
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+)
 
 
 def _analyze_slice(payload: dict[str, Any]) -> dict[str, Any]:
     from loglens.application.api import analyze_entries
     from loglens.detection.parser import parse_line
     from loglens.detection.run import RunConfig
+    from loglens.detection.templates import template_key
 
     path = payload["path"]
-    start = payload["start"]
-    end = payload["end"]
-    fmt = payload["fmt"]
-    layout = payload["layout"]
+    start, end = payload["start"], payload["end"]
+    fmt, layout = payload["fmt"], payload["layout"]
 
     t0 = time.monotonic()
     entries = []
-    with open(path, encoding="utf-8", errors="replace") as f:
-        f.seek(start)
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        fh.seek(start)
         pos = start
-        for line in f:
+        for line in fh:
             pos += len(line.encode("utf-8", "replace"))
             s = line.rstrip("\n")
             if s:
@@ -41,8 +48,53 @@ def _analyze_slice(payload: dict[str, Any]) -> dict[str, Any]:
         ),
         fmt=fmt,
     )
+
+    fams: dict[tuple[str, str], dict[str, Any]] = {}
+    top_lines: list[dict[str, Any]] = []
+    for a in res.anomalies:
+        lvl = a.level.upper()
+        key = (lvl, template_key(a.message or ""))
+        f = fams.get(key)
+        ts = a.timestamp or ""
+        if f is None:
+            fams[key] = {
+                "level": lvl,
+                "template": key[1],
+                "count": 1,
+                "score": float(a.score),
+                "sample": a.message,
+                "services": {a.service},
+                "first_ts": ts,
+                "last_ts": ts,
+            }
+        else:
+            f["count"] += 1
+            if float(a.score) > f["score"]:
+                f["score"] = float(a.score)
+                f["sample"] = a.message
+            f["services"].add(a.service)
+            if ts and (not f["first_ts"] or ts < f["first_ts"]):
+                f["first_ts"] = ts
+            if ts and ts > f["last_ts"]:
+                f["last_ts"] = ts
+    for a in sorted(res.anomalies, key=lambda x: -float(x.score))[:200]:
+        top_lines.append(
+            {
+                "level": a.level.upper(),
+                "score": float(a.score),
+                "message": a.message,
+                "service": a.service,
+                "timestamp": a.timestamp or "",
+            }
+        )
+
+    fam_list = []
+    for f in fams.values():
+        f["services"] = sorted(f["services"])[:5]
+        fam_list.append(f)
     return {
-        "anomalies": [a.to_dict() for a in res.anomalies],
+        "families": fam_list,
+        "top_lines": top_lines,
         "lines": res.total,
         "by_level": res.by_level(),
         "incident": res.incident,
@@ -57,24 +109,31 @@ def parallel_analyze_file(
     sensitivity: str = "normal",
     threshold: float | None = None,
     workers: int,
+    oversplit: int = 4,
     fmt: str | None = None,
     limit: int = 20,
     on_progress=None,
     on_event=None,
 ) -> dict[str, Any]:
+   
     from loglens.detection.parser import sniff_format
     from loglens.detection.turbo import split_chunks
 
+   
+    for v in _THREAD_VARS:
+        os.environ[v] = "1"
+
     head: list[str] = []
-    with open(path, encoding="utf-8", errors="replace") as f:
-        for line in f:
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
             head.append(line.rstrip("\n"))
             if len(head) >= 200:
                 break
     detected, _conf, layout = sniff_format(head)
     fmt = fmt or detected
 
-    chunks = split_chunks(path, max(1, workers))
+    n_slices = max(1, workers) * max(1, oversplit)
+    chunks = split_chunks(path, n_slices)
     payloads = [
         {
             "path": path,
@@ -97,7 +156,8 @@ def parallel_analyze_file(
         on_event=on_event,
     )
 
-    anomalies: list[dict[str, Any]] = []
+    merged: dict[tuple[str, str], dict[str, Any]] = {}
+    top_lines: list[dict[str, Any]] = []
     total = 0
     by_level: dict[str, int] = {}
     incident = False
@@ -106,28 +166,50 @@ def parallel_analyze_file(
         if isinstance(r, TaskError):
             faults += 1
             continue
-        anomalies.extend(r["anomalies"])
         total += r["lines"]
+        incident = incident or r["incident"]
         for k, v in r["by_level"].items():
             by_level[k] = by_level.get(k, 0) + v
-        incident = incident or r["incident"]
+        top_lines.extend(r["top_lines"])
+        for f in r["families"]:
+            key = (f["level"], f["template"])
+            m = merged.get(key)
+            if m is None:
+                merged[key] = {**f, "services": set(f["services"])}
+            else:
+                m["count"] += f["count"]
+                if f["score"] > m["score"]:
+                    m["score"] = f["score"]
+                    m["sample"] = f["sample"]
+                m["services"].update(f["services"])
+                if f["first_ts"] and (not m["first_ts"] or f["first_ts"] < m["first_ts"]):
+                    m["first_ts"] = f["first_ts"]
+                if f["last_ts"] > m["last_ts"]:
+                    m["last_ts"] = f["last_ts"]
 
-    anomalies.sort(
-        key=lambda a: (-float(a.get("score", 0.0)), a.get("level", ""), a.get("message", ""))
-    )
+    families = []
+    for m in merged.values():
+        m["services"] = sorted(m["services"])[:5]
+        families.append(m)
+    # Deterministic: worst score, then biggest, then stable on level + template.
+    families.sort(key=lambda f: (-f["score"], -f["count"], f["level"], f["template"]))
+    top_lines.sort(key=lambda a: (-a["score"], a.get("level", ""), a.get("message", "")))
 
+    flagged_lines = sum(f["count"] for f in families)
     return {
-        "schema": "loglens.parallel.v1",
+        "schema": "loglens.parallel.v2",
         "source": path,
         "mode": mode,
         "format": fmt,
         "slices": len(chunks),
         "workers": min(workers, len(chunks)),
         "lines_parsed": total,
-        "anomaly_count": len(anomalies),
+        "anomaly_lines": flagged_lines,
+        "family_count": len(families),
         "by_level": dict(sorted(by_level.items())),
         "incident": incident,
         "faulted_slices": faults,
-        "top_anomalies": anomalies[:limit],
-        "approximate": True,  # per-slice detection — not identical to whole-file
+        "families": families[:limit],
+        "top_lines": top_lines[:limit],
+        "approximate": True,
     }

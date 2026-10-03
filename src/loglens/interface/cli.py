@@ -140,7 +140,6 @@ _INCIDENT_BURST_FAMILIES = 5  # this many critical families → clear burst
 def _assess_incident(
     items: list[dict[str, Any]], lines_parsed: int
 ) -> tuple[bool, float, list[str]]:
-   
     crit = [it for it in items if str(it.get("level", "")).upper() in _INCIDENT_CRIT_LEVELS]
     errs = [it for it in items if str(it.get("level", "")).upper() in ("ERROR",)]
     severe_lines = sum(int(it.get("count", 1) or 1) for it in (*crit, *errs))
@@ -693,26 +692,35 @@ def _run_parallel(
     )
     inc = " [bold red]⚠ INCIDENT[/bold red]" if result["incident"] else ""
     console.print(
-        f"[bold cyan][LogLens][/bold cyan] Anomalies: [bold]{result['anomaly_count']:,}[/bold]{inc}"
+        f"[bold cyan][LogLens][/bold cyan] "
+        f"[bold]{result['family_count']:,}[/bold] anomaly families "
+        f"· [bold]{result['anomaly_lines']:,}[/bold] flagged lines{inc}",
+        highlight=False,
     )
-    top = result["top_anomalies"]
-    if top:
+    fams = result["families"]
+    if fams:
         table = Table(
-            title=f"TOP ANOMALIES ({result['anomaly_count']:,} total)", title_style="bold"
+            title=f"TOP ANOMALY FAMILIES ({result['family_count']:,} total)",
+            title_style="bold",
+            header_style="bold cyan",
         )
         table.add_column("Level")
+        table.add_column("Count", justify="right")
         table.add_column("Score", justify="right")
-        table.add_column("Message")
-        for a in top:
+        table.add_column("Service(s)")
+        table.add_column("Template")
+        for f in fams:
+            svc = ", ".join(f.get("services", [])) or "-"
             table.add_row(
-                str(a.get("level", "")),
-                f"{float(a.get('score', 0.0)):.2f}",
-                str(a.get("message", ""))[:100],
+                str(f.get("level", "")),
+                f"{f.get('count', 0):,}",
+                f"{float(f.get('score', 0.0)):.2f}",
+                svc[:24],
+                str(f.get("sample", ""))[:80],
             )
         console.print(table)
     console.print(
-        "[dim](parallel is per-slice approximate — drop --parallel for the exact "
-        "whole-file verdict)[/dim]"
+        "[dim](per-slice approximate — --no-auto-scale for the exact whole-file verdict)[/dim]"
     )
     console.print(
         f"[bold cyan][LogLens][/bold cyan] ✓ completed in "
@@ -865,8 +873,9 @@ def analyze(
     # leaving CPU headroom for the user's other work. Explicit --turbo or
     # --no-auto-scale skip the heuristic; non-file sources (URL/stdin/cmd) too.
     use_turbo = turbo
+    use_parallel = parallel
     eff_workers = workers
-    if auto_scale and not turbo and _is_local_file(source):
+    if auto_scale and not turbo and not parallel and _is_local_file(source):
         from loglens.application.autoscale import plan_for_file
 
         plan = plan_for_file(
@@ -875,30 +884,27 @@ def analyze(
             max_exact_lines=(max_exact_lines or None),
         )
         if plan.strategy == "scan":
-            chose_model = bool(deep) or bool(model and model.strip())
-            if chose_model:
-                mb = plan.size_bytes / 1e6
-                which = "deep (neural)" if deep else "supervised"
-                console.print(
-                    f"[bold cyan][LogLens][/bold cyan] large input (~{plan.est_lines:,} lines, "
-                    f"{mb:,.0f} MB): running your chosen [bold]{which}[/bold] model in full "
-                    f"(exact, accuracy preserved). [dim]This is slower on a single huge file; "
-                    f"use --turbo for a fast approximate scan.[/dim]"
+            use_parallel = True
+            mb = plan.size_bytes / 1e6
+            note = ""
+            if deep or (model and model.strip()):
+                note = (
+                    " [dim](distributed path is unsupervised per slice; "
+                    "--no-auto-scale for the exact model run)[/dim]"
                 )
-            else:
-                from loglens.application.autoscale import describe_plan
+            console.print(
+                f"[bold cyan][LogLens][/bold cyan] large input (~{plan.est_lines:,} lines, "
+                f"{mb:,.0f} MB): auto-distributing across cores (anomaly families)." + note,
+                highlight=False,
+            )
 
-                use_turbo = True
-                eff_workers = plan.workers
-                console.print(describe_plan(plan))
-
-
+    # Explicit --turbo with no --workers given → use the headroom-aware budget.
     if use_turbo and workers <= 0:
         from loglens.application.autoscale import worker_budget
 
         eff_workers = worker_budget(headroom=(None if headroom < 0 else headroom))
 
-    if parallel and _is_local_file(source):
+    if use_parallel and _is_local_file(source):
         _run_parallel(
             source,
             mode=("deep" if deep else "fast"),
