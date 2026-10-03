@@ -697,7 +697,7 @@ def _run_parallel(
         f"· [bold]{result['anomaly_lines']:,}[/bold] flagged lines{inc}",
         highlight=False,
     )
-    fams = result["families"]
+    fams = result["families"][: result.get("display_limit", limit)]
     if fams:
         table = Table(
             title=f"TOP ANOMALY FAMILIES ({result['family_count']:,} total)",
@@ -722,6 +722,19 @@ def _run_parallel(
     console.print(
         "[dim](per-slice approximate — --no-auto-scale for the exact whole-file verdict)[/dim]"
     )
+
+    try:
+        from loglens.application.results_store import save_results
+
+        out = source + ".loglens.json"
+        save_results(out, result)
+        console.print(
+            f"[bold cyan][LogLens][/bold cyan] results saved → explore them with "
+            f"[bold]loglens explore {out}[/bold]",
+            highlight=False,
+        )
+    except OSError as exc:
+        console.print(f"[dim][LogLens] could not save results: {exc}[/dim]")
     console.print(
         f"[bold cyan][LogLens][/bold cyan] ✓ completed in "
         f"[bold]{_time.perf_counter() - started:.2f}s[/bold]",
@@ -2928,6 +2941,157 @@ def analyze_multi(
         )
     for kind, detail in events:
         console.print(f"[dim][LogLens] {kind}: {detail}[/dim]")
+
+
+def _fmt_count(n: int) -> str:
+    return f"{n:,}"
+
+
+def _explorer_header(result: dict) -> "Panel":
+    from rich.panel import Panel
+
+    span = result.get("time_span") or {}
+    first, last = span.get("first_ts") or "?", span.get("last_ts") or "?"
+    days = ""
+    fe, le = span.get("first_epoch"), span.get("last_epoch")
+    if fe and le and le > fe:
+        days = f"  ·  span {(le - fe) / 86400:.1f} days"
+    inc = "  ·  [bold red]⚠ INCIDENT[/bold red]" if result.get("incident") else ""
+    body = (
+        f"[bold]{result.get('source', '?')}[/bold]\n"
+        f"Lines [bold]{_fmt_count(result.get('lines_parsed', 0))}[/bold]  ·  "
+        f"Families [bold]{_fmt_count(result.get('family_count', 0))}[/bold]  ·  "
+        f"Flagged [bold]{_fmt_count(result.get('anomaly_lines', 0))}[/bold]{inc}\n"
+        f"[dim]{first}  →  {last}{days}[/dim]"
+    )
+    return Panel(body, title="LogLens Explorer", title_align="left", border_style="cyan")
+
+
+def _render_severity(result: dict, window_seconds: int, window_label: str) -> None:
+    from loglens.application.results_store import SEVERITY_MENU, severity_count
+
+    table = Table(
+        title=f"Severity counts — {window_label}",
+        title_style="bold",
+        header_style="bold cyan",
+    )
+    table.add_column("Severity")
+    table.add_column("Count", justify="right")
+    for bucket, label in SEVERITY_MENU:
+        n = severity_count(result, bucket, window_seconds)
+        style = {"CRITICAL": "bold red", "ERROR": "red", "WARN": "yellow"}.get(bucket, "")
+        table.add_row(f"[{style}]{label}[/{style}]" if style else label, _fmt_count(n))
+    console.print(table)
+
+
+def _render_families(result: dict, families: list, title: str) -> None:
+    if not families:
+        console.print("[dim]  no matching families[/dim]")
+        return
+    table = Table(title=title, title_style="bold", header_style="bold cyan")
+    table.add_column("Level")
+    table.add_column("Count", justify="right")
+    table.add_column("Score", justify="right")
+    table.add_column("First seen")
+    table.add_column("Template")
+    for f in families:
+        style = {"CRITICAL": "bold red", "ERROR": "red", "WARN": "yellow"}.get(f.get("level"), "")
+        lvl = f"[{style}]{f.get('level', '')}[/{style}]" if style else f.get("level", "")
+        table.add_row(
+            lvl,
+            _fmt_count(int(f.get("count", 0))),
+            f"{float(f.get('score', 0.0)):.2f}",
+            str(f.get("first_ts", ""))[:23],
+            str(f.get("sample", ""))[:70],
+        )
+    console.print(table)
+
+
+@app.command()
+def explore(
+    results: str = typer.Argument(..., help="A results file saved by `analyze` (.loglens.json)."),
+) -> None:
+    """Interactively explore a saved analysis — severity counts over time, browse
+    and search anomaly families. Reads saved results only; never re-runs detection."""
+    from rich.panel import Panel  # noqa: F401  (used by header)
+
+    from loglens.application.results_store import (
+        SEVERITY_MENU,
+        TIME_WINDOWS,
+        families_in_window,
+        load_results,
+    )
+
+    try:
+        result = load_results(results)
+    except (OSError, ValueError) as exc:
+        console.print(f"[bold red][LogLens][/bold red] cannot read results: {exc}")
+        raise typer.Exit(code=1) from None
+
+    def _menu() -> str:
+        console.print()
+        console.print(_explorer_header(result))
+        console.print(
+            "\n  [bold]1[/bold] Severity counts in a time window"
+            "\n  [bold]2[/bold] Browse anomaly families"
+            "\n  [bold]3[/bold] Search families"
+            "\n  [bold]4[/bold] Top anomaly lines"
+            "\n  [bold]0[/bold] Quit\n"
+        )
+        return console.input("[bold cyan]loglens›[/bold cyan] ").strip()
+
+    def _pick(prompt: str, options: list, fmt) -> int | None:
+        for i, opt in enumerate(options, 1):
+            console.print(f"  [bold]{i}[/bold]) {fmt(opt)}")
+        raw = console.input(f"[bold cyan]{prompt}›[/bold cyan] ").strip()
+        if not raw.isdigit():
+            return None
+        idx = int(raw)
+        return idx - 1 if 1 <= idx <= len(options) else None
+
+    while True:
+        try:
+            choice = _menu()
+        except (EOFError, KeyboardInterrupt):
+            console.print("\n[dim]bye[/dim]")
+            return
+        if choice in ("0", "q", "quit", "exit"):
+            console.print("[dim]bye[/dim]")
+            return
+        if choice == "1":
+            wi = _pick("window", TIME_WINDOWS, lambda w: w[0])
+            if wi is None:
+                console.print("[dim]  cancelled[/dim]")
+                continue
+            label, secs = TIME_WINDOWS[wi]
+            _render_severity(result, secs, label)
+        elif choice == "2":
+            si = _pick("severity (0=all)", [("ALL", "All")] + SEVERITY_MENU, lambda s: s[1])
+            lvl = None if (si is None or si == 0) else ([("ALL", "")] + SEVERITY_MENU)[si][0]
+            fams = families_in_window(result, level_bucket=lvl, limit=30)
+            _render_families(result, fams, f"Families — {lvl or 'all severities'}")
+        elif choice == "3":
+            q = console.input("[bold cyan]search›[/bold cyan] ").strip()
+            fams = families_in_window(result, query=q, limit=30)
+            _render_families(result, fams, f"Families matching '{q}'")
+        elif choice == "4":
+            lines = result.get("top_lines", [])[:30]
+            if not lines:
+                console.print("[dim]  no lines[/dim]")
+                continue
+            table = Table(title="Top anomaly lines", header_style="bold cyan")
+            table.add_column("Level")
+            table.add_column("Score", justify="right")
+            table.add_column("Message")
+            for a in lines:
+                table.add_row(
+                    str(a.get("level", "")),
+                    f"{float(a.get('score', 0.0)):.2f}",
+                    str(a.get("message", ""))[:90],
+                )
+            console.print(table)
+        else:
+            console.print("[dim]  pick 1-4 or 0 to quit[/dim]")
 
 
 # --------------------------------------------------------------------------- #
