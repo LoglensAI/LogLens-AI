@@ -1,0 +1,452 @@
+2024-01-01 00:00:01 INFO hdfs Receiving block blk_2070025912 src: /10.0.0.188 dest: /10.0.0.111
+2024-01-01 00:00:02 INFO hdfs Receiving block blk_1541696649 src: /10.0.0.4 dest: /10.0.0.197
+2024-01-01 00:00:02 INFO hdfs Receiving block blk_7654085764 src: /10.0.0.105 dest: /10.0.0.230
+2024-01-01 00:00:03 INFO hdfs Receiving block blk_5699183813 src: /10.0.0.240 dest: /10.0.0.76
+2024-01-01 00:00:03 INFO hdfs Receiving block blk_8410301978 src: /10.0.0.237 dest: /10.0.0.107
+2024-01-01 00:00:04 INFO hdfs Receiving block blk_7414480314 src: /10.0.0.142 dest: /10.0.0.32
+2024-01-01 00:00:05 INFO hdfs Receiving block blk_3985929521 src: /10.0.0.32 dest: /10.0.0.11
+2024-01-01 00:00:05 INFO hdfs Receiving block blk_3729897436 src: /10.0.0.201 dest: /10.0.0.124
+2024-01-01 00:00:06 INFO hdfs Receiving block blk_2291067101 src: /10.0.0.133 dest: /10.0.0.232
+2024-01-01 00:00:07 INFO hdfs Receiving block blk_4844452015 src: /10.0.0.1 dest: /10.0.0.14
+2024-01-01 00:00:09 INFO hdfs Receiving block blk_3366002146 src: /10.0.0.57 dest: /10.0.0.84
+2024-01-01 00:00:11 INFO hdfs Receiving block blk_1826632812 src: /10.0.0.37 dest: /10.0.0.241
+2024-01-01 00:00:12 INFO hdfs Receiving block blk_8115186493 src: /10.0.0.102 dest: /10.0.0.96
+2024-01-01 00:00:14 INFO hdfs Receiving block blk_9257034899 src: /10.0.0.52 dest: /10.0.0.103
+2024-01-01 00:00:14 INFO hdfs Receiving block blk_5842885728 src: /10.0.0.33 dest: /10.0.0.37
+2024-01-01 00:00:16 INFO hdfs Receiving block blk_6615175782 src: /10.0.0.63 dest: /10.0.0.15
+2024-01-01 00:00:16 INFO hdfs Receiving block blk_9986384992 src: /10.0.0.99 dest: /10.0.0.102
+2024-01-01 00:00:18 INFO hdfs Received block blk_5699183813 of size 6096636 from /10.0.0.72
+2024-01-01 00:00:18 INFO hdfs Receiving block blk_2052463740 src: /10.0.0.196 dest: /10.0.0.47
+2024-01-01 00:00:20 INFO hdfs Receiving block blk_5819174770 src: /10.0.0.233 dest: /10.0.0.131
+2024-01-01 00:00:20 INFO hdfs Receiving block blk_6998543735 src: /10.0.0.153 dest: /10.0.0.245
+2024-01-01 00:00:21 INFO hdfs Receiving block blk_4223591617 src: /10.0.0.188 dest: /10.0.0.85
+2024-01-01 00:00:22 INFO hdfs Receiving block blk_1340975920 src: /10.0.0.128 dest: /10.0.0.76
+2024-01-01 00:00:22 INFO hdfs Received block blk_6998543735 of size 1504425 from /10.0.0.199
+2024-01-01 00:00:23 INFO hdfs Receiving block blk_5036536863 src: /10.0.0.125 dest: /10.0.0.11
+2024-01-01 00:00:25 INFO hdfs Receiving block blk_8155126397 src: /10.0.0.172 dest: /10.0.0.32
+2024-01-01 00:00:26 INFO hdfs Receiving block blk_8355075124 src: /10.0.0.124 dest: /10.0.0.184
+2024-01-01 00:00:28 INFO hdfs Receiving block blk_2358241431 src: /10.0.0.118 dest: /10.0.0.57
+2024-01-01 00:00:30 INFO hdfs Received block blk_1541696649 of size 5741173 from /10.0.0.174
+2024-01-01 00:00:30 INFO hdfs Receiving block blk_5200690282 src: /10.0.0.38 dest: /10.0.0.82
+2024-01-01 00:00:30 INFO hdfs Receiving block blk_6196373651 src: /10.0.0.151 dest: /10.0.0.202
+2024-01-01 00:00:31 INFO hdfs Receiving block blk_8252006746 src: /10.0.0.167 dest: /10.0.0.99
+2024-01-01 00:00:33 INFO hdfs Receiving block blk_2633310909 src: /10.0.0.93 dest: /10.0.0.203
+2024-01-01 00:00:35 INFO hdfs Received block blk_3729897436 of size 2815647 from /10.0.0.102
+2024-01-01 00:00:35 INFO hdfs Receiving block blk_4975575744 src: /10.0.0.187 dest: /10.0.0.225
+2024-01-01 00:00:35 INFO hdfs Received block blk_2291067101 of size 8229265 from /10.0.0.36
+2024-01-01 00:00:37 INFO hdfs Received block blk_8252006746 of size 579940 from /10.0.0.63
+2024-01-01 00:00:37 INFO hdfs Receiving block blk_3596335142 src: /10.0.0.136 dest: /10.0.0.86
+2024-01-01 00:00:38 INFO hdfs Receiving block blk_2160179042 src: /10.0.0.176 dest: /10.0.0.141
+2024-01-01 00:00:39 INFO hdfs Receiving block blk_6467576990 src: /10.0.0.68 dest: /10.0.0.166
+2024-01-01 00:00:41 INFO hdfs Receiving block blk_4686932034 src: /10.0.0.252 dest: /10.0.0.110
+2024-01-01 00:00:43 INFO hdfs Receiving block blk_3852325403 src: /10.0.0.12 dest: /10.0.0.107
+2024-01-01 00:00:45 INFO hdfs Receiving block blk_8321459188 src: /10.0.0.20 dest: /10.0.0.242
+2024-01-01 00:00:46 INFO hdfs Receiving block blk_3652628333 src: /10.0.0.48 dest: /10.0.0.64
+2024-01-01 00:00:47 INFO hdfs Receiving block blk_8362261450 src: /10.0.0.192 dest: /10.0.0.89
+2024-01-01 00:00:49 INFO hdfs Receiving block blk_3371125304 src: /10.0.0.72 dest: /10.0.0.33
+2024-01-01 00:00:51 INFO hdfs Receiving block blk_2527909147 src: /10.0.0.85 dest: /10.0.0.77
+2024-01-01 00:00:51 INFO hdfs Receiving block blk_9862657724 src: /10.0.0.204 dest: /10.0.0.138
+2024-01-01 00:00:52 INFO hdfs Receiving block blk_9252919252 src: /10.0.0.40 dest: /10.0.0.142
+2024-01-01 00:00:53 INFO hdfs Received block blk_2527909147 of size 3124208 from /10.0.0.2
+2024-01-01 00:00:55 INFO hdfs Received block blk_9252919252 of size 5132265 from /10.0.0.98
+2024-01-01 00:00:55 INFO hdfs Receiving block blk_4019762806 src: /10.0.0.1 dest: /10.0.0.53
+2024-01-01 00:00:56 INFO hdfs Receiving block blk_1756389067 src: /10.0.0.242 dest: /10.0.0.187
+2024-01-01 00:00:57 INFO hdfs Received block blk_4975575744 of size 5854574 from /10.0.0.25
+2024-01-01 00:00:59 INFO hdfs Receiving block blk_6544122414 src: /10.0.0.241 dest: /10.0.0.111
+2024-01-01 00:01:00 INFO hdfs Receiving block blk_1034114705 src: /10.0.0.75 dest: /10.0.0.97
+2024-01-01 00:01:01 INFO hdfs Receiving block blk_6323740456 src: /10.0.0.28 dest: /10.0.0.17
+2024-01-01 00:01:03 INFO hdfs Received block blk_2633310909 of size 3549261 from /10.0.0.55
+2024-01-01 00:01:03 INFO hdfs Receiving block blk_6129924345 src: /10.0.0.182 dest: /10.0.0.235
+2024-01-01 00:01:03 INFO hdfs Receiving block blk_6056192729 src: /10.0.0.190 dest: /10.0.0.101
+2024-01-01 00:01:03 INFO hdfs Receiving block blk_4659428530 src: /10.0.0.39 dest: /10.0.0.175
+2024-01-01 00:01:04 INFO hdfs Received block blk_2052463740 of size 5025905 from /10.0.0.192
+2024-01-01 00:01:05 INFO hdfs Received block blk_6056192729 of size 189082 from /10.0.0.172
+2024-01-01 00:01:07 INFO hdfs Receiving block blk_5341643190 src: /10.0.0.175 dest: /10.0.0.243
+2024-01-01 00:01:09 INFO hdfs Receiving block blk_6129924345 src: /10.0.0.172 dest: /10.0.0.192
+2024-01-01 00:01:11 INFO hdfs Receiving block blk_6109151668 src: /10.0.0.191 dest: /10.0.0.85
+2024-01-01 00:01:11 INFO hdfs Received block blk_5200690282 of size 8027757 from /10.0.0.115
+2024-01-01 00:01:12 INFO hdfs PacketResponder 3 for block blk_5699183813 terminating
+2024-01-01 00:01:12 INFO hdfs Receiving block blk_5164951786 src: /10.0.0.174 dest: /10.0.0.64
+2024-01-01 00:01:13 INFO hdfs Receiving block blk_5830470599 src: /10.0.0.123 dest: /10.0.0.125
+2024-01-01 00:01:14 INFO hdfs Receiving block blk_9640565939 src: /10.0.0.29 dest: /10.0.0.212
+2024-01-01 00:01:14 INFO hdfs Received block blk_6619209856 of size 3385602 from /10.0.0.198
+2024-01-01 00:01:14 INFO hdfs Receiving block blk_7549701358 src: /10.0.0.251 dest: /10.0.0.60
+2024-01-01 00:01:15 INFO hdfs PacketResponder 1 for block blk_2291067101 terminating
+2024-01-01 00:01:17 INFO hdfs Received block blk_8362261450 of size 2828503 from /10.0.0.156
+2024-01-01 00:01:17 INFO hdfs Receiving block blk_6081395246 src: /10.0.0.205 dest: /10.0.0.120
+2024-01-01 00:01:17 INFO hdfs Received block blk_2160179042 of size 1493738 from /10.0.0.85
+2024-01-01 00:01:18 INFO hdfs Receiving block blk_9207034721 src: /10.0.0.43 dest: /10.0.0.154
+2024-01-01 00:01:20 INFO hdfs Receiving block blk_5791851910 src: /10.0.0.190 dest: /10.0.0.152
+2024-01-01 00:01:21 INFO hdfs Received block blk_8155126397 of size 5584476 from /10.0.0.24
+2024-01-01 00:01:23 INFO hdfs Received block blk_5164951786 of size 4925868 from /10.0.0.77
+2024-01-01 00:01:23 INFO hdfs Receiving block blk_9700231170 src: /10.0.0.136 dest: /10.0.0.72
+2024-01-01 00:01:23 INFO hdfs PacketResponder 1 for block blk_5164951786 terminating
+2024-01-01 00:01:23 INFO hdfs Receiving block blk_6901746164 src: /10.0.0.35 dest: /10.0.0.193
+2024-01-01 00:01:24 INFO hdfs Received block blk_4223591617 of size 908210 from /10.0.0.53
+2024-01-01 00:01:26 INFO hdfs Receiving block blk_1961769664 src: /10.0.0.75 dest: /10.0.0.11
+2024-01-01 00:01:27 INFO hdfs Received block blk_4019762806 of size 2242313 from /10.0.0.143
+2024-01-01 00:01:27 INFO hdfs Received block blk_9862657724 of size 332289 from /10.0.0.209
+2024-01-01 00:01:28 INFO hdfs Received block blk_3596335142 of size 5060400 from /10.0.0.39
+2024-01-01 00:01:30 INFO hdfs Received block blk_9700231170 of size 7973523 from /10.0.0.116
+2024-01-01 00:01:30 INFO hdfs Received block blk_6081395246 of size 7177707 from /10.0.0.71
+2024-01-01 00:01:32 INFO hdfs Exception writing block blk_2052463740 to mirror /10.0.0.106
+2024-01-01 00:01:32 INFO hdfs PacketResponder 2 for block blk_6081395246 terminating
+2024-01-01 00:01:33 INFO hdfs PacketResponder 2 for block blk_3596335142 terminating
+2024-01-01 00:01:35 INFO hdfs Received block blk_2358241431 of size 6191456 from /10.0.0.167
+2024-01-01 00:01:37 INFO hdfs Received block blk_5842885728 of size 6211098 from /10.0.0.14
+2024-01-01 00:01:38 INFO hdfs PacketResponder 0 for block blk_9252919252 terminating
+2024-01-01 00:01:40 INFO hdfs PacketResponder 2 for block blk_6998543735 terminating
+2024-01-01 00:01:41 INFO hdfs Received block blk_1826632812 of size 3429815 from /10.0.0.24
+2024-01-01 00:01:41 INFO hdfs Receiving block blk_7890723343 src: /10.0.0.175 dest: /10.0.0.228
+2024-01-01 00:01:43 INFO hdfs PacketResponder 3 for block blk_2358241431 terminating
+2024-01-01 00:01:45 INFO hdfs Received block blk_3852325403 of size 5414664 from /10.0.0.209
+2024-01-01 00:01:46 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_3596335142
+2024-01-01 00:01:47 INFO hdfs Receiving block blk_1240504531 src: /10.0.0.211 dest: /10.0.0.191
+2024-01-01 00:01:47 INFO hdfs Exception writing block blk_9640565939 to mirror /10.0.0.34
+2024-01-01 00:01:47 INFO hdfs Received block blk_5819174770 of size 8045647 from /10.0.0.151
+2024-01-01 00:01:47 INFO hdfs Received block blk_7414480314 of size 8463341 from /10.0.0.194
+2024-01-01 00:01:48 INFO hdfs Receiving block blk_8926139828 src: /10.0.0.155 dest: /10.0.0.36
+2024-01-01 00:01:50 INFO hdfs Received block blk_6901746164 of size 5899448 from /10.0.0.114
+2024-01-01 00:01:50 INFO hdfs Receiving block blk_6666418113 src: /10.0.0.178 dest: /10.0.0.250
+2024-01-01 00:01:52 INFO hdfs Received block blk_8926139828 of size 4729578 from /10.0.0.198
+2024-01-01 00:01:52 INFO hdfs Received block blk_1756389067 of size 2734321 from /10.0.0.6
+2024-01-01 00:01:53 INFO hdfs Deleting block blk_3596335142 file /data/current/blk_3596335142
+2024-01-01 00:01:55 INFO hdfs PacketResponder 0 for block blk_8926139828 terminating
+2024-01-01 00:01:56 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2358241431
+2024-01-01 00:01:58 INFO hdfs Receiving block blk_9347308209 src: /10.0.0.246 dest: /10.0.0.102
+2024-01-01 00:01:58 INFO hdfs Received block blk_3371125304 of size 4374391 from /10.0.0.141
+2024-01-01 00:02:00 INFO hdfs PacketResponder 2 for block blk_9700231170 terminating
+2024-01-01 00:02:01 INFO hdfs PacketResponder 0 for block blk_5830470599 terminating
+2024-01-01 00:02:03 INFO hdfs PacketResponder 1 for block blk_8252006746 terminating
+2024-01-01 00:02:05 INFO hdfs Receiving block blk_7376034192 src: /10.0.0.204 dest: /10.0.0.21
+2024-01-01 00:02:06 INFO hdfs PacketResponder 0 for block blk_4975575744 terminating
+2024-01-01 00:02:06 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5699183813
+2024-01-01 00:02:06 INFO hdfs Receiving block blk_8607593563 src: /10.0.0.240 dest: /10.0.0.204
+2024-01-01 00:02:08 INFO hdfs Received block blk_1340975920 of size 636969 from /10.0.0.97
+2024-01-01 00:02:10 INFO hdfs Received block blk_6467576990 of size 4942189 from /10.0.0.231
+2024-01-01 00:02:10 INFO hdfs Received block blk_6666418113 of size 4126653 from /10.0.0.36
+2024-01-01 00:02:11 INFO hdfs Receiving block blk_6619209856 src: /10.0.0.96 dest: /10.0.0.233
+2024-01-01 00:02:11 INFO hdfs Receiving block blk_1964594683 src: /10.0.0.31 dest: /10.0.0.247
+2024-01-01 00:02:11 INFO hdfs PacketResponder 1 for block blk_6056192729 terminating
+2024-01-01 00:02:12 INFO hdfs Receiving block blk_7867138648 src: /10.0.0.254 dest: /10.0.0.177
+2024-01-01 00:02:12 INFO hdfs Received block blk_8410301978 of size 5165208 from /10.0.0.99
+2024-01-01 00:02:13 INFO hdfs Receiving block blk_7553503798 src: /10.0.0.226 dest: /10.0.0.126
+2024-01-01 00:02:13 INFO hdfs Receiving block blk_9892979079 src: /10.0.0.163 dest: /10.0.0.179
+2024-01-01 00:02:13 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6081395246
+2024-01-01 00:02:13 INFO hdfs Receiving block blk_6717510876 src: /10.0.0.93 dest: /10.0.0.191
+2024-01-01 00:02:13 INFO hdfs PacketResponder 1 for block blk_8362261450 terminating
+2024-01-01 00:02:15 INFO hdfs Received block blk_6717510876 of size 4630621 from /10.0.0.61
+2024-01-01 00:02:15 INFO hdfs Received block blk_7553503798 of size 1529449 from /10.0.0.148
+2024-01-01 00:02:16 INFO hdfs Received block blk_9257034899 of size 8159676 from /10.0.0.82
+2024-01-01 00:02:17 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_4975575744
+2024-01-01 00:02:18 INFO hdfs Received block blk_9347308209 of size 6554873 from /10.0.0.81
+2024-01-01 00:02:18 INFO hdfs PacketResponder 3 for block blk_1826632812 terminating
+2024-01-01 00:02:18 INFO hdfs Receiving block blk_1417984375 src: /10.0.0.203 dest: /10.0.0.149
+2024-01-01 00:02:20 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_9252919252
+2024-01-01 00:02:22 INFO hdfs Receiving block blk_2231995081 src: /10.0.0.176 dest: /10.0.0.99
+2024-01-01 00:02:22 INFO hdfs PacketResponder 2 for block blk_2052463740 terminating
+2024-01-01 00:02:23 INFO hdfs PacketResponder 3 for block blk_3852325403 terminating
+2024-01-01 00:02:24 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2291067101
+2024-01-01 00:02:26 INFO hdfs Received block blk_5341643190 of size 8421022 from /10.0.0.236
+2024-01-01 00:02:26 INFO hdfs PacketResponder 0 for block blk_1756389067 terminating
+2024-01-01 00:02:28 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1826632812
+2024-01-01 00:02:28 INFO hdfs Receiving block blk_3004903816 src: /10.0.0.245 dest: /10.0.0.30
+2024-01-01 00:02:30 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8252006746
+2024-01-01 00:02:32 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8926139828
+2024-01-01 00:02:34 INFO hdfs Exception writing block blk_6467576990 to mirror /10.0.0.202
+2024-01-01 00:02:34 INFO hdfs Receiving block blk_7902950398 src: /10.0.0.1 dest: /10.0.0.41
+2024-01-01 00:02:35 INFO hdfs Receiving block blk_5073704803 src: /10.0.0.209 dest: /10.0.0.55
+2024-01-01 00:02:35 INFO hdfs PacketResponder 0 for block blk_6619209856 terminating
+2024-01-01 00:02:36 INFO hdfs Deleting block blk_8926139828 file /data/current/blk_8926139828
+2024-01-01 00:02:36 INFO hdfs PacketResponder 2 for block blk_1340975920 terminating
+2024-01-01 00:02:38 INFO hdfs PacketResponder 2 for block blk_7414480314 terminating
+2024-01-01 00:02:39 INFO hdfs Receiving block blk_5119022697 src: /10.0.0.252 dest: /10.0.0.162
+2024-01-01 00:02:40 INFO hdfs Received block blk_7867138648 of size 8025252 from /10.0.0.218
+2024-01-01 00:02:40 INFO hdfs Receiving block blk_8508849470 src: /10.0.0.2 dest: /10.0.0.253
+2024-01-01 00:02:42 INFO hdfs PacketResponder 3 for block blk_3371125304 terminating
+2024-01-01 00:02:44 INFO hdfs Received block blk_6615175782 of size 748019 from /10.0.0.6
+2024-01-01 00:02:45 INFO hdfs Received block blk_1417984375 of size 2747337 from /10.0.0.118
+2024-01-01 00:02:46 INFO hdfs Exception writing block blk_9207034721 to mirror /10.0.0.75
+2024-01-01 00:02:47 INFO hdfs Received block blk_1961769664 of size 4538143 from /10.0.0.238
+2024-01-01 00:02:48 INFO hdfs Received block blk_9986384992 of size 2783058 from /10.0.0.225
+2024-01-01 00:02:48 INFO hdfs PacketResponder 0 for block blk_8410301978 terminating
+2024-01-01 00:02:50 INFO hdfs PacketResponder 2 for block blk_2633310909 terminating
+2024-01-01 00:02:51 INFO hdfs PacketResponder 0 for block blk_7867138648 terminating
+2024-01-01 00:02:53 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6619209856
+2024-01-01 00:02:54 INFO hdfs Received block blk_1964594683 of size 7126430 from /10.0.0.188
+2024-01-01 00:02:54 INFO hdfs Deleting block blk_9252919252 file /data/current/blk_9252919252
+2024-01-01 00:02:55 INFO hdfs Received block blk_9207034721 of size 6669839 from /10.0.0.190
+2024-01-01 00:02:56 INFO hdfs Receiving block blk_5922930745 src: /10.0.0.222 dest: /10.0.0.14
+2024-01-01 00:02:58 INFO hdfs Received block blk_1240504531 of size 6797448 from /10.0.0.123
+2024-01-01 00:02:59 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_7867138648
+2024-01-01 00:02:59 INFO hdfs Received block blk_4659428530 of size 1566160 from /10.0.0.227
+2024-01-01 00:03:00 INFO hdfs Received block blk_6323740456 of size 5187174 from /10.0.0.194
+2024-01-01 00:03:00 INFO hdfs Received block blk_6109151668 of size 8042235 from /10.0.0.171
+2024-01-01 00:03:01 INFO hdfs PacketResponder 2 for block blk_4019762806 terminating
+2024-01-01 00:03:03 INFO hdfs PacketResponder 3 for block blk_5842885728 terminating
+2024-01-01 00:03:04 INFO hdfs PacketResponder 2 for block blk_7553503798 terminating
+2024-01-01 00:03:04 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8410301978
+2024-01-01 00:03:05 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1756389067
+2024-01-01 00:03:06 INFO hdfs PacketResponder 3 for block blk_1240504531 terminating
+2024-01-01 00:03:08 INFO hdfs Received block blk_4686932034 of size 7951315 from /10.0.0.25
+2024-01-01 00:03:10 INFO hdfs Received block blk_1034114705 of size 3743179 from /10.0.0.219
+2024-01-01 00:03:11 INFO hdfs PacketResponder 1 for block blk_2160179042 terminating
+2024-01-01 00:03:11 INFO hdfs Received block blk_6196373651 of size 1441757 from /10.0.0.88
+2024-01-01 00:03:12 INFO hdfs PacketResponder 3 for block blk_9986384992 terminating
+2024-01-01 00:03:12 INFO hdfs PacketResponder 3 for block blk_1541696649 terminating
+2024-01-01 00:03:12 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2160179042
+2024-01-01 00:03:12 INFO hdfs Received block blk_2070025912 of size 3078684 from /10.0.0.234
+2024-01-01 00:03:13 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2633310909
+2024-01-01 00:03:13 INFO hdfs Deleting block blk_6081395246 file /data/current/blk_6081395246
+2024-01-01 00:03:13 INFO hdfs PacketResponder 3 for block blk_9862657724 terminating
+2024-01-01 00:03:14 INFO hdfs PacketResponder 2 for block blk_6901746164 terminating
+2024-01-01 00:03:16 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6901746164
+2024-01-01 00:03:16 INFO hdfs Deleting block blk_2291067101 file /data/current/blk_2291067101
+2024-01-01 00:03:18 INFO hdfs Received block blk_7902950398 of size 8604283 from /10.0.0.226
+2024-01-01 00:03:18 INFO hdfs Received block blk_3985929521 of size 1474390 from /10.0.0.168
+2024-01-01 00:03:18 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2052463740
+2024-01-01 00:03:19 INFO hdfs PacketResponder 3 for block blk_2527909147 terminating
+2024-01-01 00:03:19 INFO hdfs Received block blk_6544122414 of size 1259262 from /10.0.0.62
+2024-01-01 00:03:19 INFO hdfs PacketResponder 2 for block blk_5200690282 terminating
+2024-01-01 00:03:21 INFO hdfs Deleting block blk_6619209856 file /data/current/blk_6619209856
+2024-01-01 00:03:23 INFO hdfs PacketResponder 2 for block blk_1417984375 terminating
+2024-01-01 00:03:25 INFO hdfs Deleting block blk_5699183813 file /data/current/blk_5699183813
+2024-01-01 00:03:27 INFO hdfs PacketResponder 1 for block blk_2070025912 terminating
+2024-01-01 00:03:29 INFO hdfs Received block blk_7549701358 of size 1030277 from /10.0.0.110
+2024-01-01 00:03:30 INFO hdfs PacketResponder 0 for block blk_6717510876 terminating
+2024-01-01 00:03:30 INFO hdfs PacketResponder 0 for block blk_3985929521 terminating
+2024-01-01 00:03:30 INFO hdfs Received block blk_5830470599 of size 8764319 from /10.0.0.25
+2024-01-01 00:03:31 INFO hdfs Received block blk_9640565939 of size 227440 from /10.0.0.37
+2024-01-01 00:03:32 INFO hdfs Receiving block blk_2677769486 src: /10.0.0.49 dest: /10.0.0.122
+2024-01-01 00:03:32 INFO hdfs PacketResponder 0 for block blk_7549701358 terminating
+2024-01-01 00:03:33 INFO hdfs Received block blk_5119022697 of size 5335600 from /10.0.0.86
+2024-01-01 00:03:35 INFO hdfs Deleting block blk_8252006746 file /data/current/blk_8252006746
+2024-01-01 00:03:37 INFO hdfs Received block blk_9892979079 of size 8581328 from /10.0.0.145
+2024-01-01 00:03:37 INFO hdfs PacketResponder 3 for block blk_6109151668 terminating
+2024-01-01 00:03:37 INFO hdfs PacketResponder 2 for block blk_9347308209 terminating
+2024-01-01 00:03:37 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6998543735
+2024-01-01 00:03:37 INFO hdfs PacketResponder 0 for block blk_9347308209 terminating
+2024-01-01 00:03:38 INFO hdfs Received block blk_7654085764 of size 175620 from /10.0.0.253
+2024-01-01 00:03:39 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1340975920
+2024-01-01 00:03:41 INFO hdfs Receiving block blk_5336547548 src: /10.0.0.214 dest: /10.0.0.91
+2024-01-01 00:03:41 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_4019762806
+2024-01-01 00:03:43 INFO hdfs Deleting block blk_4975575744 file /data/current/blk_4975575744
+2024-01-01 00:03:43 INFO hdfs PacketResponder 0 for block blk_6467576990 terminating
+2024-01-01 00:03:43 INFO hdfs Deleting block blk_1756389067 file /data/current/blk_1756389067
+2024-01-01 00:03:45 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6717510876
+2024-01-01 00:03:46 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_9862657724
+2024-01-01 00:03:47 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_3371125304
+2024-01-01 00:03:47 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_7549701358
+2024-01-01 00:03:48 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_9347308209
+2024-01-01 00:03:50 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5200690282
+2024-01-01 00:03:51 INFO hdfs Receiving block blk_2218987399 src: /10.0.0.169 dest: /10.0.0.135
+2024-01-01 00:03:53 INFO hdfs Deleting block blk_9862657724 file /data/current/blk_9862657724
+2024-01-01 00:03:54 INFO hdfs Received block blk_3366002146 of size 6635775 from /10.0.0.149
+2024-01-01 00:03:55 INFO hdfs PacketResponder 3 for block blk_5119022697 terminating
+2024-01-01 00:03:55 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_3852325403
+2024-01-01 00:03:55 INFO hdfs Received block blk_3004903816 of size 2860391 from /10.0.0.63
+2024-01-01 00:03:55 INFO hdfs Deleting block blk_6901746164 file /data/current/blk_6901746164
+2024-01-01 00:03:56 INFO hdfs Deleting block blk_2358241431 file /data/current/blk_2358241431
+2024-01-01 00:03:56 INFO hdfs PacketResponder 1 for block blk_7654085764 terminating
+2024-01-01 00:03:56 INFO hdfs Received block blk_5073704803 of size 3066690 from /10.0.0.16
+2024-01-01 00:03:58 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_9700231170
+2024-01-01 00:04:00 INFO hdfs Received block blk_3652628333 of size 4150917 from /10.0.0.222
+2024-01-01 00:04:02 INFO hdfs Received block blk_8355075124 of size 6727758 from /10.0.0.69
+2024-01-01 00:04:03 INFO hdfs Receiving block blk_1886823531 src: /10.0.0.80 dest: /10.0.0.111
+2024-01-01 00:04:03 INFO hdfs Received block blk_2218987399 of size 8700518 from /10.0.0.15
+2024-01-01 00:04:04 INFO hdfs Received block blk_1886823531 of size 5207200 from /10.0.0.155
+2024-01-01 00:04:05 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_7414480314
+2024-01-01 00:04:07 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5164951786
+2024-01-01 00:04:08 INFO hdfs Deleting block blk_7549701358 file /data/current/blk_7549701358
+2024-01-01 00:04:08 INFO hdfs PacketResponder 3 for block blk_5073704803 terminating
+2024-01-01 00:04:08 INFO hdfs Received block blk_2231995081 of size 1848769 from /10.0.0.44
+2024-01-01 00:04:09 INFO hdfs Deleting block blk_1826632812 file /data/current/blk_1826632812
+2024-01-01 00:04:11 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_9986384992
+2024-01-01 00:04:13 INFO hdfs PacketResponder 1 for block blk_1961769664 terminating
+2024-01-01 00:04:15 INFO hdfs PacketResponder 2 for block blk_2231995081 terminating
+2024-01-01 00:04:17 INFO hdfs PacketResponder 3 for block blk_4223591617 terminating
+2024-01-01 00:04:17 INFO hdfs PacketResponder 1 for block blk_4659428530 terminating
+2024-01-01 00:04:19 INFO hdfs PacketResponder 0 for block blk_1964594683 terminating
+2024-01-01 00:04:20 INFO hdfs Deleting block blk_2052463740 file /data/current/blk_2052463740
+2024-01-01 00:04:22 INFO hdfs Deleting block blk_5164951786 file /data/current/blk_5164951786
+2024-01-01 00:04:22 INFO hdfs PacketResponder 1 for block blk_5341643190 terminating
+2024-01-01 00:04:23 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6056192729
+2024-01-01 00:04:25 INFO hdfs PacketResponder 2 for block blk_9892979079 terminating
+2024-01-01 00:04:26 INFO hdfs Received block blk_6129924345 of size 1385936 from /10.0.0.119
+2024-01-01 00:04:28 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1417984375
+2024-01-01 00:04:30 INFO hdfs PacketResponder 2 for block blk_8155126397 terminating
+2024-01-01 00:04:30 INFO hdfs Deleting block blk_7414480314 file /data/current/blk_7414480314
+2024-01-01 00:04:30 INFO hdfs Deleting block blk_9347308209 file /data/current/blk_9347308209
+2024-01-01 00:04:30 INFO hdfs Received block blk_8607593563 of size 155157 from /10.0.0.28
+2024-01-01 00:04:31 INFO hdfs PacketResponder 1 for block blk_8607593563 terminating
+2024-01-01 00:04:31 INFO hdfs PacketResponder 2 for block blk_7902950398 terminating
+2024-01-01 00:04:31 INFO hdfs PacketResponder 1 for block blk_6323740456 terminating
+2024-01-01 00:04:31 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1541696649
+2024-01-01 00:04:33 INFO hdfs PacketResponder 0 for block blk_9257034899 terminating
+2024-01-01 00:04:34 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2527909147
+2024-01-01 00:04:36 INFO hdfs Deleting block blk_4019762806 file /data/current/blk_4019762806
+2024-01-01 00:04:38 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5073704803
+2024-01-01 00:04:38 INFO hdfs Deleting block blk_1340975920 file /data/current/blk_1340975920
+2024-01-01 00:04:39 INFO hdfs Receiving block blk_6977769260 src: /10.0.0.169 dest: /10.0.0.234
+2024-01-01 00:04:40 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1961769664
+2024-01-01 00:04:40 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_9257034899
+2024-01-01 00:04:40 INFO hdfs PacketResponder 2 for block blk_3366002146 terminating
+2024-01-01 00:04:41 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2070025912
+2024-01-01 00:04:41 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2231995081
+2024-01-01 00:04:43 INFO hdfs Deleting block blk_2527909147 file /data/current/blk_2527909147
+2024-01-01 00:04:43 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_4223591617
+2024-01-01 00:04:43 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6323740456
+2024-01-01 00:04:43 INFO hdfs PacketResponder 3 for block blk_3729897436 terminating
+2024-01-01 00:04:44 INFO hdfs PacketResponder 3 for block blk_6196373651 terminating
+2024-01-01 00:04:45 INFO hdfs PacketResponder 1 for block blk_3004903816 terminating
+2024-01-01 00:04:46 INFO hdfs Received block blk_5336547548 of size 6768404 from /10.0.0.108
+2024-01-01 00:04:47 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5341643190
+2024-01-01 00:04:47 INFO hdfs Exception writing block blk_3985929521 to mirror /10.0.0.251
+2024-01-01 00:04:48 INFO hdfs Deleting block blk_6056192729 file /data/current/blk_6056192729
+2024-01-01 00:04:48 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1964594683
+2024-01-01 00:04:49 INFO hdfs Received block blk_7890723343 of size 6061108 from /10.0.0.210
+2024-01-01 00:04:50 INFO hdfs Deleting block blk_2633310909 file /data/current/blk_2633310909
+2024-01-01 00:04:50 INFO hdfs Received block blk_4844452015 of size 4701293 from /10.0.0.74
+2024-01-01 00:04:51 INFO hdfs Deleting block blk_5341643190 file /data/current/blk_5341643190
+2024-01-01 00:04:51 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8155126397
+2024-01-01 00:04:53 INFO hdfs PacketResponder 0 for block blk_5336547548 terminating
+2024-01-01 00:04:55 INFO hdfs Received block blk_5791851910 of size 2138710 from /10.0.0.147
+2024-01-01 00:04:56 INFO hdfs PacketResponder 0 for block blk_6544122414 terminating
+2024-01-01 00:04:57 INFO hdfs Deleting block blk_4223591617 file /data/current/blk_4223591617
+2024-01-01 00:04:58 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_3729897436
+2024-01-01 00:05:00 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5119022697
+2024-01-01 00:05:02 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5830470599
+2024-01-01 00:05:03 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6109151668
+2024-01-01 00:05:04 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_9892979079
+2024-01-01 00:05:06 INFO hdfs PacketResponder 2 for block blk_1886823531 terminating
+2024-01-01 00:05:08 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5336547548
+2024-01-01 00:05:08 INFO hdfs Received block blk_8508849470 of size 1172745 from /10.0.0.1
+2024-01-01 00:05:08 INFO hdfs Deleting block blk_9986384992 file /data/current/blk_9986384992
+2024-01-01 00:05:08 INFO hdfs Deleting block blk_5336547548 file /data/current/blk_5336547548
+2024-01-01 00:05:09 INFO hdfs Exception writing block blk_6109151668 to mirror /10.0.0.193
+2024-01-01 00:05:09 INFO hdfs Deleting block blk_5830470599 file /data/current/blk_5830470599
+2024-01-01 00:05:09 INFO hdfs Received block blk_8115186493 of size 3057507 from /10.0.0.110
+2024-01-01 00:05:09 INFO hdfs Received block blk_7376034192 of size 7989000 from /10.0.0.241
+2024-01-01 00:05:11 INFO hdfs Received block blk_5036536863 of size 2164996 from /10.0.0.103
+2024-01-01 00:05:13 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_7654085764
+2024-01-01 00:05:14 INFO hdfs PacketResponder 2 for block blk_4686932034 terminating
+2024-01-01 00:05:14 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_4686932034
+2024-01-01 00:05:16 INFO hdfs Deleting block blk_5073704803 file /data/current/blk_5073704803
+2024-01-01 00:05:18 INFO hdfs Deleting block blk_6323740456 file /data/current/blk_6323740456
+2024-01-01 00:05:19 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_3004903816
+2024-01-01 00:05:19 INFO hdfs PacketResponder 3 for block blk_8508849470 terminating
+2024-01-01 00:05:19 INFO hdfs Deleting block blk_1964594683 file /data/current/blk_1964594683
+2024-01-01 00:05:21 INFO hdfs Received block blk_6977769260 of size 5661802 from /10.0.0.141
+2024-01-01 00:05:23 INFO hdfs Deleting block blk_8155126397 file /data/current/blk_8155126397
+2024-01-01 00:05:24 INFO hdfs Received block blk_8321459188 of size 3389982 from /10.0.0.186
+2024-01-01 00:05:24 INFO hdfs Deleting block blk_2231995081 file /data/current/blk_2231995081
+2024-01-01 00:05:24 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_7553503798
+2024-01-01 00:05:26 INFO hdfs PacketResponder 3 for block blk_8115186493 terminating
+2024-01-01 00:05:27 INFO hdfs PacketResponder 0 for block blk_9207034721 terminating
+2024-01-01 00:05:28 INFO hdfs PacketResponder 3 for block blk_6666418113 terminating
+2024-01-01 00:05:28 INFO hdfs PacketResponder 2 for block blk_9640565939 terminating
+2024-01-01 00:05:29 INFO hdfs Deleting block blk_5119022697 file /data/current/blk_5119022697
+2024-01-01 00:05:29 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_9640565939
+2024-01-01 00:05:29 INFO hdfs Deleting block blk_3729897436 file /data/current/blk_3729897436
+2024-01-01 00:05:30 INFO hdfs Deleting block blk_4686932034 file /data/current/blk_4686932034
+2024-01-01 00:05:30 INFO hdfs Deleting block blk_3852325403 file /data/current/blk_3852325403
+2024-01-01 00:05:31 INFO hdfs Deleting block blk_5200690282 file /data/current/blk_5200690282
+2024-01-01 00:05:32 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8362261450
+2024-01-01 00:05:32 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6467576990
+2024-01-01 00:05:32 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8607593563
+2024-01-01 00:05:34 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8508849470
+2024-01-01 00:05:34 INFO hdfs Deleting block blk_9257034899 file /data/current/blk_9257034899
+2024-01-01 00:05:35 INFO hdfs Deleting block blk_7654085764 file /data/current/blk_7654085764
+2024-01-01 00:05:37 INFO hdfs Deleting block blk_1541696649 file /data/current/blk_1541696649
+2024-01-01 00:05:38 INFO hdfs PacketResponder 3 for block blk_8355075124 terminating
+2024-01-01 00:05:39 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5791851910
+2024-01-01 00:05:39 INFO hdfs Deleting block blk_2070025912 file /data/current/blk_2070025912
+2024-01-01 00:05:41 INFO hdfs Deleting block blk_6467576990 file /data/current/blk_6467576990
+2024-01-01 00:05:42 INFO hdfs PacketResponder 2 for block blk_1034114705 terminating
+2024-01-01 00:05:44 INFO hdfs Deleting block blk_8607593563 file /data/current/blk_8607593563
+2024-01-01 00:05:44 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_7902950398
+2024-01-01 00:05:44 INFO hdfs PacketResponder 2 for block blk_7890723343 terminating
+2024-01-01 00:05:45 INFO hdfs PacketResponder 1 for block blk_6129924345 terminating
+2024-01-01 00:05:46 INFO hdfs Deleting block blk_9892979079 file /data/current/blk_9892979079
+2024-01-01 00:05:48 INFO hdfs Deleting block blk_7902950398 file /data/current/blk_7902950398
+2024-01-01 00:05:50 INFO hdfs Receiving block blk_5058172647 src: /10.0.0.15 dest: /10.0.0.22
+2024-01-01 00:05:52 INFO hdfs Deleting block blk_1417984375 file /data/current/blk_1417984375
+2024-01-01 00:05:53 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_3366002146
+2024-01-01 00:05:54 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8115186493
+2024-01-01 00:05:55 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8355075124
+2024-01-01 00:05:57 INFO hdfs Deleting block blk_3371125304 file /data/current/blk_3371125304
+2024-01-01 00:05:59 INFO hdfs Deleting block blk_8362261450 file /data/current/blk_8362261450
+2024-01-01 00:05:59 INFO hdfs Deleting block blk_9640565939 file /data/current/blk_9640565939
+2024-01-01 00:06:01 INFO hdfs PacketResponder 1 for block blk_5819174770 terminating
+2024-01-01 00:06:03 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_4659428530
+2024-01-01 00:06:03 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6196373651
+2024-01-01 00:06:03 INFO hdfs PacketResponder 3 for block blk_8321459188 terminating
+2024-01-01 00:06:04 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_7890723343
+2024-01-01 00:06:04 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6666418113
+2024-01-01 00:06:06 INFO hdfs PacketResponder 3 for block blk_6977769260 terminating
+2024-01-01 00:06:07 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_9207034721
+2024-01-01 00:06:09 INFO hdfs PacketResponder 1 for block blk_5791851910 terminating
+2024-01-01 00:06:09 INFO hdfs Deleting block blk_7553503798 file /data/current/blk_7553503798
+2024-01-01 00:06:11 INFO hdfs Deleting block blk_6717510876 file /data/current/blk_6717510876
+2024-01-01 00:06:12 INFO hdfs Deleting block blk_8410301978 file /data/current/blk_8410301978
+2024-01-01 00:06:14 INFO hdfs Deleting block blk_6666418113 file /data/current/blk_6666418113
+2024-01-01 00:06:15 INFO hdfs Deleting block blk_5791851910 file /data/current/blk_5791851910
+2024-01-01 00:06:16 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_8321459188
+2024-01-01 00:06:18 INFO hdfs Deleting block blk_3366002146 file /data/current/blk_3366002146
+2024-01-01 00:06:19 INFO hdfs Deleting block blk_6998543735 file /data/current/blk_6998543735
+2024-01-01 00:06:19 INFO hdfs PacketResponder 1 for block blk_7376034192 terminating
+2024-01-01 00:06:21 INFO hdfs Deleting block blk_6196373651 file /data/current/blk_6196373651
+2024-01-01 00:06:23 INFO hdfs Deleting block blk_8115186493 file /data/current/blk_8115186493
+2024-01-01 00:06:25 INFO hdfs Deleting block blk_7867138648 file /data/current/blk_7867138648
+2024-01-01 00:06:26 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1886823531
+2024-01-01 00:06:27 INFO hdfs PacketResponder 2 for block blk_5036536863 terminating
+2024-01-01 00:06:28 INFO hdfs Deleting block blk_8321459188 file /data/current/blk_8321459188
+2024-01-01 00:06:28 INFO hdfs Deleting block blk_3004903816 file /data/current/blk_3004903816
+2024-01-01 00:06:29 INFO hdfs Deleting block blk_8355075124 file /data/current/blk_8355075124
+2024-01-01 00:06:29 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6544122414
+2024-01-01 00:06:31 INFO hdfs PacketResponder 1 for block blk_3652628333 terminating
+2024-01-01 00:06:33 INFO hdfs Deleting block blk_8508849470 file /data/current/blk_8508849470
+2024-01-01 00:06:35 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_3985929521
+2024-01-01 00:06:37 INFO hdfs PacketResponder 3 for block blk_6615175782 terminating
+2024-01-01 00:06:38 INFO hdfs Deleting block blk_9700231170 file /data/current/blk_9700231170
+2024-01-01 00:06:39 INFO hdfs Deleting block blk_1961769664 file /data/current/blk_1961769664
+2024-01-01 00:06:40 INFO hdfs Deleting block blk_1886823531 file /data/current/blk_1886823531
+2024-01-01 00:06:41 INFO hdfs Received block blk_2677769486 of size 7576505 from /10.0.0.146
+2024-01-01 00:06:41 INFO hdfs PacketResponder 3 for block blk_2218987399 terminating
+2024-01-01 00:06:43 INFO hdfs Received block blk_5058172647 of size 180426 from /10.0.0.207
+2024-01-01 00:06:43 INFO hdfs Deleting block blk_7890723343 file /data/current/blk_7890723343
+2024-01-01 00:06:44 INFO hdfs Deleting block blk_4659428530 file /data/current/blk_4659428530
+2024-01-01 00:06:45 INFO hdfs PacketResponder 1 for block blk_2677769486 terminating
+2024-01-01 00:06:47 INFO hdfs PacketResponder 3 for block blk_4844452015 terminating
+2024-01-01 00:06:47 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2677769486
+2024-01-01 00:06:47 INFO hdfs PacketResponder 3 for block blk_5058172647 terminating
+2024-01-01 00:06:48 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_4844452015
+2024-01-01 00:06:50 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5036536863
+2024-01-01 00:06:50 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1034114705
+2024-01-01 00:06:52 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6129924345
+2024-01-01 00:06:52 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5058172647
+2024-01-01 00:06:53 INFO hdfs Deleting block blk_3985929521 file /data/current/blk_3985929521
+2024-01-01 00:06:54 INFO hdfs Deleting block blk_6129924345 file /data/current/blk_6129924345
+2024-01-01 00:06:54 INFO hdfs Deleting block blk_6109151668 file /data/current/blk_6109151668
+2024-01-01 00:06:55 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_3652628333
+2024-01-01 00:06:57 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6977769260
+2024-01-01 00:06:58 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_6615175782
+2024-01-01 00:06:59 INFO hdfs Deleting block blk_5058172647 file /data/current/blk_5058172647
+2024-01-01 00:07:00 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_2218987399
+2024-01-01 00:07:02 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_5819174770
+2024-01-01 00:07:02 INFO hdfs Deleting block blk_5819174770 file /data/current/blk_5819174770
+2024-01-01 00:07:03 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_1240504531
+2024-01-01 00:07:04 INFO hdfs Deleting block blk_6544122414 file /data/current/blk_6544122414
+2024-01-01 00:07:04 INFO hdfs Deleting block blk_1240504531 file /data/current/blk_1240504531
+2024-01-01 00:07:04 INFO hdfs Deleting block blk_1034114705 file /data/current/blk_1034114705
+2024-01-01 00:07:04 INFO hdfs Deleting block blk_2160179042 file /data/current/blk_2160179042
+2024-01-01 00:07:06 INFO hdfs Deleting block blk_9207034721 file /data/current/blk_9207034721
+2024-01-01 00:07:07 INFO hdfs Deleting block blk_6977769260 file /data/current/blk_6977769260
+2024-01-01 00:07:07 INFO hdfs BLOCK* NameSystem.addStoredBlock: blockMap updated for blk_7376034192
+2024-01-01 00:07:09 INFO hdfs Deleting block blk_7376034192 file /data/current/blk_7376034192
+2024-01-01 00:07:10 INFO hdfs Deleting block blk_5036536863 file /data/current/blk_5036536863
+2024-01-01 00:07:10 INFO hdfs Deleting block blk_6615175782 file /data/current/blk_6615175782
+2024-01-01 00:07:11 INFO hdfs Deleting block blk_4844452015 file /data/current/blk_4844452015
+2024-01-01 00:07:11 INFO hdfs Deleting block blk_2677769486 file /data/current/blk_2677769486
+2024-01-01 00:07:13 INFO hdfs Deleting block blk_3652628333 file /data/current/blk_3652628333
+2024-01-01 00:07:15 INFO hdfs Deleting block blk_2218987399 file /data/current/blk_2218987399
