@@ -45,3 +45,4 @@ src/loglens/_build.py
 testlogs/
 
 benchdata/
+report.json

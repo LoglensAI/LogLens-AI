@@ -144,7 +144,7 @@ class DeepEmbeddingEngine:
         if not entries:
             return np.zeros((0, 384 + self.tfidf_dims + N_LOG_FEATURES), dtype=np.float32)
         reps = [entries[i] for i in registry.representative_indices()]
-        return self.embed(reps) 
+        return self.embed(reps)
 
     def embed_templates(self, entries: list[LogEntry], registry) -> np.ndarray:
         if not entries:

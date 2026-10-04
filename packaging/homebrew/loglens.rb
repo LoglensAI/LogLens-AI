@@ -1,21 +1,22 @@
 class Loglens < Formula
   desc "Local, privacy-first log anomaly detection (with neural mode built in)"
   homepage "https://github.com/LoglensAI/LogLens-AI"
-  version "0.12.0"
+  version "0.13.0"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/LoglensAI/LogLens-AI/releases/download/v0.12.0/loglens-macos-arm64.tar.gz"
+      url "https://github.com/LoglensAI/LogLens-AI/releases/download/v0.13.0/loglens-macos-arm64.tar.gz"
       sha256 "REPLACED_BY_CI_ARM64"
     end
     on_intel do
-      odie "Prebuilt LogLens binaries are Apple Silicon only. On Intel Macs, install with: pip install loglensai"
+      url "https://github.com/LoglensAI/LogLens-AI/releases/download/v0.13.0/loglens-macos-x86_64.tar.gz"
+      sha256 "REPLACED_BY_CI_INTEL"
     end
   end
 
   on_linux do
-    url "https://github.com/LoglensAI/LogLens-AI/releases/download/v0.12.0/loglens-linux-x86_64.tar.gz"
+    url "https://github.com/LoglensAI/LogLens-AI/releases/download/v0.13.0/loglens-linux-x86_64.tar.gz"
     sha256 "REPLACED_BY_CI_LINUX"
   end
 

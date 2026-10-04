@@ -26,8 +26,7 @@ jobs:
         include:
           - { name: linux-x86_64,  os: ubuntu-22.04,  asset: loglens-linux-x86_64 }
           - { name: macos-arm64,   os: macos-14,      asset: loglens-macos-arm64 }
-          # Intel Mac (macos-13) dropped for now — scarce/slow runners; Apple
-          # Silicon covers the vast majority of Macs and Intel users can pip install.
+          - { name: macos-x86_64,  os: macos-13,      asset: loglens-macos-x86_64 }
           - { name: windows-x86_64, os: windows-latest, asset: loglens-windows-x86_64 }
     runs-on: ${{ matrix.os }}
     steps:
@@ -95,6 +94,20 @@ jobs:
             tar -czf "../${{ matrix.asset }}.tar.gz" loglens
           fi
 
+      - name: Build MSI (Windows only)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # WiX v4 builds a machine-wide MSI from the PyInstaller onedir (dist\loglens\**).
+          dotnet tool install --global wix >/dev/null 2>&1 || dotnet tool update --global wix
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          wix --version
+          wix build packaging/windows/loglens.wxs \
+            -arch x64 \
+            -d Version="${{ steps.ver.outputs.version }}" \
+            -o "${{ matrix.asset }}.msi"
+          ls -lh "${{ matrix.asset }}.msi"
+
       - name: Build .deb + .rpm (Linux only)
         if: runner.os == 'Linux'
         shell: bash
@@ -109,6 +122,7 @@ jobs:
           path: |
             ${{ matrix.asset }}.tar.gz
             ${{ matrix.asset }}.zip
+            ${{ matrix.asset }}.msi
             loglens_*_amd64.deb
           if-no-files-found: ignore
 
@@ -119,6 +133,7 @@ jobs:
           files: |
             ${{ matrix.asset }}.tar.gz
             ${{ matrix.asset }}.zip
+            ${{ matrix.asset }}.msi
             loglens_*_amd64.deb
 
   # --------------------------------------------------------------------------- #
@@ -226,25 +241,78 @@ jobs:
         id: sums
         run: |
           V="${{ steps.ver.outputs.version }}"
-          for a in loglens-macos-arm64.tar.gz \
+          for a in loglens-macos-arm64.tar.gz loglens-macos-x86_64.tar.gz \
                    loglens-linux-x86_64.tar.gz loglens-windows-x86_64.zip; do
             gh release download "v$V" --pattern "$a" --dir a || true
           done
+          sha() { [ -f "a/$1" ] && sha256sum "a/$1" | cut -d' ' -f1 || echo ""; }
           {
-            echo "arm64=$(sha256sum a/loglens-macos-arm64.tar.gz  | cut -d' ' -f1)"
-            echo "linux=$(sha256sum a/loglens-linux-x86_64.tar.gz | cut -d' ' -f1)"
-            echo "win=$(sha256sum a/loglens-windows-x86_64.zip    | cut -d' ' -f1)"
+            echo "arm64=$(sha loglens-macos-arm64.tar.gz)"
+            echo "intel=$(sha loglens-macos-x86_64.tar.gz)"
+            echo "linux=$(sha loglens-linux-x86_64.tar.gz)"
+            echo "win=$(sha loglens-windows-x86_64.zip)"
           } >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Update tap + bucket
+      - name: Update Homebrew tap + Scoop bucket
         if: ${{ env.TAP_TOKEN != '' }}
+        env:
+          V: ${{ steps.ver.outputs.version }}
+          ARM64: ${{ steps.sums.outputs.arm64 }}
+          INTEL: ${{ steps.sums.outputs.intel }}
+          LINUX: ${{ steps.sums.outputs.linux }}
+          WIN: ${{ steps.sums.outputs.win }}
         run: |
-          echo "version=${{ steps.ver.outputs.version }}"
-          echo "arm64=${{ steps.sums.outputs.arm64 }}"
-          echo "intel=${{ steps.sums.outputs.intel }}"
-          echo "linux=${{ steps.sums.outputs.linux }}"
-          echo "win=${{ steps.sums.outputs.win }}"
-          echo "TODO: clone LoglensAI/homebrew-tap and LoglensAI/scoop-bucket,"
-          echo "      sed the version/sha into the manifests, commit and push."
+          set -euo pipefail
+          git config --global user.name  "loglens-release-bot"
+          git config --global user.email "release-bot@loglensai.com"
+
+          # --- Homebrew tap: LoglensAI/homebrew-tap (Formula/loglens.rb) --------
+          if git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/LoglensAI/homebrew-tap.git" tap 2>/dev/null; then
+            mkdir -p tap/Formula
+            sed -e "s|^  version .*|  version \"${V}\"|" \
+                -e "s|/download/v[0-9][^/]*/|/download/v${V}/|g" \
+                -e "s|REPLACED_BY_CI_ARM64|${ARM64}|" \
+                -e "s|REPLACED_BY_CI_INTEL|${INTEL}|" \
+                -e "s|REPLACED_BY_CI_LINUX|${LINUX}|" \
+                packaging/homebrew/loglens.rb > tap/Formula/loglens.rb
+            ( cd tap
+              git add Formula/loglens.rb
+              git commit -m "loglens ${V}" || { echo "no formula change"; exit 0; }
+              git push )
+            echo "Homebrew tap updated to ${V}."
+          else
+            echo "::warning::Could not clone LoglensAI/homebrew-tap — create it (with Formula/) to enable 'brew install loglensai/tap/loglens'."
+          fi
+
+          # --- Scoop bucket: LoglensAI/scoop-bucket (loglens.json) --------------
+          if git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/LoglensAI/scoop-bucket.git" bucket 2>/dev/null; then
+            sed -e "s|\"version\": *\"[^\"]*\"|\"version\": \"${V}\"|" \
+                -e "s|/download/v[0-9][^/]*/|/download/v${V}/|g" \
+                packaging/scoop/loglens.json > bucket/loglens.json
+            # fill the windows zip hash if the manifest carries a top-level "hash"
+            if grep -q '"hash"' bucket/loglens.json && [ -n "${WIN}" ]; then
+              sed -i "s|\"hash\": *\"[^\"]*\"|\"hash\": \"${WIN}\"|" bucket/loglens.json
+            fi
+            ( cd bucket
+              git add loglens.json
+              git commit -m "loglens ${V}" || { echo "no manifest change"; exit 0; }
+              git push )
+            echo "Scoop bucket updated to ${V}."
+          else
+            echo "::warning::Could not clone LoglensAI/scoop-bucket — create it to enable 'scoop install loglens'."
+          fi
+  # --------------------------------------------------------------------------- #
+  attach-installers:
+    name: attach install scripts to release
+    if: github.event_name == 'release'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Attach install.sh + install.ps1
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            scripts/install.sh
+            scripts/install.ps1

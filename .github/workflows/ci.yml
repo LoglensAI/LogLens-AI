@@ -59,7 +59,7 @@ jobs:
       - name: Fetch BGL sample
         run: bash scripts/fetch_benchmark.sh
 
-      - name: Accuracy gate (unsupervised + supervised floors)
+      - name: CLI smoke (help / version)
         run: python scripts/ci_accuracy_gate.py
 
       - name: Unsupervised min-F1 gate (CLI)

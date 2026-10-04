@@ -151,6 +151,7 @@ def parallel_analyze_file(
     """
     from loglens.detection.parser import sniff_format
     from loglens.detection.turbo import split_chunks
+
     for v in _THREAD_VARS:
         os.environ[v] = "1"
 

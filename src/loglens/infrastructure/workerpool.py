@@ -14,7 +14,7 @@ logger = logging.getLogger("loglens.workerpool")
 def _ctx():
     try:
         return mp.get_context("spawn")
-    except ValueError:  
+    except ValueError:
         return mp.get_context()
 
 
@@ -34,7 +34,6 @@ def _is_error(x: Any) -> bool:
 
 
 class _ProgressCounter:
-
     def __init__(self, total: int, cb: Callable[[int, int], None] | None):
         self.total = total
         self.completed = 0
@@ -133,7 +132,7 @@ def _run_batch(
                         if progress:
                             progress.tick()
                     except BrokenProcessPool:
-                        broke_any = True 
+                        broke_any = True
                     except Exception as exc:
                         results[i] = TaskError(i, "exception", f"{type(exc).__name__}: {exc}")
                         done[i] = True

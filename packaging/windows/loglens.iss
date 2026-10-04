@@ -2,13 +2,13 @@
 ; Produces LogLens-Setup-x64.exe from the PyInstaller onedir at dist\loglens\.
 ;
 ; Build (on Windows, with Inno Setup 6):
-;   iscc /DMyAppVersion=0.12.0 packaging\windows\loglens.iss
+;   iscc /DMyAppVersion=0.13.0 packaging\windows\loglens.iss
 ;
 ; Installs to Program Files, adds loglens to PATH, and registers the warm daemon
 ; to start at logon so repeat runs are instant.
 
 #ifndef MyAppVersion
-  #define MyAppVersion "0.12.0"
+  #define MyAppVersion "0.13.0"
 #endif
 #define MyAppName "LogLens AI"
 #define MyAppExeName "loglens.exe"

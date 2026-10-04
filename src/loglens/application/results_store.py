@@ -75,8 +75,6 @@ def canonical_bucket(level: str) -> str:
     return up
 
 
-
-
 def save_results(path: str, result: dict[str, Any]) -> str:
     result = {**result, "schema": SCHEMA}
     with open(path, "w", encoding="utf-8") as f:
@@ -87,8 +85,6 @@ def save_results(path: str, result: dict[str, Any]) -> str:
 def load_results(path: str) -> dict[str, Any]:
     with open(path, encoding="utf-8") as f:
         return json.load(f)
-
-
 
 
 def reference_epoch(result: dict[str, Any]) -> float | None:

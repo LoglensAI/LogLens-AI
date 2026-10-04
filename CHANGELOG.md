@@ -3,6 +3,69 @@
 All notable changes to LogLens AI are documented here.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [0.13.0] - 2026-10-04
+
+Consolidates the performance, horizontal-scale, and log-management work. Every
+speed-up ships with a byte-identical equivalence test - **detection accuracy is
+unchanged** (synthetic suite micro-F1 **1.000**, BGL unsupervised F1 **0.426**).
+
+### Features
+- **Self-tuning load distribution** for `analyze`: large local files are split
+  into byte-range slices across cores automatically, with CPU headroom left for
+  other work; opt-in `--parallel` runs the full detector per slice.
+- **Auto-distribute large files into anomaly families** for a compact,
+  scannable result instead of per-line noise.
+- **Interactive log-management explorer** over saved results: anomaly vs
+  anomaly-family views, time-range queries, severity-count filters, and family
+  search - all served from a results file so queries never touch detection.
+- Distributed parsing across detection modes; analyze timer / ETA / progress.
+
+### Install & distribution
+- **One-line installers that need no package manager:** `scripts/install.sh`
+  (macOS + Linux `curl … | sh`, Apple Silicon **and** Intel) and
+  `scripts/install.ps1` (Windows `irm … | iex`) download the self-contained
+  binary straight from GitHub Releases. Both are attached to every release.
+- **Windows MSI** (`loglens-windows-x86_64.msi`, WiX) for a machine-wide,
+  double-click install that adds LogLens to `PATH` and auto-upgrades.
+- Intel macOS (`loglens-macos-x86_64`) is now built and published again, and the
+  Homebrew formula serves both Mac architectures.
+- Release workflow now actually updates the Homebrew tap and Scoop bucket (was a
+  TODO stub) and attaches the installer scripts + MSI to the release.
+- New `INSTALL.md` with per-OS guides; README install table reworked.
+
+### GitHub Action
+- Analyze a single file, a **glob**, or a **list** of files in one run.
+- New inputs: `comment-on-pr` (sticky PR comment), `sarif` (upload to the
+  Security tab), `upload-report` (JSON artifact), `min-score`, `limit`.
+- New outputs: `anomaly-count`, `incident`, `report-json`.
+
+### Performance
+- Shared template grouping across detectors and score memoization - faster
+  detection, byte-identical output.
+- Lean clustering from per-template vectors instead of expanding to
+  `(n_lines, dim)` - fixes the out-of-memory halt on multi-million-line files.
+
+### Build & CI
+- **Single source of truth for the version** (`src/loglens/_version.py`) bumped
+  to 0.13.0 and aligned across API / CLI / `hatch version` (enforced by the
+  `consistency` job) and every packaging manifest (winget / scoop / homebrew /
+  Inno Setup); provenance via `loglens version --json`.
+- New standing synthetic-suite micro-F1 ≥ 0.99 gate (G1, P1.7).
+
+### Bug Fixes
+- Ship the `testlogs/hdfs_sessions.log` and `testlogs/rate_burst.log` fixtures
+  that `testlogs/` being git-ignored had dropped - a clean checkout now runs the
+  parallel-scan and multi-source suites green.
+- The CI "accuracy gate" step was a silent no-op running a smoke script that
+  asserted on the removed `hello` command; made it a real check and renamed the
+  step. The actual accuracy floors (BGL, G1) are unchanged.
+- Remove the stale `report.json` benchmark dump accidentally committed at the
+  repo root, and git-ignore it.
+
+_Note: 0.12.0 and 0.12.1 were incremental releases without their own changelog
+entries; 0.13.0 is the first release carrying the full scale + log-management
+surface._
+
 ## [0.11.0] - 2026-09-23
 
 ### Bug Fixes
@@ -23,7 +86,7 @@ This project adheres to [Semantic Versioning](https://semver.org).
 ## [0.9.0] - 2026-09-22
 
 ### Bug Fixes
-- Platform-agnostic — UTF-8/CRLF handling, Windows resource guard, spawn fallback (b02a1f3)
+- Platform-agnostic - UTF-8/CRLF handling, Windows resource guard, spawn fallback (b02a1f3)
 
 ### Chores
 - Updated the readme. (4852f22)

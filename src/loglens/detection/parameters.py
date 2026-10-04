@@ -50,7 +50,7 @@ def parameter_anomaly_scores(
     flag_at: float = 0.70,
     template_keys: Sequence[str] | None = None,
 ) -> tuple[np.ndarray, list[list[str]], str]:
-    
+
     n = len(entries)
     scores = np.zeros(n, dtype=np.float64)
     reasons: list[list[str]] = [[] for _ in range(n)]
@@ -85,7 +85,7 @@ def parameter_anomaly_scores(
                 continue
             for i in members:
                 x = slotlists[i][slot]
-                z = 0.6745 * abs(x - med) / mad 
+                z = 0.6745 * abs(x - med) / mad
                 ratio = abs(x - med) / max(abs(med), 1.0)
                 if z >= z_cutoff and ratio >= min_ratio:
                     score = min(1.0, 0.7 + 0.3 * min(1.0, (z - z_cutoff) / z_cutoff))

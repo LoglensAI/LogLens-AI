@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  WiX v4/v5 source for the LogLens AI Windows MSI (machine-wide, double-click).
+  Packages the PyInstaller onedir at dist\loglens\ into Program Files and adds it
+  to the system PATH.
+
+  Build (on Windows, in the repo root, after building the PyInstaller onedir):
+    dotnet tool install wix (use the global flag)
+    wix build packaging\windows\loglens.wxs -arch x64 -d Version=0.13.0 -o loglens-windows-x86_64.msi
+
+  The MSI auto-uninstalls older versions on upgrade (MajorUpgrade) and removes the
+  PATH entry + files on uninstall.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="LogLens AI"
+           Manufacturer="LogLens AI"
+           Version="$(var.Version)"
+           UpgradeCode="7F3A2C10-5D2E-4E7A-9E1B-1A2B3C4D5E01"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <SummaryInformation Description="LogLens AI — local, privacy-first log anomaly detection" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of LogLens AI is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="loglens.ico" SourceFile="dist\loglens\loglens.exe" />
+    <Property Id="ARPPRODUCTICON" Value="loglens.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/LoglensAI/LogLens-AI" />
+
+    <Feature Id="Main" Title="LogLens AI" Level="1">
+      <ComponentGroupRef Id="LogLensFiles" />
+      <ComponentRef Id="PathEntry" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="LogLens" />
+    </StandardDirectory>
+
+    <!-- Bulk-harvest the whole PyInstaller onedir into the install folder. -->
+    <ComponentGroup Id="LogLensFiles" Directory="INSTALLFOLDER">
+      <Files Include="dist\loglens\**" />
+    </ComponentGroup>
+
+    <!-- Add the install folder to the machine PATH; removed on uninstall. -->
+    <Component Id="PathEntry" Directory="INSTALLFOLDER" Guid="7F3A2C10-5D2E-4E7A-9E1B-1A2B3C4D5E02">
+      <Environment Id="UpdatePath" Name="PATH" Value="[INSTALLFOLDER]"
+                   Permanent="no" Part="last" Action="set" System="yes" />
+    </Component>
+
+  </Package>
+</Wix>

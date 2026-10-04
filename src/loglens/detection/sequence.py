@@ -100,7 +100,7 @@ def sequence_anomaly_scores(
         prev = _BOS
         prev_idx = -1
         for idx, tmpl in events:
-            if pred[prev] >= min_pred: 
+            if pred[prev] >= min_pred:
                 p = (trans[prev].get(tmpl, 0) + alpha) / (pred[prev] + alpha * v)
                 surprise = 1.0 - p
                 if surprise > scores[idx]:

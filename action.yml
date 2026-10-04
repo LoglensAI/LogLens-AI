@@ -1,5 +1,5 @@
 name: "LogLens AI"
-description: "Detect and explain anomalies in your CI/CD logs, and fail the build on real incidents. Local & open-source."
+description: "Detect and explain anomalies in your CI/CD logs, comment on PRs, upload SARIF, and fail the build on real incidents. Local & open-source."
 author: "LogLens AI"
 branding:
   icon: "search"
@@ -7,24 +7,59 @@ branding:
 
 inputs:
   source:
-    description: "Path to the log file to analyze (e.g. build.log)."
+    description: "Log file(s) to analyze. A path, a glob (logs/*.log), or a newline/comma-separated list."
     required: true
   fail-on:
-    description: "Fail the job if an anomaly is this severity or worse: critical | error | warning | fatal | any. Empty = report only, never fail."
+    description: "Fail the job if an anomaly is this severity or worse: critical | error | warning | fatal | any. Empty = report only."
     required: false
     default: ""
   mode:
     description: "Detection mode: fast | turbo | deep."
     required: false
     default: "fast"
+  min-score:
+    description: "Only report anomalies with score >= this (0-1). 0 = report all."
+    required: false
+    default: "0"
+  limit:
+    description: "Max anomalies to list per file in the job summary / comment."
+    required: false
+    default: "25"
+  comment-on-pr:
+    description: "Post/update a sticky summary comment on the pull request (true/false). Needs pull-requests: write."
+    required: false
+    default: "false"
+  sarif:
+    description: "Emit a SARIF file and upload it to the Security tab (true/false). Needs security-events: write."
+    required: false
+    default: "false"
+  upload-report:
+    description: "Upload the aggregated JSON report as a build artifact (true/false)."
+    required: false
+    default: "false"
+  report-name:
+    description: "Artifact name for the uploaded JSON report."
+    required: false
+    default: "loglens-report"
   version:
-    description: "loglensai version to install (e.g. 0.10.0). Empty = latest on PyPI."
+    description: "loglensai version to install (e.g. 0.13.0). Empty = latest on PyPI."
     required: false
     default: ""
   python-version:
     description: "Python version to run on."
     required: false
     default: "3.12"
+
+outputs:
+  anomaly-count:
+    description: "Total number of anomalies found across all analyzed files."
+    value: ${{ steps.loglens.outputs.anomaly-count }}
+  incident:
+    description: "'true' if any file tripped the incident flag, else 'false'."
+    value: ${{ steps.loglens.outputs.incident }}
+  report-json:
+    description: "Path to the aggregated JSON report (when upload-report is enabled)."
+    value: ${{ steps.loglens.outputs.report-json }}
 
 runs:
   using: "composite"
@@ -37,6 +72,7 @@ runs:
     - name: Install LogLens AI
       shell: bash
       run: |
+        python -m pip install --upgrade pip
         if [ -n "${{ inputs.version }}" ]; then
           pip install "loglensai==${{ inputs.version }}"
         else
@@ -44,9 +80,63 @@ runs:
         fi
 
     - name: Analyze logs
+      id: loglens
       shell: bash
       run: |
+        set +e
+        extra=()
+        [ "${{ inputs.sarif }}" = "true" ] && extra+=(--sarif loglens.sarif)
+        [ "${{ inputs.comment-on-pr }}" = "true" ] && extra+=(--comment-file loglens-comment.md)
+        [ "${{ inputs.upload-report }}" = "true" ] && extra+=(--report-json loglens-report.json)
         python "${{ github.action_path }}/ci/gh_analyze.py" \
           --source "${{ inputs.source }}" \
           --mode "${{ inputs.mode }}" \
-          --fail-on "${{ inputs.fail-on }}"
+          --fail-on "${{ inputs.fail-on }}" \
+          --min-score "${{ inputs.min-score }}" \
+          --limit "${{ inputs.limit }}" \
+          "${extra[@]}"
+        echo "exit-code=$?" >> "$GITHUB_OUTPUT"
+
+    - name: Upload SARIF to the Security tab
+      if: always() && inputs.sarif == 'true' && hashFiles('loglens.sarif') != ''
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: loglens.sarif
+        category: loglens-ai
+
+    - name: Comment on the pull request
+      if: always() && inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' && hashFiles('loglens-comment.md') != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        marker="<!-- loglens-ai-report -->"
+        pr="${{ github.event.pull_request.number }}"
+        repo="${{ github.repository }}"
+        existing=$(gh api "repos/$repo/issues/$pr/comments" \
+          --jq "map(select(.body | startswith(\"$marker\"))) | .[0].id // empty" 2>/dev/null || true)
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/$repo/issues/comments/$existing" -F body=@loglens-comment.md >/dev/null \
+            && echo "Updated existing LogLens PR comment."
+        else
+          gh api -X POST "repos/$repo/issues/$pr/comments" -F body=@loglens-comment.md >/dev/null \
+            && echo "Posted LogLens PR comment."
+        fi
+
+    - name: Upload JSON report artifact
+      if: always() && inputs.upload-report == 'true' && hashFiles('loglens-report.json') != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.report-name }}
+        path: loglens-report.json
+        if-no-files-found: ignore
+
+    - name: Enforce fail-on gate
+      if: always()
+      shell: bash
+      run: |
+        code="${{ steps.loglens.outputs.exit-code }}"
+        if [ "${code:-0}" != "0" ]; then
+          echo "::error::LogLens failed the build (fail-on='${{ inputs.fail-on }}', exit $code)."
+          exit 1
+        fi

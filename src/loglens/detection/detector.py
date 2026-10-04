@@ -602,7 +602,6 @@ def detect(
     )
     scores, reasons = _score_entries(entries, sig, cfg)
 
-
     comp_n = scores.copy()  # N: novelty / rarity / severity policy (the base score)
     comp_s = np.zeros(n)  # S: sequence
     comp_p = np.zeros(n)  # P: parameter

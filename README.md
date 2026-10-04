@@ -192,15 +192,25 @@ Python needed. Neural (`--deep`) mode is **built in**, and a warm daemon makes
 repeat runs near-instant. Full details for every platform are in
 **[INSTALL.md](INSTALL.md)**.
 
+**Fastest - one line, no package manager:**
+
 | Platform | Install |
 |---|---|
+| **macOS / Linux** | `curl -fsSL https://raw.githubusercontent.com/LoglensAI/LogLens-AI/main/scripts/install.sh \| sh` |
+| **Windows** (PowerShell) | `irm https://raw.githubusercontent.com/LoglensAI/LogLens-AI/main/scripts/install.ps1 \| iex` |
+| **Windows** (installer) | Download **`loglens-windows-x86_64.msi`** from the [latest release](https://github.com/LoglensAI/LogLens-AI/releases/latest) and double-click. |
+
+These pull the self-contained binary straight from GitHub Releases (Apple Silicon
++ Intel, Linux x86-64, Windows x64) and need no Homebrew/winget.
+
+**Via a package manager** (auto-updates with `brew upgrade` / `winget upgrade` / `sudo apt upgrade`):
+
+| Platform | Install |
+|---|---|
+| **macOS** | `brew install loglensai/tap/loglens` |
+| **Windows** | `winget install LoglensAI.LogLens` · or `scoop install loglens` |
 | **Linux** (Debian/Ubuntu) | `curl -1sLf 'https://dl.cloudsmith.io/public/loglensai/loglensai-363o/setup.deb.sh' \| sudo -E bash && sudo apt install loglens` |
 | **Linux** (Fedora/RHEL) | `curl -1sLf 'https://dl.cloudsmith.io/public/loglensai/loglensai-363o/setup.rpm.sh' \| sudo -E bash && sudo dnf install loglens` |
-| **macOS** | `brew install loglensai/tap/loglens` |
-| **Windows** | `winget install LoglensAI.LogLens` |
-
-Updates arrive through the normal channel afterwards (`sudo apt upgrade`,
-`brew upgrade`, `winget upgrade`).
 
 ### Python (pip)
 
