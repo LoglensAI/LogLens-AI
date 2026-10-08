@@ -81,3 +81,22 @@ def test_empty_file():
         assert est == 0 and size == 0
         p = plan_for_file(tf.name, cores=8)
         assert p.strategy == "exact"
+
+
+def test_mem_capped_workers_limits_large_files(monkeypatch):
+    from loglens.application import autoscale as a
+
+    # 4 GB available, 743 MB file, 9 core-workers → capped well below 9
+    monkeypatch.setattr(a, "_mem_available_bytes", lambda: 4 * 1024**3)
+    capped = a.mem_capped_workers(9, 743 * 1024 * 1024)
+    assert 1 < capped < 9
+
+    # small file: no cap regardless of RAM
+    assert a.mem_capped_workers(9, 5 * 1024 * 1024) == 9
+
+    # RAM unreadable: no cap (never make things worse)
+    monkeypatch.setattr(a, "_mem_available_bytes", lambda: None)
+    assert a.mem_capped_workers(9, 743 * 1024 * 1024) == 9
+
+    # a single worker is always left alone
+    assert a.mem_capped_workers(1, 743 * 1024 * 1024) == 1

@@ -24,7 +24,9 @@ from loglens.domain.severity import (
 )
 from loglens.infrastructure.output.terminal import LiveProgress
 
+
 def _reset_sigpipe() -> None:
+
     try:
         import signal
 
@@ -36,7 +38,7 @@ def _reset_sigpipe() -> None:
 _CLEAN_ERRORS: tuple[type[BaseException], ...] = (
     LogLensError,
     InvalidSourceError,
-    ImportError, 
+    ImportError,  # a missing optional dependency (e.g. deep mode) — show the install hint
     FileNotFoundError,
     IsADirectoryError,
     PermissionError,
@@ -44,6 +46,7 @@ _CLEAN_ERRORS: tuple[type[BaseException], ...] = (
 
 
 def _print_clean_error(msg: str) -> None:
+    """Print a user-facing error as a clean one-liner (no traceback)."""
     first, _, rest = msg.partition("\n")
     try:
         console.print(f"[bold red][LogLens][/bold red] {first}")
@@ -639,6 +642,31 @@ def _is_local_file(source: str) -> bool:
     return os.path.isfile(source)
 
 
+def _resolve_model_path(
+    model: str, no_model: bool, source: str, profile: str, state_dir: str
+) -> tuple[str, bool]:
+    if no_model:
+        return "", False
+    sel = (model or "").strip()
+    if sel.lower() == "auto":
+        from loglens.application import autotrain as _at
+        from loglens.application import baseline_store as _bs
+
+        amp = _at.auto_model_path(_bs.baseline_key(source, profile), state_dir or None)
+        return (amp, False) if os.path.isfile(amp) else ("", False)
+    if sel:
+        return sel, False
+    try:
+        from importlib.resources import files
+
+        cand = files("loglens") / "assets" / "default_model.pkl"
+        if cand.is_file():
+            return str(cand), True
+    except Exception:  # noqa: BLE001 — missing bundled model → just stay unsupervised
+        pass
+    return "", False
+
+
 def _run_parallel(
     source: str,
     *,
@@ -648,6 +676,8 @@ def _run_parallel(
     limit: int,
     as_json: bool,
     started: float,
+    model: str = "",
+    used_default: bool = False,
 ) -> None:
     import time as _time
 
@@ -659,51 +689,103 @@ def _run_parallel(
         TimeRemainingColumn,
     )
 
-    from loglens.application.autoscale import worker_budget
+    from loglens.application.autoscale import mem_capped_workers, worker_budget
     from loglens.application.parallel_scan import parallel_analyze_file
 
+    try:
+        size_bytes = os.path.getsize(source)
+    except OSError:
+        size_bytes = 0
     pw = workers if workers else worker_budget(headroom=headroom)
+    pw = mem_capped_workers(pw, size_bytes)
+
+    # Validate the model once in the parent so a bad path fails cleanly here,
+    # instead of every worker faulting with a misleading out-of-memory message.
+    if model:
+        from loglens.detection.benchmark import SupervisedHead
+
+        try:
+            SupervisedHead.load(model)
+        except Exception as exc:  # noqa: BLE001 — surface any load failure cleanly
+            console.print(f"[bold red][LogLens][/bold red] could not load model '{model}': {exc}")
+            raise typer.Exit(code=1) from exc
 
     console.print(
         f"\n[bold cyan][LogLens][/bold cyan] Source: [yellow]{source}[/yellow]", highlight=False
     )
+    sup = ""
+    if model:
+        sup = (
+            " [green]+ supervised head[/green] "
+            + ("[dim](bundled default)[/dim]" if used_default else "[dim](your model)[/dim]")
+        )
     console.print(
         f"[bold cyan][LogLens][/bold cyan] Mode: [bold magenta]⧉ Parallel "
-        f"({mode}, {pw} workers)[/bold magenta] [dim]— full detector per byte-range slice; "
+        f"({mode}, {pw} workers)[/bold magenta]{sup} [dim]— full detector per byte-range slice; "
         f"results are per-slice approximate (like --turbo), not a whole-file run[/dim]"
     )
 
-    if as_json:
-        result = parallel_analyze_file(
-            source, mode=mode, workers=pw, limit=limit, on_event=None, on_progress=None
+    def _total_failure(r: dict) -> bool:
+        # Every slice crashed (workers killed — usually OOM on a very large file).
+        return r.get("faulted_slices", 0) > 0 and r.get("lines_parsed", 0) == 0
+
+    def _scan(nw: int, progress=None) -> dict:
+        return parallel_analyze_file(
+            source, mode=mode, workers=nw, limit=limit, model=model,
+            on_progress=progress, on_event=None,
         )
+
+    # Retry with fewer workers on a total failure: halving concurrency roughly
+    # halves peak memory, so an OOM-killed scan usually succeeds on the retry.
+    if as_json:
+        nw = pw
+        while True:
+            result = _scan(nw)
+            if not _total_failure(result) or nw <= 1:
+                break
+            nw = max(1, nw // 2)
         result["elapsed_seconds"] = round(_time.perf_counter() - started, 3)
         typer.echo(json.dumps(result, indent=2, sort_keys=True))
+        if _total_failure(result):
+            raise typer.Exit(code=1)
         return
 
-    bar = Progress(
-        TextColumn("[bold cyan]  slices"),
-        BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
-        TimeElapsedColumn(),
-        TextColumn("eta"),
-        TimeRemainingColumn(),
-        console=console,
-    )
-    with bar:
-        task = bar.add_task("slices", total=pw)
-
-        def _progress(done: int, total: int) -> None:
-            bar.update(task, completed=done, total=total)
-
-        result = parallel_analyze_file(
-            source,
-            mode=mode,
-            workers=pw,
-            limit=limit,
-            on_progress=_progress,
-            on_event=lambda k, d: None,
+    nw = pw
+    result = {}
+    while True:
+        bar = Progress(
+            TextColumn("[bold cyan]  slices"),
+            BarColumn(),
+            TextColumn("{task.completed}/{task.total}"),
+            TimeElapsedColumn(),
+            TextColumn("eta"),
+            TimeRemainingColumn(),
+            console=console,
         )
+        with bar:
+            task = bar.add_task("slices", total=nw)
+
+            def _progress(done: int, total: int, _bar=bar, _task=task) -> None:
+                _bar.update(_task, completed=done, total=total)
+
+            result = _scan(nw, _progress)
+        if not _total_failure(result) or nw <= 1:
+            break
+        nw = max(1, nw // 2)
+        console.print(
+            f"[yellow][LogLens][/yellow] all slices faulted (workers likely out of memory) — "
+            f"retrying with [bold]{nw}[/bold] worker(s)…"
+        )
+
+    if _total_failure(result):
+        console.print(
+            "[bold red][LogLens][/bold red] every slice failed even on a single worker — the "
+            "scan workers were terminated before parsing any lines.\n"
+            "This is almost always the host running out of memory on a very large file (or a "
+            "source that can't be read). Try [bold]--no-auto-scale[/bold] for the exact "
+            "single-pass run, analyze a smaller portion of the file, or free up memory."
+        )
+        raise typer.Exit(code=1)
 
     console.print(
         f"[bold cyan][LogLens][/bold cyan] Slices: [bold]{result['slices']}[/bold] "
@@ -924,10 +1006,15 @@ def analyze(
             use_parallel = True
             mb = plan.size_bytes / 1e6
             note = ""
-            if deep or (model and model.strip()):
+            if deep:
                 note = (
-                    " [dim](distributed path is unsupervised per slice; "
-                    "--no-auto-scale for the exact model run)[/dim]"
+                    " [dim](deep embeddings run per slice; results are per-slice "
+                    "approximate — --no-auto-scale for the exact whole-file run)[/dim]"
+                )
+            elif model and model.strip():
+                note = (
+                    " [dim](the supervised head runs per slice; results are per-slice "
+                    "approximate — --no-auto-scale for the exact whole-file run)[/dim]"
                 )
             console.print(
                 f"[bold cyan][LogLens][/bold cyan] large input (~{plan.est_lines:,} lines, "
@@ -942,6 +1029,13 @@ def analyze(
         eff_workers = worker_budget(headroom=(None if headroom < 0 else headroom))
 
     if use_parallel and _is_local_file(source):
+        # Resolve the supervised head so the distributed path applies it per
+        # slice too (deep mode encodes its own embeddings and ignores the head).
+        p_model, p_used_default = ("", False)
+        if not deep:
+            p_model, p_used_default = _resolve_model_path(
+                model, no_model, source, profile, state_dir
+            )
         _run_parallel(
             source,
             mode=("deep" if deep else "fast"),
@@ -950,6 +1044,8 @@ def analyze(
             limit=limit,
             as_json=as_json,
             started=_run_start,
+            model=p_model,
+            used_default=p_used_default,
         )
         return
 
@@ -2966,6 +3062,7 @@ def analyze_multi(
     for kind, detail in events:
         console.print(f"[dim][LogLens] {kind}: {detail}[/dim]")
 
+    # Surface why any source FAULTed — a silent FAULT row with exit 0 is a trap.
     by_source = result.stats.to_dict()["by_source"]
     faulted = [st for st in by_source if not st["ok"]]
     if faulted:
@@ -3240,16 +3337,22 @@ _DAEMON_COMMANDS = {"analyze"}
 def _daemon_enabled() -> bool:
     """Whether to route eligible commands through the daemon.
 
-    Off by default for `pip` installs (no surprises); on by default for installed
-    native binaries (``sys.frozen``), where "install and it's just fast" is the
-    whole point. ``LOGLENS_DAEMON=1|0`` forces it either way.
+    ``LOGLENS_DAEMON=1|0`` forces it either way. Otherwise: off for `pip` installs
+    (no surprises), and on for installed native binaries (``sys.frozen``) — but
+    only where the local IPC socket can actually come up. On WSL and other places
+    the daemon can't bind, the default stays in-process, so an installed binary
+    behaves exactly like a dev run and never needs ``LOGLENS_DAEMON=0``.
     """
     v = os.environ.get("LOGLENS_DAEMON", "").strip().lower()
     if v in ("0", "off", "false", "no"):
         return False
     if v in ("1", "on", "true", "yes"):
         return True
-    return bool(getattr(sys, "frozen", False))
+    if not getattr(sys, "frozen", False):
+        return False
+    from loglens.application import daemon as _d
+
+    return _d.local_ipc_viable()
 
 
 def _should_forward(argv: list[str]) -> bool:
@@ -3284,14 +3387,19 @@ def main() -> None:
     try:
         app()
     except KeyboardInterrupt:
+        # Quiet, conventional exit on Ctrl+C — no traceback.
         print("\n[LogLens] cancelled.", file=sys.stderr)
         raise SystemExit(130) from None
     except SystemExit:
+        # typer.Exit / argument errors already carry the right code + message.
         raise
     except _CLEAN_ERRORS as exc:
+        # Predictable, user-fixable problems → one clean line, no traceback.
         _print_clean_error(str(exc) or type(exc).__name__)
         raise SystemExit(1) from None
     except Exception as exc:  # noqa: BLE001 — last-resort safety net
+        # Something we didn't anticipate. Still no wall-of-text traceback for a
+        # demo/end user; set LOGLENS_DEBUG=1 to see the full trace while developing.
         if os.environ.get("LOGLENS_DEBUG"):
             raise
         _print_clean_error(

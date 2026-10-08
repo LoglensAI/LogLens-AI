@@ -232,6 +232,9 @@ def _corpus_fingerprint(messages: list[str]) -> str:
     return h.hexdigest()
 
 
+_MAX_SYNONYM_VOCAB = 2000
+
+
 class SynonymLearner:
     CACHE_VERSION = 2
 
@@ -316,7 +319,22 @@ class SynonymLearner:
                         self.cooccurrence[t1][t2] += 1
 
         known = set(BASE_SYNONYMS)
-        for rare in sorted(self.cooccurrence):
+        # Synonym search is O(vocab^2). On high-cardinality logs (unique node ids,
+        # hex addresses, numbers) the vocabulary explodes into the hundreds of
+        # thousands and this would run for minutes and exhaust memory. When the
+        # vocabulary is that large, restrict the search to the most frequent
+        # tokens — rare, near-unique tokens are never good synonym targets anyway.
+        # Small corpora keep the exact previous behaviour (iteration order and all).
+        if len(self.word_freq) <= _MAX_SYNONYM_VOCAB:
+            rare_candidates: list[str] = sorted(self.cooccurrence)
+            common_candidates: list[str] = sorted(self.word_freq)
+        else:
+            top = sorted(self.word_freq, key=lambda t: (-self.word_freq[t], t))[
+                :_MAX_SYNONYM_VOCAB
+            ]
+            rare_candidates = top
+            common_candidates = top
+        for rare in rare_candidates:
             if rare in known or rare in STOPWORDS:
                 continue
             rare_freq = self.word_freq[rare]
@@ -324,7 +342,7 @@ class SynonymLearner:
             rare_chars = set(rare)
             best: str | None = None
             best_sim = 0.0
-            for common in sorted(self.word_freq):
+            for common in common_candidates:
                 if (
                     common == rare
                     or common in STOPWORDS

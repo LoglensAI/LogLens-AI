@@ -239,6 +239,13 @@ class _Signals:
     group_surge: np.ndarray
 
 
+# Above this many distinct templates, DBSCAN in this dimensionality is O(n^2) in
+# time and memory and would exhaust RAM. Real logs collapse to far fewer templates
+# (BGL ~10); exceeding this means almost every line is unique, where clustering is
+# meaningless anyway — so we skip it and let rarity/severity/keywords carry it.
+MAX_CLUSTER_GROUPS = 40_000
+
+
 def _cluster_from_group_vectors(
     group_vectors: np.ndarray,
     group_counts: np.ndarray,
@@ -246,6 +253,12 @@ def _cluster_from_group_vectors(
     cfg: DetectorConfig,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[int, float], float]:
     group_vectors = normalize(group_vectors, norm="l2")
+    n = len(group_vectors)
+    if n > MAX_CLUSTER_GROUPS:
+        # Pathologically high-cardinality input: skip the quadratic clustering.
+        noise_labels = np.full(n, -1, dtype=int)
+        noise_sizes = {-1: float(np.asarray(group_counts, dtype=np.float64).sum())}
+        return group_vectors, group_counts, noise_labels, noise_sizes, 0.0
     eps = (
         cfg.eps
         if cfg.eps is not None

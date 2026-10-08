@@ -113,6 +113,28 @@ def test_served_fail_on_propagates_exit_code(daemon, logfile):
     assert code == 2
 
 
+def test_wsl_skips_daemon_fast(monkeypatch):
+    """On WSL (where the IPC socket can't come up), the daemon is skipped
+    instantly — no spawn, no wait — so an installed binary never stalls and
+    never needs LOGLENS_DAEMON=0."""
+    import time
+
+    d._viable_cache = None
+    monkeypatch.setattr(d, "_is_wsl", lambda: True)
+    assert d.local_ipc_viable() is False
+    t0 = time.perf_counter()
+    assert d.ensure_running(spawn=True) is False
+    assert time.perf_counter() - t0 < 1.0  # instant, no 3s spawn wait
+    d._viable_cache = None
+
+
+def test_local_ipc_viable_here():
+    """A normal Linux environment can host the daemon."""
+    d._viable_cache = None
+    assert d.local_ipc_viable() is True
+    d._viable_cache = None
+
+
 def test_handle_run_clean_error_no_traceback(tmp_path):
     """A bad-input command served in-process must come back as a clean one-line
     error with exit 1 — never a raw Python traceback."""

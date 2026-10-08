@@ -59,3 +59,66 @@ def test_deterministic():
     assert a["family_count"] == b["family_count"]
     assert a["families"] == b["families"]
     assert a["lines_parsed"] == b["lines_parsed"]
+
+
+def test_supervised_head_in_parallel_path(tmp_path):
+    """The supervised head must apply per-slice when a model is given — delivers
+    auto-scale / --parallel for the model, not just unsupervised detection."""
+    from loglens.detection.benchmark import load_labeled, train_and_save
+
+    # Train a tiny head on a labeled fixture.
+    labeled = tmp_path / "bgl.log"
+    normal = "\n".join(f"- 2024-01-01 00:{i//60:02d}:{i%60:02d} INFO api ok id={i}" for i in range(80))
+    anom = "\n".join(f"K 2024-01-01 01:{i:02d}:00 FATAL db pool exhausted {i}" for i in range(20))
+    labeled.write_text(normal + "\n" + anom + "\n", encoding="utf-8")
+    model = tmp_path / "head.pkl"
+    entries, labels = load_labeled(str(labeled), fmt="bgl")
+    train_and_save(entries, labels, str(model))
+
+    # Unsupervised parallel vs supervised parallel on the same file.
+    base = parallel_analyze_file(_log("incident_heavy.log"), mode="fast", workers=2)
+    sup = parallel_analyze_file(
+        _log("incident_heavy.log"), mode="fast", workers=2, model=str(model)
+    )
+    assert base["supervised"] is False
+    assert sup["supervised"] is True
+    assert sup["model"] == str(model)
+    # both cover the same lines (the split is a partition either way)
+    assert sup["lines_parsed"] == base["lines_parsed"]
+
+
+def test_run_parallel_total_failure_retries_then_exits(monkeypatch, tmp_path, capsys):
+    """If every slice faults (workers killed), _run_parallel retries with fewer
+    workers and, if it still can't parse a line, exits non-zero instead of
+    printing a bogus '✓ completed'."""
+    import pytest
+    import typer
+
+    from loglens.application import parallel_scan as ps
+    from loglens.interface import cli
+
+    src = tmp_path / "big.log"
+    src.write_text("\n".join(f"line {i}" for i in range(100)) + "\n")
+
+    calls = []
+
+    def fake(path, *, mode, workers, limit, model, on_progress=None, on_event=None):
+        calls.append(workers)
+        if on_progress:
+            on_progress(workers, workers)
+        return {  # total failure: faults, zero lines parsed
+            "slices": workers, "workers": workers, "lines_parsed": 0,
+            "anomaly_lines": 0, "family_count": 0, "by_level": {},
+            "incident": False, "faulted_slices": workers, "families": [],
+            "top_lines": [], "supervised": False, "model": "", "format": "x",
+            "display_limit": limit,
+        }
+
+    monkeypatch.setattr(ps, "parallel_analyze_file", fake)
+
+    with pytest.raises(typer.Exit) as ei:
+        cli._run_parallel(str(src), mode="fast", workers=8, headroom=None,
+                          limit=20, as_json=True, started=0.0)
+    assert ei.value.exit_code == 1
+    # it retried with progressively fewer workers (8 → 4 → 2 → 1)
+    assert calls == [8, 4, 2, 1]

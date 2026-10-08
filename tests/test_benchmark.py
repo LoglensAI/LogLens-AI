@@ -68,6 +68,43 @@ def test_load_labeled_empty(tmp_path):
     assert entries == [] and len(labels) == 0
 
 
+def test_load_labeled_wrong_format_is_clean_error(tmp_path):
+
+    import pytest
+
+    from loglens.domain.errors import LogLensError
+
+    p = tmp_path / "bgl.log"
+    p.write_text("- INFO node boot ok\nKERNEL_PANIC FATAL kernel panic\n")
+    with pytest.raises(LogLensError) as ei:
+        load_labeled(str(p), fmt="jsonl")
+    msg = str(ei.value)
+    assert "jsonl" in msg
+    assert "--format bgl" in msg  # the guess hint
+
+
+def test_load_labeled_bad_labeled_format(tmp_path):
+    import pytest
+
+    from loglens.domain.errors import LogLensError
+
+    p = tmp_path / "x.log"
+    p.write_text("not-a-label line without tab\n")
+    with pytest.raises(LogLensError):
+        load_labeled(str(p), fmt="labeled")
+
+
+def test_load_labeled_unknown_format(tmp_path):
+    import pytest
+
+    from loglens.domain.errors import LogLensError
+
+    p = tmp_path / "x.log"
+    p.write_text("- hello\n")
+    with pytest.raises(LogLensError):
+        load_labeled(str(p), fmt="nope")
+
+
 def test_evaluate_recovers_anomalies():
     entries, labels = _synthetic_corpus()
     m, res = evaluate(entries, labels)

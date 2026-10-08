@@ -19,7 +19,38 @@ from loglens.detection.detector import (
 )
 from loglens.detection.embeddings import EmbeddingEngine, features_cached
 from loglens.detection.parser import detect_format, parse_line
+from loglens.domain.errors import LogLensError
 from loglens.domain.models import LogEntry
+
+_LABEL_FORMATS = ("bgl", "jsonl", "labeled")
+
+
+def _guess_label_format(line: str) -> str:
+    """Best guess at the label format of a sample line (for a helpful hint)."""
+    s = line.strip()
+    if s.startswith("{") and '"label"' in s:
+        return "jsonl"
+    if "\t" in line and line.split("\t", 1)[0].strip() in ("0", "1"):
+        return "labeled"
+    return "bgl"
+
+
+def _label_format_error(path: str, fmt: str, lineno: int, sample: str) -> LogLensError:
+    guess = _guess_label_format(sample)
+    snippet = sample.strip()[:70]
+    hint = (
+        f" This looks like a '{guess}' file — try --format {guess}."
+        if guess != fmt
+        else ""
+    )
+    return LogLensError(
+        f"{path}: line {lineno} isn't valid '{fmt}' label format "
+        f"(got: {snippet!r}).{hint}\n"
+        f"Supported --format values: {', '.join(_LABEL_FORMATS)}. "
+        "bgl = '<label> message' ('-' is normal); "
+        "labeled = '<0|1>\\t<message>'; "
+        'jsonl = \'{"label": 0, "line": "..."}\' per line.'
+    )
 
 
 @dataclass
@@ -59,8 +90,12 @@ def score_prf1(y_true: Sequence[int], y_pred: Sequence[bool]) -> Metrics:
 
 
 def _iter_labeled(path: str, fmt: str) -> Iterable[tuple[int, str]]:
+    if fmt not in _LABEL_FORMATS:
+        raise LogLensError(
+            f"unknown --format '{fmt}'. Supported: {', '.join(_LABEL_FORMATS)}."
+        )
     with open(path, encoding="utf-8", errors="ignore") as fh:
-        for line in fh:
+        for lineno, line in enumerate(fh, start=1):
             line = line.rstrip("\n")
             if not line.strip():
                 continue
@@ -69,12 +104,25 @@ def _iter_labeled(path: str, fmt: str) -> Iterable[tuple[int, str]]:
                 yield (0 if tok == "-" else 1), rest
             elif fmt == "labeled":
                 tok, _, rest = line.partition("\t")
-                yield int(tok.strip()), rest
+                if not _ and not rest:
+                    raise _label_format_error(path, fmt, lineno, line)
+                try:
+                    label = int(tok.strip())
+                except ValueError:
+                    raise _label_format_error(path, fmt, lineno, line) from None
+                yield label, rest
             elif fmt == "jsonl":
-                obj = json.loads(line)
-                yield int(obj.get("label", 0)), str(obj.get("line", ""))
-            else:
-                raise ValueError(f"unknown label format: {fmt}")
+                try:
+                    obj = json.loads(line)
+                except ValueError:
+                    raise _label_format_error(path, fmt, lineno, line) from None
+                if not isinstance(obj, dict):
+                    raise _label_format_error(path, fmt, lineno, line)
+                try:
+                    label = int(obj.get("label", 0))
+                except (ValueError, TypeError):
+                    raise _label_format_error(path, fmt, lineno, line) from None
+                yield label, str(obj.get("line", ""))
 
 
 def load_labeled(

@@ -46,3 +46,7 @@ testlogs/
 
 benchdata/
 report.json
+bgl_demo.log
+bgl_demo.log.loglens.json
+bgl_model.pkl
+diag_slice.py

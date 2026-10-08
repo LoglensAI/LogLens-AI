@@ -113,3 +113,30 @@ def test_cross_incident_respects_gap():
     ]
     # 10 minutes apart, gap 30s → no correlation
     assert correlate(per_source, gap_seconds=30) == []
+
+
+def test_analyze_multi_all_faulted_exits_nonzero(tmp_path):
+    """If every source fails, the CLI must exit non-zero and name the reason —
+    a silent FAULT row with exit 0 would hide a broken run in a demo."""
+    from typer.testing import CliRunner
+
+    from loglens.interface.cli import app
+
+    missing = str(tmp_path / "does-not-exist.log")
+    res = CliRunner().invoke(app, ["analyze-multi", "--source", missing])
+    assert res.exit_code != 0
+
+
+def test_analyze_multi_partial_success_exits_zero():
+    """A mix of one good source and one bad source is a partial success (exit 0),
+    but the bad source's failure is still surfaced."""
+    from typer.testing import CliRunner
+
+    from loglens.interface.cli import app
+
+    good = _log("error_burst.log")
+    res = CliRunner().invoke(
+        app,
+        ["analyze-multi", "--source", f"good={good}", "--source", "bad=/no/such/file.log"],
+    )
+    assert res.exit_code == 0

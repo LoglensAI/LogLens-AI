@@ -47,6 +47,37 @@ def _reserved_cores(cores: int, headroom: int | None) -> int:
     return min(max(0, headroom), cores - 1)
 
 
+# Oversplit factor the parallel scan uses (workers * oversplit slices).
+_OVERSPLIT = 4
+
+
+def _mem_available_bytes() -> int | None:
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+def mem_capped_workers(workers: int, size_bytes: int) -> int:
+    
+    if workers <= 1 or size_bytes <= 0:
+        return max(1, workers)
+    # Small files never pressure memory, whatever the worker count.
+    if size_bytes < 64 * 1024 * 1024:
+        return workers
+    avail = _mem_available_bytes()
+    if not avail:
+        return workers
+    slice_bytes = size_bytes / max(1, workers * _OVERSPLIT)
+    per_worker = max(768 * 1024 * 1024, int(slice_bytes * 3))  # ≥0.75 GB headroom
+    cap = max(2, int(avail * 0.60 / per_worker))
+    return max(1, min(workers, cap))
+
+
 def plan(
     est_lines: int,
     size_bytes: int,
@@ -59,6 +90,7 @@ def plan(
     threshold = max_exact_lines or DEFAULT_MAX_EXACT_LINES
     reserved = _reserved_cores(cores, headroom)
     workers = max(1, cores - reserved)
+    workers = mem_capped_workers(workers, size_bytes)
 
     strategy = force or ("scan" if est_lines >= threshold else "exact")
     if strategy == "exact":

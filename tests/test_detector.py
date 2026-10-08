@@ -179,3 +179,25 @@ def test_history_damp_never_hits_tight_bursts():
     err_flags = [bool(res.flagged[i]) for i, e in enumerate(entries) if e.level == "ERROR"]
     assert all(err_flags), "early burst must stay flagged"
     assert not any("routine by own history" in r for i in range(30) for r in res.reasons[i])
+
+
+def test_clustering_capped_on_high_cardinality():
+    import time
+
+    import numpy as np
+
+    from loglens.detection import detector as det
+
+    n = det.MAX_CLUSTER_GROUPS + 5000
+    rng = np.random.default_rng(0)
+    gv = rng.standard_normal((n, 64)).astype(np.float32)
+    gc = np.ones(n, dtype=np.float64)
+
+    t0 = time.perf_counter()
+    vecs, counts, labels, sizes, eps = det._cluster_from_group_vectors(
+        gv, gc, registry=None, cfg=det.DetectorConfig()
+    )
+    assert time.perf_counter() - t0 < 10  # no quadratic DBSCAN
+    assert labels.shape[0] == n
+    assert (labels == -1).all()  # all treated as noise
+    assert eps == 0.0

@@ -66,9 +66,7 @@ class AnalysisResult:
     def __iter__(self):
         return iter(self.anomalies)
 
-    # --- AI / reporting -----------------------------------------------------
     def rca(self, *, provider: str = "", model: str = "", api_key: str = "", config=None):
-        """LLM root-cause analysis of this result's anomalies."""
         return rca_for_anomalies(
             self.anomalies,
             source_name=self.format or "analysis",
@@ -81,7 +79,6 @@ class AnalysisResult:
     def ask(
         self, question: str, *, provider: str = "", model: str = "", api_key: str = "", config=None
     ):
-        """Ask a free-form question about this result's anomalies."""
         return ask_about_anomalies(
             question,
             self.anomalies,
@@ -93,7 +90,6 @@ class AnalysisResult:
         )
 
     def save_html(self, path: str, *, rca=None, source_name: str = "") -> str:
-        """Write a standalone HTML report to ``path`` and return the path."""
         html = html_for_anomalies(
             self.anomalies, total_lines=self.total, source_name=source_name or "analysis", rca=rca
         )
@@ -102,7 +98,6 @@ class AnalysisResult:
         return path
 
     def save_rca(self, path: str, *, rca=None, **kw) -> str:
-        """Write an RCA markdown report to ``path`` and return the path."""
         rca = rca or self.rca(**kw)
         save_report(rca, path, source_name="analysis")
         return path
@@ -137,7 +132,6 @@ def analyze_entries(
 
 
 def apply_supervised_head(res: AnalysisResult, model_path: str) -> AnalysisResult:
-
     from loglens.detection.benchmark import SupervisedHead, build_feature_matrix
 
     head = SupervisedHead.load(model_path)

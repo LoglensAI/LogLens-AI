@@ -205,6 +205,22 @@ def test_auto_synonym_learning():
     )
 
 
+def test_synonym_fit_bounded_on_high_cardinality(tmp_path):
+    import time
+
+    rng = __import__("random").Random(0)
+    msgs = [
+        f"node R{rng.randrange(999):03d}-M{rng.randrange(2)} addr 0x{rng.randrange(2**32):08x} "
+        f"code {rng.randrange(10**6)} kernel event"
+        for _ in range(60000)
+    ]
+    learner = SynonymLearner(use_cache=False)
+    t0 = time.perf_counter()
+    learner.fit(msgs)
+    elapsed = time.perf_counter() - t0
+    assert elapsed < 30, f"synonym fit too slow ({elapsed:.1f}s) — vocab bound regressed?"
+
+
 def test_learned_synonyms_improve_similarity():
     """After learning, 'cxn timeout' should be closer to 'connection timeout'."""
     learner = SynonymLearner(min_cooccurrence=2, similarity_threshold=0.5)

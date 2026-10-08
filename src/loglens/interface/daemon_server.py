@@ -80,9 +80,11 @@ def _handle_run(req: dict[str, Any]) -> dict[str, Any]:
                 exc.show()
                 code = int(getattr(exc, "exit_code", 1))
             except cli._CLEAN_ERRORS as exc:
+                # Predictable, user-fixable problems → clean one-liner, no traceback,
+                # matching the in-process main() boundary.
                 cli._print_clean_error(str(exc) or type(exc).__name__)
                 code = 1
-            except Exception:
+            except Exception:  # noqa: BLE001 — a bad run must not kill the daemon
                 if os.environ.get("LOGLENS_DEBUG"):
                     traceback.print_exc()
                 else:

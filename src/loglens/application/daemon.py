@@ -20,6 +20,65 @@ _SOCK_NAME = "daemon.sock"
 _IS_WINDOWS = os.name == "nt"
 _USE_UNIX = hasattr(socket, "AF_UNIX") and not _IS_WINDOWS
 
+_viable_cache: bool | None = None
+
+
+def _is_wsl() -> bool:
+    try:
+        with open("/proc/version", encoding="utf-8", errors="ignore") as fh:
+            return "microsoft" in fh.read().lower()
+    except OSError:
+        return False
+
+
+def local_ipc_viable() -> bool:
+    global _viable_cache
+    if _viable_cache is not None:
+        return _viable_cache
+    _viable_cache = _probe_bind()
+    return _viable_cache
+
+
+def _probe_bind() -> bool:
+    if _is_wsl():
+        return False
+    try:
+        if _USE_UNIX:
+            probe = os.path.join(_runtime_dir(), f".probe.{os.getpid()}.sock")
+            try:
+                os.remove(probe)
+            except OSError:
+                pass
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                sock.bind(probe)
+                return True
+            except OSError:
+                return False
+            finally:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+                try:
+                    os.remove(probe)
+                except OSError:
+                    pass
+        else:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                sock.bind(("127.0.0.1", 0))
+                return True
+            except OSError:
+                return False
+            finally:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+    except OSError:
+        return False
+
 
 def _runtime_dir() -> str:
 
@@ -209,18 +268,13 @@ def stop() -> bool:
     return ok
 
 
-def ensure_running(spawn: bool = True, wait: float = 6.0) -> bool:
-    """Make sure the warm daemon is up, returning True if it is.
-
-    Never hangs: a daemon that can't come up (common on WSL, where the loopback
-    socket is filtered) is given ``wait`` seconds once, then a cooldown is set so
-    later commands skip the daemon entirely and run in-process immediately.
-    Ctrl+C during the wait is treated as "daemon unavailable" (returns False),
-    so the caller falls through to an in-process run instead of crashing.
-    """
+def ensure_running(spawn: bool = True, wait: float = 3.0) -> bool:
     if is_running():
         _clear_cooldown()
         return True
+    # Environment can't host the daemon (e.g. WSL) → don't even try; no stall.
+    if not local_ipc_viable():
+        return False
     # A recent failed start → don't pay the wait again; run in-process now.
     if _in_cooldown():
         return False

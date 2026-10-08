@@ -50,6 +50,14 @@ def _analyze_slice(payload: dict[str, Any]) -> dict[str, Any]:
         fmt=fmt,
     )
 
+    # Supervised head (optional): re-decide the flagged set per slice using the
+    # trained model. Per-line, local features only — safe to run on a slice.
+    model_path = payload.get("model") or ""
+    if model_path:
+        from loglens.application.api import apply_supervised_head
+
+        res = apply_supervised_head(res, model_path)
+
     hist: dict[str, dict[int, int]] = {}
     min_ep: float | None = None
     max_ep: float | None = None
@@ -140,6 +148,7 @@ def parallel_analyze_file(
     oversplit: int = 4,
     fmt: str | None = None,
     limit: int = 20,
+    model: str | None = None,
     on_progress=None,
     on_event=None,
 ) -> dict[str, Any]:
@@ -176,6 +185,7 @@ def parallel_analyze_file(
             "mode": mode,
             "sensitivity": sensitivity,
             "threshold": threshold,
+            "model": model or "",
         }
         for s, e in chunks
     ]
@@ -250,6 +260,8 @@ def parallel_analyze_file(
         "schema": "loglens.parallel.v2",
         "source": path,
         "mode": mode,
+        "supervised": bool(model),
+        "model": model or "",
         "format": fmt,
         "slices": len(chunks),
         "workers": min(workers, len(chunks)),
