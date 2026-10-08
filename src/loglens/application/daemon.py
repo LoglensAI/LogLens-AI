@@ -70,6 +70,40 @@ def _remove_state() -> None:
             pass
 
 
+# --- cooldown: if the daemon can't start in this environment (e.g. WSL where
+# the loopback socket is filtered), remember that for a few minutes so every
+# subsequent command runs in-process immediately instead of re-waiting. --------
+_COOLDOWN_NAME = "daemon.nodaemon"
+_COOLDOWN_SECS = 300.0
+
+
+def _cooldown_path() -> str:
+    return os.path.join(_runtime_dir(), _COOLDOWN_NAME)
+
+
+def _in_cooldown() -> bool:
+    try:
+        age = time.time() - os.path.getmtime(_cooldown_path())
+        return age < _COOLDOWN_SECS
+    except OSError:
+        return False
+
+
+def _set_cooldown() -> None:
+    try:
+        with open(_cooldown_path(), "w", encoding="utf-8") as fh:
+            fh.write(str(time.time()))
+    except OSError:
+        pass
+
+
+def _clear_cooldown() -> None:
+    try:
+        os.remove(_cooldown_path())
+    except OSError:
+        pass
+
+
 def _pid_alive(pid: int) -> bool:
     if pid <= 0:
         return False
@@ -175,9 +209,21 @@ def stop() -> bool:
     return ok
 
 
-def ensure_running(spawn: bool = True, wait: float = 20.0) -> bool:
+def ensure_running(spawn: bool = True, wait: float = 6.0) -> bool:
+    """Make sure the warm daemon is up, returning True if it is.
+
+    Never hangs: a daemon that can't come up (common on WSL, where the loopback
+    socket is filtered) is given ``wait`` seconds once, then a cooldown is set so
+    later commands skip the daemon entirely and run in-process immediately.
+    Ctrl+C during the wait is treated as "daemon unavailable" (returns False),
+    so the caller falls through to an in-process run instead of crashing.
+    """
     if is_running():
+        _clear_cooldown()
         return True
+    # A recent failed start → don't pay the wait again; run in-process now.
+    if _in_cooldown():
+        return False
     stale = _read_state()
     if stale is not None:
         if stale.get("version") != __version__:
@@ -187,10 +233,17 @@ def ensure_running(spawn: bool = True, wait: float = 20.0) -> bool:
         return False
     _spawn_detached()
     deadline = time.time() + wait
-    while time.time() < deadline:
-        if is_running():
-            return True
-        time.sleep(0.1)
+    try:
+        while time.time() < deadline:
+            if is_running():
+                _clear_cooldown()
+                return True
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        _set_cooldown()
+        return False
+    # Gave the daemon its chance and it didn't answer — remember that.
+    _set_cooldown()
     return False
 
 

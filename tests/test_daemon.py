@@ -113,6 +113,28 @@ def test_served_fail_on_propagates_exit_code(daemon, logfile):
     assert code == 2
 
 
+def test_handle_run_clean_error_no_traceback(tmp_path):
+    """A bad-input command served in-process must come back as a clean one-line
+    error with exit 1 — never a raw Python traceback."""
+    bgl = tmp_path / "bgl.log"
+    bgl.write_text("- INFO ok\nPANIC FATAL boom\n", encoding="utf-8")
+    req = {
+        "token": "",
+        "op": "run",
+        # wrong --format on purpose → LogLensError inside the loader
+        "argv": ["benchmark", str(bgl), "--format", "jsonl"],
+        "cwd": str(tmp_path),
+        "env": {"LOGLENS_DAEMON": "0"},
+        "tty": False,
+        "width": 100,
+    }
+    resp = ds._handle_run(req)
+    assert resp["exit_code"] == 1
+    combined = resp["stdout"] + resp["stderr"]
+    assert "Traceback (most recent call last)" not in combined
+    assert "[LogLens]" in combined
+
+
 def test_bad_token_is_rejected(daemon):
     state = d._read_state()
     assert state is not None

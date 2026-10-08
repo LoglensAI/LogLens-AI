@@ -13,6 +13,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 from loglens import __version__
+from loglens.detection.filetype import InvalidSourceError
+from loglens.domain.errors import LogLensError
 from loglens.domain.models import LogEntry
 from loglens.domain.severity import (
     CATEGORY_ORDER,
@@ -22,15 +24,33 @@ from loglens.domain.severity import (
 )
 from loglens.infrastructure.output.terminal import LiveProgress
 
-# When output is piped to a consumer that closes early (e.g. `loglens ... | head`),
-# restore the default SIGPIPE behaviour so we exit quietly like grep/cat instead of
-# dumping a BrokenPipeError traceback. POSIX-only; a no-op on Windows.
-try:
-    import signal
+def _reset_sigpipe() -> None:
+    try:
+        import signal
 
-    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-except (ImportError, AttributeError, ValueError):
-    pass
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except (ImportError, AttributeError, ValueError):
+        pass
+
+
+_CLEAN_ERRORS: tuple[type[BaseException], ...] = (
+    LogLensError,
+    InvalidSourceError,
+    ImportError, 
+    FileNotFoundError,
+    IsADirectoryError,
+    PermissionError,
+)
+
+
+def _print_clean_error(msg: str) -> None:
+    first, _, rest = msg.partition("\n")
+    try:
+        console.print(f"[bold red][LogLens][/bold red] {first}")
+        if rest:
+            console.print(rest)
+    except Exception:  # noqa: BLE001 — never fail while reporting a failure
+        sys.stderr.write(f"[LogLens] {msg}\n")
 
 if TYPE_CHECKING:
     # These names are injected into module globals at runtime by _load() to keep
@@ -110,6 +130,10 @@ app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
     rich_markup_mode="rich",
+    # We handle errors ourselves in main() with a clean one-line message, so
+    # turn off Typer's giant Rich traceback panel — an unhandled exception then
+    # propagates up to main()'s boundary instead of being printed raw.
+    pretty_exceptions_enable=False,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
@@ -2942,6 +2966,20 @@ def analyze_multi(
     for kind, detail in events:
         console.print(f"[dim][LogLens] {kind}: {detail}[/dim]")
 
+    by_source = result.stats.to_dict()["by_source"]
+    faulted = [st for st in by_source if not st["ok"]]
+    if faulted:
+        console.print()
+        for st in faulted:
+            msg = (st.get("error") or "unknown error").strip().splitlines()[0]
+            console.print(
+                f"[bold red][LogLens][/bold red] source [yellow]{st['source']}[/yellow] "
+                f"failed: {msg}"
+            )
+        # If nothing could be analysed at all, that's a hard failure, not a success.
+        if len(faulted) == len(by_source):
+            raise typer.Exit(code=1)
+
 
 def _fmt_count(n: int) -> str:
     return f"{n:,}"
@@ -3232,17 +3270,36 @@ def main() -> None:
     daemon is down, unreachable, or errors, we fall straight through to running
     in-process, so behaviour never regresses.
     """
+    _reset_sigpipe()
     argv = sys.argv[1:]
     if _should_forward(argv):
         try:
             from loglens.application import daemon as d
 
             code = d.run_via_daemon(argv, spawn=True)
-        except Exception:  # noqa: BLE001 — any daemon issue -> run locally
+        except (Exception, KeyboardInterrupt):  # noqa: BLE001 — any daemon issue -> run locally
             code = None
         if code is not None:
             raise SystemExit(code)
-    app()
+    try:
+        app()
+    except KeyboardInterrupt:
+        print("\n[LogLens] cancelled.", file=sys.stderr)
+        raise SystemExit(130) from None
+    except SystemExit:
+        raise
+    except _CLEAN_ERRORS as exc:
+        _print_clean_error(str(exc) or type(exc).__name__)
+        raise SystemExit(1) from None
+    except Exception as exc:  # noqa: BLE001 — last-resort safety net
+        if os.environ.get("LOGLENS_DEBUG"):
+            raise
+        _print_clean_error(
+            f"unexpected error: {type(exc).__name__}: {exc}\n"
+            "Re-run with LOGLENS_DEBUG=1 for details, or report this at "
+            "https://github.com/LoglensAI/LogLens-AI/issues"
+        )
+        raise SystemExit(1) from None
 
 
 if __name__ == "__main__":

@@ -79,8 +79,17 @@ def _handle_run(req: dict[str, Any]) -> dict[str, Any]:
             except click.exceptions.ClickException as exc:
                 exc.show()
                 code = int(getattr(exc, "exit_code", 1))
-            except Exception:  # noqa: BLE001 — a bad run must not kill the daemon
-                traceback.print_exc()
+            except cli._CLEAN_ERRORS as exc:
+                cli._print_clean_error(str(exc) or type(exc).__name__)
+                code = 1
+            except Exception:
+                if os.environ.get("LOGLENS_DEBUG"):
+                    traceback.print_exc()
+                else:
+                    buf_err.write(
+                        f"[LogLens] unexpected error: {sys.exc_info()[1]}\n"
+                        "Re-run with LOGLENS_DEBUG=1 for details.\n"
+                    )
                 code = 1
     finally:
         cli.console = old_console
