@@ -329,9 +329,7 @@ class SynonymLearner:
             rare_candidates: list[str] = sorted(self.cooccurrence)
             common_candidates: list[str] = sorted(self.word_freq)
         else:
-            top = sorted(self.word_freq, key=lambda t: (-self.word_freq[t], t))[
-                :_MAX_SYNONYM_VOCAB
-            ]
+            top = sorted(self.word_freq, key=lambda t: (-self.word_freq[t], t))[:_MAX_SYNONYM_VOCAB]
             rare_candidates = top
             common_candidates = top
         for rare in rare_candidates:

@@ -38,11 +38,7 @@ def _guess_label_format(line: str) -> str:
 def _label_format_error(path: str, fmt: str, lineno: int, sample: str) -> LogLensError:
     guess = _guess_label_format(sample)
     snippet = sample.strip()[:70]
-    hint = (
-        f" This looks like a '{guess}' file — try --format {guess}."
-        if guess != fmt
-        else ""
-    )
+    hint = f" This looks like a '{guess}' file — try --format {guess}." if guess != fmt else ""
     return LogLensError(
         f"{path}: line {lineno} isn't valid '{fmt}' label format "
         f"(got: {snippet!r}).{hint}\n"
@@ -91,9 +87,7 @@ def score_prf1(y_true: Sequence[int], y_pred: Sequence[bool]) -> Metrics:
 
 def _iter_labeled(path: str, fmt: str) -> Iterable[tuple[int, str]]:
     if fmt not in _LABEL_FORMATS:
-        raise LogLensError(
-            f"unknown --format '{fmt}'. Supported: {', '.join(_LABEL_FORMATS)}."
-        )
+        raise LogLensError(f"unknown --format '{fmt}'. Supported: {', '.join(_LABEL_FORMATS)}.")
     with open(path, encoding="utf-8", errors="ignore") as fh:
         for lineno, line in enumerate(fh, start=1):
             line = line.rstrip("\n")

@@ -68,7 +68,9 @@ def test_supervised_head_in_parallel_path(tmp_path):
 
     # Train a tiny head on a labeled fixture.
     labeled = tmp_path / "bgl.log"
-    normal = "\n".join(f"- 2024-01-01 00:{i//60:02d}:{i%60:02d} INFO api ok id={i}" for i in range(80))
+    normal = "\n".join(
+        f"- 2024-01-01 00:{i // 60:02d}:{i % 60:02d} INFO api ok id={i}" for i in range(80)
+    )
     anom = "\n".join(f"K 2024-01-01 01:{i:02d}:00 FATAL db pool exhausted {i}" for i in range(20))
     labeled.write_text(normal + "\n" + anom + "\n", encoding="utf-8")
     model = tmp_path / "head.pkl"
@@ -107,18 +109,28 @@ def test_run_parallel_total_failure_retries_then_exits(monkeypatch, tmp_path, ca
         if on_progress:
             on_progress(workers, workers)
         return {  # total failure: faults, zero lines parsed
-            "slices": workers, "workers": workers, "lines_parsed": 0,
-            "anomaly_lines": 0, "family_count": 0, "by_level": {},
-            "incident": False, "faulted_slices": workers, "families": [],
-            "top_lines": [], "supervised": False, "model": "", "format": "x",
+            "slices": workers,
+            "workers": workers,
+            "lines_parsed": 0,
+            "anomaly_lines": 0,
+            "family_count": 0,
+            "by_level": {},
+            "incident": False,
+            "faulted_slices": workers,
+            "families": [],
+            "top_lines": [],
+            "supervised": False,
+            "model": "",
+            "format": "x",
             "display_limit": limit,
         }
 
     monkeypatch.setattr(ps, "parallel_analyze_file", fake)
 
     with pytest.raises(typer.Exit) as ei:
-        cli._run_parallel(str(src), mode="fast", workers=8, headroom=None,
-                          limit=20, as_json=True, started=0.0)
+        cli._run_parallel(
+            str(src), mode="fast", workers=8, headroom=None, limit=20, as_json=True, started=0.0
+        )
     assert ei.value.exit_code == 1
     # it retried with progressively fewer workers (8 → 4 → 2 → 1)
     assert calls == [8, 4, 2, 1]

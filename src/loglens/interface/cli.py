@@ -55,6 +55,7 @@ def _print_clean_error(msg: str) -> None:
     except Exception:  # noqa: BLE001 — never fail while reporting a failure
         sys.stderr.write(f"[LogLens] {msg}\n")
 
+
 if TYPE_CHECKING:
     # These names are injected into module globals at runtime by _load() to keep
     # CLI startup fast (heavy imports deferred). Declared here so type-checkers
@@ -715,9 +716,8 @@ def _run_parallel(
     )
     sup = ""
     if model:
-        sup = (
-            " [green]+ supervised head[/green] "
-            + ("[dim](bundled default)[/dim]" if used_default else "[dim](your model)[/dim]")
+        sup = " [green]+ supervised head[/green] " + (
+            "[dim](bundled default)[/dim]" if used_default else "[dim](your model)[/dim]"
         )
     console.print(
         f"[bold cyan][LogLens][/bold cyan] Mode: [bold magenta]⧉ Parallel "
@@ -731,8 +731,13 @@ def _run_parallel(
 
     def _scan(nw: int, progress=None) -> dict:
         return parallel_analyze_file(
-            source, mode=mode, workers=nw, limit=limit, model=model,
-            on_progress=progress, on_event=None,
+            source,
+            mode=mode,
+            workers=nw,
+            limit=limit,
+            model=model,
+            on_progress=progress,
+            on_event=None,
         )
 
     # Retry with fewer workers on a total failure: halving concurrency roughly
