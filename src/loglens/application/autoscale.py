@@ -63,7 +63,7 @@ def _mem_available_bytes() -> int | None:
 
 
 def mem_capped_workers(workers: int, size_bytes: int) -> int:
-    
+
     if workers <= 1 or size_bytes <= 0:
         return max(1, workers)
     # Small files never pressure memory, whatever the worker count.
