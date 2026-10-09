@@ -26,9 +26,11 @@ jobs:
         include:
           - { name: linux-x86_64,  os: ubuntu-22.04,  asset: loglens-linux-x86_64 }
           - { name: macos-arm64,   os: macos-14,      asset: loglens-macos-arm64 }
-          - { name: macos-x86_64,  os: macos-13,      asset: loglens-macos-x86_64 }
+          - { name: macos-x86_64,  os: macos-13,      asset: loglens-macos-x86_64, optional: true }
           - { name: windows-x86_64, os: windows-latest, asset: loglens-windows-x86_64 }
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional || false }}
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +49,10 @@ jobs:
           case "$V" in ""|refs/*|main|master)
             V="$(python -c "import runpy; print(runpy.run_path('src/loglens/_version.py')['__version__'])")"
           ;; esac
+          # Strip any leading 'v' — .deb/.rpm versions must start with a digit, and
+          # the MSI/WiX ProductVersion must be numeric. A tag or manual input may
+          # carry it (e.g. 'v0.13.1'); the package version is always '0.13.1'.
+          V="${V#v}"
           echo "version=$V" >> "$GITHUB_OUTPUT"
           echo "Building LogLens $V"
 
