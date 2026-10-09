@@ -1,13 +1,18 @@
 <#
 .SYNOPSIS
-  LogLens AI installer for Windows (direct binary download — no winget needed).
+  LogLens AI installer for Windows.
 
 .DESCRIPTION
   One-liner:
     irm https://raw.githubusercontent.com/LoglensAI/LogLens-AI/main/scripts/install.ps1 | iex
 
-  Downloads the self-contained release zip for Windows x64 from GitHub Releases,
-  installs it under %LOCALAPPDATA%\Programs\LogLens, and adds it to your user PATH.
+  Installs LogLens in two ways, automatically:
+    1. Downloads the self-contained release zip for Windows x64 from GitHub
+       Releases, installs it under %LOCALAPPDATA%\Programs\LogLens, and adds it
+       to your user PATH. No Python needed.
+    2. If the release zip isn't available, falls back to installing from PyPI
+       (pip install loglensai) so the one-liner still works.
+
   Prefer the MSI (loglens-windows-x86_64.msi) for a machine-wide, double-click install.
 
   Pin a version or change the location:
@@ -23,12 +28,85 @@ param(
 $ErrorActionPreference = 'Stop'
 $Repo  = 'LoglensAI/LogLens-AI'
 $Asset = 'loglens-windows-x86_64.zip'
+$PyPI  = 'loglensai'
 
 function Info($m) { Write-Host "[LogLens] $m" -ForegroundColor Cyan }
+function Warn($m) { Write-Host "[LogLens] $m" -ForegroundColor Yellow }
 function Fail($m) { Write-Host "[LogLens] $m" -ForegroundColor Red; exit 1 }
 
+function Add-UserPath($dir) {
+  # Idempotently add a directory to the user PATH (and this session's PATH).
+  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+  if (-not ($userPath -split ';' | Where-Object { $_ -eq $dir })) {
+    $newPath = if ([string]::IsNullOrEmpty($userPath)) { $dir } else { "$userPath;$dir" }
+    [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+    $env:Path = "$env:Path;$dir"
+    Info "Added $dir to your user PATH (restart your terminal to pick it up)."
+  }
+}
+
+function Find-Python {
+  foreach ($cand in @('py', 'python', 'python3')) {
+    $cmd = Get-Command $cand -ErrorAction SilentlyContinue
+    if ($cmd) {
+      # `py` needs -3; the others are called directly.
+      if ($cand -eq 'py') { return @($cmd.Source, '-3') } else { return @($cmd.Source) }
+    }
+  }
+  return $null
+}
+
+function Install-FromPyPI {
+  Warn 'Falling back to a PyPI install (pip install loglensai)…'
+
+  # Prefer pipx (isolated + handles PATH) when present.
+  $pipx = Get-Command pipx -ErrorAction SilentlyContinue
+  if ($pipx) {
+    Info 'Installing with pipx…'
+    & $pipx.Source install --force $PyPI
+    if ($LASTEXITCODE -eq 0) {
+      Info 'Installed via pipx. Try:  loglens version'
+      return $true
+    }
+    Warn 'pipx install did not succeed; trying pip…'
+  }
+
+  $py = Find-Python
+  if (-not $py) {
+    Fail "No prebuilt zip on the Releases page and no Python found. Install Python 3.10+ from https://python.org then run:  pip install $PyPI"
+  }
+  $py = @($py)                       # normalize to an array before indexing (PS 5.1 unwraps single-element arrays)
+
+  $exe    = $py[0]
+  $pyArgs = @()                      # NOTE: not $args — that is a reserved automatic variable
+  if ($py.Count -gt 1) { $pyArgs = $py[1..($py.Count-1)] }
+
+  $verText = (& $exe @pyArgs --version) 2>&1
+  Info "Using Python: $verText"
+
+  Info "Installing $PyPI from PyPI (user site)…"
+  & $exe @pyArgs -m pip install --user --upgrade $PyPI
+  if ($LASTEXITCODE -ne 0) { Fail "pip install $PyPI failed. Check your Python/pip, or install in a venv:  pip install $PyPI" }
+
+  # Put the user Scripts dir (where loglens.exe lands) on PATH.
+  $scripts = (& $exe @pyArgs -c "import sysconfig; print(sysconfig.get_path('scripts','nt_user'))") 2>$null
+  if ($scripts -and (Test-Path $scripts)) { Add-UserPath $scripts }
+
+  $loglensExe = if ($scripts) { Join-Path $scripts 'loglens.exe' } else { 'loglens' }
+  if (Test-Path $loglensExe) {
+    $ver = (& $loglensExe version) 2>$null
+    Info "Installed: $ver"
+  } else {
+    Info 'Installed from PyPI.'
+  }
+  Info 'Done. Open a NEW terminal, then try:  loglens analyze --source C:\path\to\your.log'
+  return $true
+}
+
 if ([Environment]::Is64BitOperatingSystem -eq $false) {
-  Fail 'LogLens prebuilt binaries are 64-bit only. Try: pip install loglensai'
+  Warn 'Prebuilt binaries are 64-bit only; using the PyPI install instead.'
+  [void](Install-FromPyPI)
+  return
 }
 
 if ($Version) {
@@ -44,10 +122,18 @@ $zip = Join-Path $tmp $Asset
 
 try {
   Info "Downloading $Asset…"
+  $downloaded = $true
   try {
     Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
   } catch {
-    Fail "Download failed: $url  (check the version exists on the Releases page)"
+    $downloaded = $false
+    Warn "No prebuilt zip at: $url"
+  }
+
+  if (-not $downloaded) {
+    # Release asset missing (e.g. not attached yet) — use PyPI instead.
+    [void](Install-FromPyPI)
+    return
   }
 
   Info 'Unpacking…'
@@ -60,14 +146,7 @@ try {
   New-Item -ItemType Directory -Force -Path (Split-Path $InstallDir) | Out-Null
   Move-Item $src $InstallDir
 
-  # --- add to user PATH (idempotent) --------------------------------------- #
-  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-  if (-not ($userPath -split ';' | Where-Object { $_ -eq $InstallDir })) {
-    $newPath = if ([string]::IsNullOrEmpty($userPath)) { $InstallDir } else { "$userPath;$InstallDir" }
-    [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
-    $env:Path = "$env:Path;$InstallDir"
-    Info 'Added LogLens to your user PATH (restart your terminal to pick it up).'
-  }
+  Add-UserPath $InstallDir
 
   $exe = Join-Path $InstallDir 'loglens.exe'
   if (Test-Path $exe) {

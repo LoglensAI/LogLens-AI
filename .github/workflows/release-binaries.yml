@@ -30,7 +30,6 @@ jobs:
           # Note: no Intel-macOS (x86_64) binary. GitHub's macos-13 runners are
           # scarce and being retired, and the heavy torch bundle made that job
           # queue for ages and stall releases. Intel-Mac users: `pipx install
-          # loglens-ai` (PyPI works on any arch).
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
