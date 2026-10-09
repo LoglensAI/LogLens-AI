@@ -10,6 +10,8 @@ env:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_RW_TOKEN: ${{ secrets.DOCKERHUB_RW_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,9 +50,11 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Update Docker Hub description
+        continue-on-error: true
+        if: ${{ env.DOCKERHUB_RW_TOKEN != '' }}
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ env.DOCKERHUB_RW_TOKEN }}
           repository: ${{ env.IMAGE }}
           readme-filepath: ./docs/DOCKER.md
