@@ -6,18 +6,18 @@
   One-liner:
     irm https://raw.githubusercontent.com/LoglensAI/LogLens-AI/main/scripts/install.ps1 | iex
 
-  Installs LogLens in two ways, automatically:
-    1. Downloads the self-contained release zip for Windows x64 from GitHub
-       Releases, installs it under %LOCALAPPDATA%\Programs\LogLens, and adds it
-       to your user PATH. No Python needed.
-    2. If the release zip isn't available, falls back to installing from PyPI
-       (pip install loglensai) so the one-liner still works.
+  Order of operations:
+    1. Download the self-contained release zip for Windows x64 (no Python needed),
+       install under %LOCALAPPDATA%\Programs\LogLens, add it to the user PATH.
+    2. If that zip isn't on the release, fall back to PyPI (pip install loglensai)
+       IF a real Python is present.
+    3. If neither works, print clear next steps instead of crashing.
 
   Prefer the MSI (loglens-windows-x86_64.msi) for a machine-wide, double-click install.
 
-  Pin a version or change the location:
-    $env:LOGLENS_VERSION="0.13.0"; irm .../install.ps1 | iex
-    powershell -File install.ps1 -Version 0.13.0 -InstallDir "C:\Tools\LogLens"
+  Pin a version / change location:
+    $env:LOGLENS_VERSION="0.13.1"; irm .../install.ps1 | iex
+    powershell -File install.ps1 -Version 0.13.1 -InstallDir "C:\Tools\LogLens"
 #>
 [CmdletBinding()]
 param(
@@ -35,77 +35,101 @@ function Warn($m) { Write-Host "[LogLens] $m" -ForegroundColor Yellow }
 function Fail($m) { Write-Host "[LogLens] $m" -ForegroundColor Red; exit 1 }
 
 function Add-UserPath($dir) {
-  # Idempotently add a directory to the user PATH (and this session's PATH).
   $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
   if (-not ($userPath -split ';' | Where-Object { $_ -eq $dir })) {
     $newPath = if ([string]::IsNullOrEmpty($userPath)) { $dir } else { "$userPath;$dir" }
     [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
     $env:Path = "$env:Path;$dir"
-    Info "Added $dir to your user PATH (restart your terminal to pick it up)."
+    Info "Added $dir to your user PATH (open a new terminal to pick it up)."
   }
 }
 
-function Find-Python {
-  foreach ($cand in @('py', 'python', 'python3')) {
-    $cmd = Get-Command $cand -ErrorAction SilentlyContinue
-    if ($cmd) {
-      # `py` needs -3; the others are called directly.
-      if ($cand -eq 'py') { return @($cmd.Source, '-3') } else { return @($cmd.Source) }
+# Run a native command WITHOUT letting its stderr turn into a terminating error
+# (the Microsoft Store 'python' stub writes to stderr, which would otherwise crash
+# the script under $ErrorActionPreference='Stop').
+function Invoke-Native([string]$Exe, [string[]]$Arguments) {
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $out  = (& $Exe @Arguments 2>&1 | Out-String)
+    $code = $LASTEXITCODE
+  } catch {
+    $out = "$_"; $code = 1
+  } finally {
+    $ErrorActionPreference = $prev
+  }
+  return [pscustomobject]@{ Code = $code; Out = $out }
+}
+
+# Return @(exe, preargs...) for a REAL Python 3.10+, or $null.
+# Rejects the Microsoft Store alias stub (it exits non-zero with a 'not found' message).
+function Get-WorkingPython {
+  $cands = @(
+    @{ Exe = 'py';      Pre = @('-3') },
+    @{ Exe = 'python';  Pre = @() },
+    @{ Exe = 'python3'; Pre = @() }
+  )
+  foreach ($c in $cands) {
+    $cmd = Get-Command $c.Exe -ErrorAction SilentlyContinue
+    if (-not $cmd) { continue }
+    $probe = Invoke-Native $cmd.Source (@($c.Pre) + '--version')
+    if ($probe.Code -eq 0 -and $probe.Out -match 'Python\s+3\.(1[0-9]|[2-9]\d)' -and $probe.Out -notmatch 'was not found|Microsoft Store') {
+      return (@($cmd.Source) + $c.Pre)
     }
   }
   return $null
 }
 
 function Install-FromPyPI {
-  Warn 'Falling back to a PyPI install (pip install loglensai)…'
+  Warn 'Trying a PyPI install (pip install loglensai)…'
 
-  # Prefer pipx (isolated + handles PATH) when present.
+  # pipx first (isolated, manages PATH) — only exists if Python already does.
   $pipx = Get-Command pipx -ErrorAction SilentlyContinue
   if ($pipx) {
     Info 'Installing with pipx…'
-    & $pipx.Source install --force $PyPI
-    if ($LASTEXITCODE -eq 0) {
-      Info 'Installed via pipx. Try:  loglens version'
-      return $true
-    }
-    Warn 'pipx install did not succeed; trying pip…'
+    $r = Invoke-Native $pipx.Source @('install', '--force', $PyPI)
+    if ($r.Out) { Write-Host $r.Out }
+    if ($r.Code -eq 0) { Info 'Installed via pipx. Open a NEW terminal, then:  loglens version'; return }
+    Warn 'pipx did not succeed; trying pip…'
   }
 
-  $py = Find-Python
+  $py = Get-WorkingPython
   if (-not $py) {
-    Fail "No prebuilt zip on the Releases page and no Python found. Install Python 3.10+ from https://python.org then run:  pip install $PyPI"
+    Fail @"
+No prebuilt Windows binary on the Releases page, and no working Python on this machine
+(the 'python' here is the Microsoft Store stub, not a real install).
+
+Pick one:
+  1) Install Python 3.10+, then re-run this one-liner:
+       winget install -e --id Python.Python.3.12
+  2) Download the MSI or zip from the GitHub Releases page (once binaries are attached):
+       https://github.com/$Repo/releases
+  3) Have WSL / Git Bash?  Run inside it:
+       pip install $PyPI
+"@
   }
-  $py = @($py)                       # normalize to an array before indexing (PS 5.1 unwraps single-element arrays)
 
   $exe    = $py[0]
-  $pyArgs = @()                      # NOTE: not $args — that is a reserved automatic variable
-  if ($py.Count -gt 1) { $pyArgs = $py[1..($py.Count-1)] }
+  $pyArgs = @(); if ($py.Count -gt 1) { $pyArgs = $py[1..($py.Count - 1)] }
 
-  $verText = (& $exe @pyArgs --version) 2>&1
-  Info "Using Python: $verText"
+  $ver = (Invoke-Native $exe (@($pyArgs) + '--version')).Out.Trim()
+  Info "Using Python: $ver"
 
   Info "Installing $PyPI from PyPI (user site)…"
-  & $exe @pyArgs -m pip install --user --upgrade $PyPI
-  if ($LASTEXITCODE -ne 0) { Fail "pip install $PyPI failed. Check your Python/pip, or install in a venv:  pip install $PyPI" }
+  $r = Invoke-Native $exe (@($pyArgs) + @('-m', 'pip', 'install', '--user', '--upgrade', $PyPI))
+  if ($r.Out) { Write-Host $r.Out }
+  if ($r.Code -ne 0) { Fail "pip install $PyPI failed. Try inside a venv:  pip install $PyPI" }
 
-  # Put the user Scripts dir (where loglens.exe lands) on PATH.
-  $scripts = (& $exe @pyArgs -c "import sysconfig; print(sysconfig.get_path('scripts','nt_user'))") 2>$null
+  # Add the user Scripts dir (where loglens.exe lands) to PATH.
+  $scripts = (Invoke-Native $exe (@($pyArgs) + @('-c', 'import sysconfig; print(sysconfig.get_path(''scripts'',''nt_user''))'))).Out.Trim()
   if ($scripts -and (Test-Path $scripts)) { Add-UserPath $scripts }
 
-  $loglensExe = if ($scripts) { Join-Path $scripts 'loglens.exe' } else { 'loglens' }
-  if (Test-Path $loglensExe) {
-    $ver = (& $loglensExe version) 2>$null
-    Info "Installed: $ver"
-  } else {
-    Info 'Installed from PyPI.'
-  }
-  Info 'Done. Open a NEW terminal, then try:  loglens analyze --source C:\path\to\your.log'
-  return $true
+  Info 'Done. Open a NEW terminal, then try:  loglens version'
 }
 
 if ([Environment]::Is64BitOperatingSystem -eq $false) {
   Warn 'Prebuilt binaries are 64-bit only; using the PyPI install instead.'
-  [void](Install-FromPyPI)
+  Install-FromPyPI
   return
 }
 
@@ -131,8 +155,7 @@ try {
   }
 
   if (-not $downloaded) {
-    # Release asset missing (e.g. not attached yet) — use PyPI instead.
-    [void](Install-FromPyPI)
+    Install-FromPyPI
     return
   }
 
