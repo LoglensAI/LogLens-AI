@@ -3,111 +3,75 @@
 All notable changes to LogLens AI are documented here.
 This project adheres to [Semantic Versioning](https://semver.org).
 
-## [Unreleased] — demo hardening
+## [0.13.1] - 2026-10-09
 
-Reliability pass so every command + flag behaves predictably in a live demo.
-Full test suite green (437 passed), every CLI command/flag exercised, synthetic
-micro-F1 still **1.000**.
-
-### Features
-- **Distributed supervised head.** `--parallel` and auto-scale now apply the
-  trained model (`--model`, the bundled default, or `--model auto`) per
-  byte-range slice, not just unsupervised detection — the supervised head scales
-  across cores like everything else. Results stay per-slice approximate (as with
-  `--turbo`/`--parallel`); `--no-auto-scale` gives the exact whole-file run. The
-  parallel JSON now reports `supervised` and `model`.
-
-### Bug Fixes
-- **No more raw tracebacks on bad input.** A single clean-error boundary turns
-  predictable problems — wrong `--format`, a malformed labels file, a missing
-  optional dependency (deep mode), a missing or unreadable source — into one
-  `[LogLens] …` line and exit 1, in both the in-process CLI and the daemon.
-  `LOGLENS_DEBUG=1` restores full tracebacks for development.
-- **Friendly label-format errors.** `train`/`benchmark` with the wrong
-  `--format` (e.g. a BGL file read as `jsonl`) now name the line, show a snippet,
-  and guess the right format instead of dumping a `JSONDecodeError`.
-- **`analyze-multi` no longer hides failures.** A faulted source prints its
-  reason, and a run where every source failed exits non-zero instead of
-  reporting success with an empty table.
-- Daemon no longer hangs or crashes on Ctrl+C: bounded startup wait with a
-  cooldown, and a quiet exit 130 on interrupt (carried over from the warm-daemon
-  fix).
-- **No more `LOGLENS_DAEMON=0` workaround.** The warm daemon now engages only
-  where its local socket can actually bind — a fast, cached viability probe skips
-  it on WSL and restricted containers (and the startup wait dropped to 3s). An
-  installed binary stays fast where the daemon works and runs in-process
-  everywhere else, with byte-identical results across all analyze modes
-  (fast / turbo / parallel / supervised) — no environment variable required.
-- **Parallel scan no longer silently fails on huge files.** Worker count is now
-  capped by available RAM (too many embedding workers on a multi-hundred-MB file
-  were being OOM-killed, which showed up as every slice faulting with 0 lines
-  parsed and a bogus "✓ completed"). On a total failure the scan retries with
-  progressively fewer workers and, if it still can't parse a line, prints a clear
-  reason and exits non-zero instead of reporting success. A bad `--model` path is
-  now validated once up front (clean error) rather than faulting every worker.
+### Other
+- Release prep v0.13.1: engine/daemon/error fixes + WiX v5 pin + PyPI tag fix (1399bd2)
+- Ruff check --fix + ruff format (f7f388a)
+- Ruff --fix (trailing newlines, blank-line whitespace) (2513ead)
+- Added autoscaling on supervised head (28d2d7a)
+- Fixed the deamon mode (b7e310e)
 
 ## [0.13.0] - 2026-10-04
 
-Consolidates the performance, horizontal-scale, and log-management work. Every
-speed-up ships with a byte-identical equivalence test - **detection accuracy is
-unchanged** (synthetic suite micro-F1 **1.000**, BGL unsupervised F1 **0.426**).
+### Bug Fixes
+- Fixed minor bugs add extended github ci gate features (6cbf098)
+- Restore trailing newlines (transfer artifact) + lower BGL CI gate to realistic 0.38 (90e5e0b)
+
+### Chores
+- Remove stale report.json (now git-ignored) (0a00eb3)
 
 ### Features
-- **Self-tuning load distribution** for `analyze`: large local files are split
-  into byte-range slices across cores automatically, with CPU headroom left for
-  other work; opt-in `--parallel` runs the full detector per slice.
-- **Auto-distribute large files into anomaly families** for a compact,
-  scannable result instead of per-line noise.
-- **Interactive log-management explorer** over saved results: anomaly vs
-  anomaly-family views, time-range queries, severity-count filters, and family
-  search - all served from a results file so queries never touch detection.
-- Distributed parsing across detection modes; analyze timer / ETA / progress.
+- Self-tuning load distribution with CPU headroom (3b14dec)
+- Incident grouping (D13) + origin/blame classifier (9db91ad)
+- Finish loglens.v1 additions scores{N,B,P,R,C,S}, incident_id, flags (D12) (e60f272)
+- Auto-diagnose trace-kind + blocking impact, non-tech cards (D11d) (927c943)
+- Routineness R badge (D11) + recency display +  command (d0e5ded)
 
-### Install & distribution
-- **One-line installers that need no package manager:** `scripts/install.sh`
-  (macOS + Linux `curl … | sh`, Apple Silicon **and** Intel) and
-  `scripts/install.ps1` (Windows `irm … | iex`) download the self-contained
-  binary straight from GitHub Releases. Both are attached to every release.
-- **Windows MSI** (`loglens-windows-x86_64.msi`, WiX) for a machine-wide,
-  double-click install that adds LogLens to `PATH` and auto-upgrades.
-- Intel macOS (`loglens-macos-x86_64`) is now built and published again, and the
-  Homebrew formula serves both Mac architectures.
-- Release workflow now actually updates the Homebrew tap and Scoop bucket (was a
-  TODO stub) and attaches the installer scripts + MSI to the release.
-- New `INSTALL.md` with per-OS guides; README install table reworked.
+### Other
+- Close P1.7 (synthetic micro-F1 gate) + sync backlogs to reality (8d13843)
+- Interactive log-management explorer over saved results (a7cc911)
+- Auto-distribute large files into anomaly families (02b4741)
+- Opt-in --parallel — full detector on byte-range slices across cores (ae42568)
+- Fixed broken sttest case (07de8fc)
+- Added timer for requestes (da1b643)
+- Added distributed parsing in other models (22b0751)
+- Parallel multi-source analysis across cores (Phase 2) (7f34272)
+- Guarded+cached masker, level cache, __slots__ (Phase 1a) (3f2dc97)
+- Ephemeral bench-routineness --download (no disk footprint) (ba2ea75)
+- Self-learning baseline: analyze remembers each source's normal and improves every run (zero training); daemon test uses --no-learn for cold equivalence (71bbae5)
+- Add window-level + template-level metrics (--window) and supervised-head benchmarking (--supervised); BGL window F1 0.75, supervised 0.97 (3f8457d)
+- Updated CI gate (457ef58)
+- Precision pass: tighten rate + parameter detectors BGL F1 0.266 → 0.395, recall 1.0, synthetic 1.0 (05b2df2)
+- LogHub adapter (bench-fetch) for BGL/HDFS real-data benchmarking; first BGL result F1 0.266 (95dfc53)
+- Parameteranomaly detector (robust median/MAD per template slot) — catches value outliers, param_anomaly F1 0.0 → 1.0 (0a071fe)
+- Session-sequence detector (Markov) flags broken event order, fixes HDFS gap (F1 0.05 → 1.0) (004dc3c)
+- Added test folder in gitingor (8c974cf)
+- Determinism — add --seed, make turbo ordered + total sort order so tied families never reshuffle (4ca9717)
+- Format auto-detect + parser packs (generic/logfmt/k8s CRI) with file-level sniff to recover service (972877a)
+- Rich loglens.v1 JSON — template_id, line_numbers[], first/last_seen, sample_lines, placeholders (568a873)
+- Add loglens version --json with commit+build provenance; bake build info in CI (2966610)
+- Updated documentation (a99e09a)
+- Release 0.12.1; auto-derive build version from _version.py (aadccad)
+- Release 0.12.1; auto-derive build version from _version.py (58eae9d)
+- Release 0.12.1: correct version + full command descriptions (2b785e6)
+- Bump to 0.12.0; ensure all command descriptions present (122e2e6)
+- Point Cloudsmith publishing at loglensai/loglensai-363o (527f758)
+- Allow Cloudsmith publish on manual dispatch (test without a release) (10143a1)
+- Host apt/yum repo on Cloudsmith (handles large debs); drop reprepro/gh-pages (f6f5886)
 
-### GitHub Action
-- Analyze a single file, a **glob**, or a **list** of files in one run.
-- New inputs: `comment-on-pr` (sticky PR comment), `sarif` (upload to the
-  Security tab), `upload-report` (JSON artifact), `min-score`, `limit`.
-- New outputs: `anomaly-count`, `incident`, `report-json`.
+### Testing
+- Ship rate_burst + hdfs_sessions fixtures (testlogs/ is gitignored) (960bb00)
 
-### Performance
-- Shared template grouping across detectors and score memoization - faster
-  detection, byte-identical output.
-- Lean clustering from per-template vectors instead of expanding to
-  `(n_lines, dim)` - fixes the out-of-memory halt on multi-million-line files.
+## [0.12.0] - 2026-09-25
 
-### Build & CI
-- **Single source of truth for the version** (`src/loglens/_version.py`) bumped
-  to 0.13.0 and aligned across API / CLI / `hatch version` (enforced by the
-  `consistency` job) and every packaging manifest (winget / scoop / homebrew /
-  Inno Setup); provenance via `loglens version --json`.
-- New standing synthetic-suite micro-F1 ≥ 0.99 gate (G1, P1.7).
-
-### Bug Fixes
-- Ship the `testlogs/hdfs_sessions.log` and `testlogs/rate_burst.log` fixtures
-  that `testlogs/` being git-ignored had dropped - a clean checkout now runs the
-  parallel-scan and multi-source suites green.
-- The CI "accuracy gate" step was a silent no-op running a smoke script that
-  asserted on the removed `hello` command; made it a real check and renamed the
-  step. The actual accuracy floors (BGL, G1) are unchanged.
-- Remove the stale `report.json` benchmark dump accidentally committed at the
-  repo root, and git-ignore it.
-
-_Note: 0.12.0 and 0.12.1 were incremental releases without their own changelog
-entries; 0.13.0 is the first release carrying the full scale + log-management
-surface._
+### Other
+- Drop Intel Mac from build matrix; Intel users install via pip (b63433b)
+- Drop Intel Mac from build matrix; Intel users install via pip (4fccd2a)
+- Upload binaries as artifacts on manual runs; gate release/apt/tap jobs to release events (e6e6e50)
+- Fix installer build: absolute bundled-model path + CPU-only model download (5ce9d05)
+- Fix release-binaries workflow: gate tap step on env, not secrets (264d215)
+- Add daemon mode + cross-platform installers; bundle neural, fix help & warnings (6555599)
 
 ## [0.11.0] - 2026-09-23
 
@@ -129,7 +93,7 @@ surface._
 ## [0.9.0] - 2026-09-22
 
 ### Bug Fixes
-- Platform-agnostic - UTF-8/CRLF handling, Windows resource guard, spawn fallback (b02a1f3)
+- Platform-agnostic — UTF-8/CRLF handling, Windows resource guard, spawn fallback (b02a1f3)
 
 ### Chores
 - Updated the readme. (4852f22)
