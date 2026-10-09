@@ -25,8 +25,8 @@ case "$os" in
   Darwin)
     case "$arch" in
       arm64|aarch64) asset="loglens-macos-arm64.tar.gz" ;;
-      x86_64)        asset="loglens-macos-x86_64.tar.gz" ;;
-      *) die "Unsupported macOS arch '$arch'. Try: pip install loglensai" ;;
+      x86_64)        die "No prebuilt Intel-macOS binary (x86_64). Install from PyPI instead: pipx install loglens-ai" ;;
+      *) die "Unsupported macOS arch '$arch'. Try: pipx install loglens-ai" ;;
     esac ;;
   Linux)
     case "$arch" in

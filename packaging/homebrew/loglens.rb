@@ -5,13 +5,10 @@ class Loglens < Formula
   license "MIT"
 
   on_macos do
+    # Apple Silicon only. Intel-Mac users: `pipx install loglens-ai` (PyPI).
     on_arm do
       url "https://github.com/LoglensAI/LogLens-AI/releases/download/v0.13.0/loglens-macos-arm64.tar.gz"
       sha256 "REPLACED_BY_CI_ARM64"
-    end
-    on_intel do
-      url "https://github.com/LoglensAI/LogLens-AI/releases/download/v0.13.0/loglens-macos-x86_64.tar.gz"
-      sha256 "REPLACED_BY_CI_INTEL"
     end
   end
 
