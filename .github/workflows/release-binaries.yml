@@ -98,8 +98,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          # WiX v4 builds a machine-wide MSI from the PyInstaller onedir (dist\loglens\**).
-          dotnet tool install --global wix >/dev/null 2>&1 || dotnet tool update --global wix
+          # Build a machine-wide MSI from the PyInstaller onedir (dist\loglens\**).
+          # Pin to WiX v5 — v7 requires accepting the Open Source Maintenance Fee
+          # (OSMF) EULA (error WIX7015), which can't be accepted non-interactively
+          # in CI. v5.0.2 is the last stable release without that gate (v6 is only
+          # a prerelease) and builds this .wxs (v4 schema) unchanged.
+          dotnet tool install --global wix --version 5.0.2 >/dev/null 2>&1 \
+            || dotnet tool update --global wix --version 5.0.2
           export PATH="$PATH:$HOME/.dotnet/tools"
           wix --version
           wix build packaging/windows/loglens.wxs \

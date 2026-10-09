@@ -3,6 +3,49 @@
 All notable changes to LogLens AI are documented here.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [Unreleased] — demo hardening
+
+Reliability pass so every command + flag behaves predictably in a live demo.
+Full test suite green (437 passed), every CLI command/flag exercised, synthetic
+micro-F1 still **1.000**.
+
+### Features
+- **Distributed supervised head.** `--parallel` and auto-scale now apply the
+  trained model (`--model`, the bundled default, or `--model auto`) per
+  byte-range slice, not just unsupervised detection — the supervised head scales
+  across cores like everything else. Results stay per-slice approximate (as with
+  `--turbo`/`--parallel`); `--no-auto-scale` gives the exact whole-file run. The
+  parallel JSON now reports `supervised` and `model`.
+
+### Bug Fixes
+- **No more raw tracebacks on bad input.** A single clean-error boundary turns
+  predictable problems — wrong `--format`, a malformed labels file, a missing
+  optional dependency (deep mode), a missing or unreadable source — into one
+  `[LogLens] …` line and exit 1, in both the in-process CLI and the daemon.
+  `LOGLENS_DEBUG=1` restores full tracebacks for development.
+- **Friendly label-format errors.** `train`/`benchmark` with the wrong
+  `--format` (e.g. a BGL file read as `jsonl`) now name the line, show a snippet,
+  and guess the right format instead of dumping a `JSONDecodeError`.
+- **`analyze-multi` no longer hides failures.** A faulted source prints its
+  reason, and a run where every source failed exits non-zero instead of
+  reporting success with an empty table.
+- Daemon no longer hangs or crashes on Ctrl+C: bounded startup wait with a
+  cooldown, and a quiet exit 130 on interrupt (carried over from the warm-daemon
+  fix).
+- **No more `LOGLENS_DAEMON=0` workaround.** The warm daemon now engages only
+  where its local socket can actually bind — a fast, cached viability probe skips
+  it on WSL and restricted containers (and the startup wait dropped to 3s). An
+  installed binary stays fast where the daemon works and runs in-process
+  everywhere else, with byte-identical results across all analyze modes
+  (fast / turbo / parallel / supervised) — no environment variable required.
+- **Parallel scan no longer silently fails on huge files.** Worker count is now
+  capped by available RAM (too many embedding workers on a multi-hundred-MB file
+  were being OOM-killed, which showed up as every slice faulting with 0 lines
+  parsed and a bogus "✓ completed"). On a total failure the scan retries with
+  progressively fewer workers and, if it still can't parse a line, prints a clear
+  reason and exits non-zero instead of reporting success. A bad `--model` path is
+  now validated once up front (clean error) rather than faulting every worker.
+
 ## [0.13.0] - 2026-10-04
 
 Consolidates the performance, horizontal-scale, and log-management work. Every

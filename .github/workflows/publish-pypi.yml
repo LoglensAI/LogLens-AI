@@ -17,8 +17,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
+
+      - name: Check out the requested tag (accepts 0.13.0 or v0.13.0)
+        if: inputs.tag != ''
+        run: |
+          T="${{ inputs.tag }}"
+          # Tolerate the tag given with or without the leading 'v'.
+          if git rev-parse -q --verify "refs/tags/${T}" >/dev/null; then :;
+          elif git rev-parse -q --verify "refs/tags/v${T#v}" >/dev/null; then T="v${T#v}";
+          else echo "::error::tag '${{ inputs.tag }}' not found (tried '${T}' and 'v${T#v}')"; exit 1; fi
+          echo "Checking out tag $T"
+          git checkout -q "$T"
 
       - uses: actions/setup-python@v5
         with:

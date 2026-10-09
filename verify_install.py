@@ -1,3 +1,6 @@
+"""Confirm every fix is present and consistent. Run after copying files:
+    python verify_install.py
+"""
 import importlib, sys
 ok = True
 def chk(mod, attr):
