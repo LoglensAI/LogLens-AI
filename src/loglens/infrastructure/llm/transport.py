@@ -59,7 +59,15 @@ class HttpTransport:
 
         for attempt in range(self.retries + 1):
             try:
-                req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+                req = urllib.request.Request(
+                    url,
+                    data=body,
+                    headers={
+                    **headers,
+                    "User-Agent": "curl/8.5.0",
+                    },
+                    method="POST",
+                )
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                     return json.loads(resp.read().decode("utf-8"))
             except urllib.error.HTTPError as e:

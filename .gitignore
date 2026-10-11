@@ -50,3 +50,4 @@ bgl_demo.log
 bgl_demo.log.loglens.json
 bgl_model.pkl
 diag_slice.py
+rca-report.html
