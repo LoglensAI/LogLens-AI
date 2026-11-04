@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import shlex
+import sys
 from collections.abc import AsyncIterator, Sequence
 
 logger = logging.getLogger("loglens.ingestion.command")
@@ -40,6 +41,22 @@ class AsyncCommandReader:
     async def _spawn(self) -> asyncio.subprocess.Process:
         stderr = asyncio.subprocess.PIPE if self.include_stderr else asyncio.subprocess.DEVNULL
         if isinstance(self.cmd, str):
+            if sys.platform == "win32":
+                command = (
+                    "[Console]::OutputEncoding = "
+                    "[System.Text.UTF8Encoding]::new(); "
+                    f"{self.cmd}"
+                )
+                return await asyncio.create_subprocess_exec(
+                    "powershell.exe",
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=stderr,
+                )
             return await asyncio.create_subprocess_shell(
                 self.cmd, stdout=asyncio.subprocess.PIPE, stderr=stderr
             )
@@ -86,9 +103,10 @@ class AsyncCommandReader:
         finally:
             for t in tasks:
                 t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
             await self._terminate(proc)
+            self.returncode = proc.returncode
 
-        self.returncode = proc.returncode
         if self.returncode not in (0, None) and not produced_any:
             raise CommandError(self.display, self.returncode, "\n".join(self._stderr_tail[-5:]))
 

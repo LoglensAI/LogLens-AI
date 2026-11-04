@@ -187,6 +187,24 @@ def test_command_reader_missing_binary():
         asyncio.run(go())
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="PowerShell watch smoke test runs on Windows")
+def test_command_reader_windows_powershell_streams_and_stops(tmp_path):
+    log = tmp_path / "app log.log"
+    log.write_text("INFO startup complete\n", encoding="utf-8")
+    escaped_path = str(log).replace("'", "''")
+    reader = AsyncCommandReader(f"Get-Content -LiteralPath '{escaped_path}' -Wait")
+
+    async def go():
+        iterator = reader.__aiter__()
+        try:
+            return await anext(iterator)
+        finally:
+            await iterator.aclose()
+
+    assert asyncio.run(go()) == "INFO startup complete"
+    assert reader.returncode is not None
+
+
 class _FakeLLMClient:
     def __init__(self, config):
         self.config = config

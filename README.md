@@ -261,6 +261,9 @@ loglens analyze --source app.log --turbo --rca --html report.html
 # Monitor a running Docker service
 loglens watch "docker logs -f my-api"
 
+# On Windows, follow a local log with PowerShell
+loglens watch "Get-Content app.log -Wait"
+
 # Ask a natural-language question about detected anomalies
 loglens ask "why did the payment service start timing out?" --source app.log
 

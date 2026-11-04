@@ -232,7 +232,16 @@ loglens watch "kubectl logs -f deploy/api -n prod"
 
 # watch a service on a Linux server
 loglens watch "journalctl -u nginx -f"
+
+# on Windows, follow a local log with PowerShell
+loglens watch "Get-Content app.log -Wait"
 ```
+
+On Linux and macOS, string commands run through the platform shell. On Windows,
+they run through `powershell.exe`, so PowerShell commands such as
+`Get-Content app.log -Wait` work without an extra shell wrapper. Pass a sequence
+of executable arguments through the Python API when you need direct process
+execution rather than shell syntax.
 
 Then just leave it running. Press **Ctrl-C** whenever you want to stop.
 
