@@ -113,6 +113,22 @@ class AsyncCommandReader:
     async def _terminate(self, proc: asyncio.subprocess.Process) -> None:
         if proc.returncode is not None:
             return
+        if sys.platform == "win32":
+            try:
+                killer = await asyncio.create_subprocess_exec(
+                    "taskkill",
+                    "/PID", str(proc.pid),
+                    "/T",
+                    "/F",
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                await killer.wait()
+            except ProcessLookupError:
+                pass
+
+            await proc.wait()
+            return
         try:
             proc.terminate()
         except ProcessLookupError:

@@ -205,6 +205,50 @@ def test_command_reader_windows_powershell_streams_and_stops(tmp_path):
     assert reader.returncode is not None
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only process-tree test")
+def test_command_reader_terminate_kills_process_tree():
+    async def go():
+        reader = AsyncCommandReader(
+            "Start-Process -FilePath 'ping.exe' "
+            "-ArgumentList @('-t', '127.0.0.1'); "
+            "Start-Sleep -Seconds 60"
+        )
+
+        proc = await reader._spawn()
+
+        # Find the child PID created by PowerShell.
+        child_pid = None
+        try:
+            output = await asyncio.create_subprocess_exec(
+                "powershell.exe",
+                "-NoProfile",
+                "-Command",
+                f"(Get-CimInstance Win32_Process -Filter "
+                f"'ParentProcessId = {proc.pid}').ProcessId",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            stdout, _ = await output.communicate()
+            child_pid = int(stdout.decode().strip().splitlines()[0])
+
+            await reader._terminate(proc)
+
+            check = await asyncio.create_subprocess_exec(
+                "tasklist",
+                "/FI", f"PID eq {child_pid}",
+                "/FO", "CSV",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            result, _ = await check.communicate()
+
+            assert str(child_pid).encode() not in result
+        finally:
+            if proc.returncode is None:
+                await reader._terminate(proc)
+
+    asyncio.run(go())
+
 class _FakeLLMClient:
     def __init__(self, config):
         self.config = config
