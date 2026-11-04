@@ -223,8 +223,7 @@ def test_command_reader_terminate_kills_process_tree():
                 "powershell.exe",
                 "-NoProfile",
                 "-Command",
-                f"(Get-CimInstance Win32_Process -Filter "
-                f"'ParentProcessId = {proc.pid}').ProcessId",
+                f"(Get-CimInstance Win32_Process -Filter 'ParentProcessId = {proc.pid}').ProcessId",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.DEVNULL,
             )
@@ -235,8 +234,10 @@ def test_command_reader_terminate_kills_process_tree():
 
             check = await asyncio.create_subprocess_exec(
                 "tasklist",
-                "/FI", f"PID eq {child_pid}",
-                "/FO", "CSV",
+                "/FI",
+                f"PID eq {child_pid}",
+                "/FO",
+                "CSV",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.DEVNULL,
             )
@@ -248,6 +249,7 @@ def test_command_reader_terminate_kills_process_tree():
                 await reader._terminate(proc)
 
     asyncio.run(go())
+
 
 class _FakeLLMClient:
     def __init__(self, config):

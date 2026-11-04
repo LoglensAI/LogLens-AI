@@ -63,8 +63,8 @@ class HttpTransport:
                     url,
                     data=body,
                     headers={
-                    **headers,
-                    "User-Agent": "curl/8.5.0",
+                        **headers,
+                        "User-Agent": "curl/8.5.0",
                     },
                     method="POST",
                 )

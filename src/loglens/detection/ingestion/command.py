@@ -43,9 +43,7 @@ class AsyncCommandReader:
         if isinstance(self.cmd, str):
             if sys.platform == "win32":
                 command = (
-                    "[Console]::OutputEncoding = "
-                    "[System.Text.UTF8Encoding]::new(); "
-                    f"{self.cmd}"
+                    f"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); {self.cmd}"
                 )
                 return await asyncio.create_subprocess_exec(
                     "powershell.exe",
@@ -117,7 +115,8 @@ class AsyncCommandReader:
             try:
                 killer = await asyncio.create_subprocess_exec(
                     "taskkill",
-                    "/PID", str(proc.pid),
+                    "/PID",
+                    str(proc.pid),
                     "/T",
                     "/F",
                     stdout=asyncio.subprocess.DEVNULL,
