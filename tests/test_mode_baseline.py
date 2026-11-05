@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+
 import pytest
 from typer.testing import CliRunner
 
@@ -13,10 +14,7 @@ def _write_baseline_log(tmp_path):
     """Create a deterministic log with valid entries and blank lines."""
     path = tmp_path / "mode-baseline.log"
 
-    lines = [
-        f"2024-01-01 12:00:{i:02d} web INFO request ok {i}"
-        for i in range(31)
-    ]
+    lines = [f"2024-01-01 12:00:{i:02d} web INFO request ok {i}" for i in range(31)]
 
     # Blank lines must not count as parsed entries.
     contents = lines[:10] + [""] + lines[10:20] + [""] + lines[20:]
@@ -70,6 +68,7 @@ def test_turbo_output_is_repeatable(tmp_path):
     assert first == second
     assert first["lines_parsed"] == expected_lines
 
+
 @pytest.mark.parametrize(
     ("fixture", "expected_lines", "fast_anomalies", "turbo_anomalies"),
     [
@@ -79,9 +78,7 @@ def test_turbo_output_is_repeatable(tmp_path):
         ("big.log", 50_000, 5, 29),
     ],
 )
-def test_real_fixture_mode_baseline(
-    fixture, expected_lines, fast_anomalies, turbo_anomalies
-):
+def test_real_fixture_mode_baseline(fixture, expected_lines, fast_anomalies, turbo_anomalies):
     from pathlib import Path
 
     testlogs = Path(__file__).resolve().parents[1] / "testlogs"
@@ -109,6 +106,7 @@ def _run_fixture_json(path, *, turbo):
     import json
 
     from typer.testing import CliRunner
+
     from loglens.interface.cli import app
 
     args = [
