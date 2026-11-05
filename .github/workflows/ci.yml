@@ -11,6 +11,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  windows-watch-smoke:
+    name: Windows watch smoke
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Verify Windows command streaming and process cleanup
+        run: pytest tests/test_sdk.py -k "windows_powershell_streams_and_stops or terminate_kills_process_tree" -q
+
   test:
     name: tests (py${{ matrix.python }})
     runs-on: ubuntu-latest
