@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, fix/native-windows-watch ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
