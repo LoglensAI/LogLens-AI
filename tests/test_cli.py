@@ -24,6 +24,21 @@ def test_version():
     assert __version__ in strip_ansi(result.output)
 
 
+def test_module_invocation():
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-m", "loglens", "version"],
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert __version__ in strip_ansi(result.stdout)
+
+
 def test_version_json():
     import json as _json
 

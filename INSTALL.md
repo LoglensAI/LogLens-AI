@@ -79,6 +79,14 @@ pip install "loglensai[deep]"     # add transformer-based semantic detection
 With `pip` the warm daemon is off by default - enable it with `LOGLENS_DAEMON=1`
 or `loglens daemon start`.
 
+If the `loglens` console script is not on your `PATH`, run it through the same
+Python environment instead:
+
+```bash
+python -m loglens version
+python -m loglens analyze --source app.log
+```
+
 ---
 
 ## Docker
