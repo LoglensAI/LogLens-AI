@@ -855,7 +855,12 @@ def _run_parallel(
 
 @app.command()
 def analyze(
-    source: str = typer.Option(..., help="Log source: file path, URL, or stdin"),
+    path: str = typer.Argument(
+        None, help="Log source: file path, URL, or stdin (same as --source)"
+    ),
+    source: str = typer.Option(
+        "", "--source", help="Log source: file path, URL, or stdin; can also be given positionally"
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Stop after ingestion, show stats only"),
     verbose: bool = typer.Option(False, "--verbose", help="Show sample parsed entry"),
     workers: int = typer.Option(
@@ -973,6 +978,12 @@ def analyze(
     ),
 ):
     """Analyze a log file for anomalies (fast / turbo / deep, with CI/CD gating)."""
+    source = source or path or ""
+    if not source:
+        console.print(
+            "[bold red][LogLens][/bold red] give a path: loglens analyze <path> or --source <path>"
+        )
+        raise typer.Exit(code=1)
     _run_start = time.perf_counter()
     _load()
     _seed_everything(seed)
