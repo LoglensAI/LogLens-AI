@@ -2,7 +2,7 @@
 
 Complete guide to every LogLens command, flag, and workflow.
 
-> **Note on syntax:** `analyze` and `ask` take the log source via the `--source` option (a file path or URL). `benchmark` and `bench` take the file as a positional argument.
+> **Note on syntax:** `analyze` takes the log source either as a positional path or via `--source` (a file path or URL). `ask` takes it via `--source`. `benchmark` and `bench` take the file as a positional argument.
 
 ---
 
@@ -79,6 +79,7 @@ loglens hello
 The primary command. Ingests a log source, detects anomalies, groups them into families, and optionally runs AI root-cause analysis and generates an HTML report.
 
 ```bash
+loglens analyze <PATH|URL|-> [OPTIONS]
 loglens analyze --source <PATH|URL|-> [OPTIONS]
 ```
 
@@ -86,7 +87,8 @@ loglens analyze --source <PATH|URL|-> [OPTIONS]
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--source` | string | *(required)* | Log source: file path or URL. |
+| `SOURCE` | string | - | Log source as a positional argument: file path, URL, or `-` for stdin. |
+| `--source` | string | - | Alternative to `SOURCE`: file path, URL, or `-` for stdin. |
 | `--dry-run` | flag | off | Stop after ingestion; show stats only (no detection). |
 | `--verbose` | flag | off | Show a sample parsed entry (field breakdown). |
 | `--workers` | int | 4 | Number of parallel workers. |

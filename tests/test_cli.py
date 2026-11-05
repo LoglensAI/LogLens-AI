@@ -126,6 +126,24 @@ def test_analyze_format_json_is_valid(tmp_path):
         assert all(isinstance(n, int) and n >= 1 for n in a["line_numbers"])
 
 
+def test_analyze_accepts_positional_source(tmp_path):
+    import json
+
+    log = _write_log(tmp_path)
+    result = runner.invoke(app, ["analyze", log, "--format", "json", "--no-model"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["lines_parsed"] >= 30
+
+
+def test_analyze_without_source_shows_both_forms():
+    result = runner.invoke(app, ["analyze"])
+    assert result.exit_code != 0
+    out = strip_ansi(result.output)
+    assert "loglens analyze <path>" in out
+    assert "--source <path>" in out
+
+
 def test_analyze_json_d12_fields(tmp_path):
     import json
 

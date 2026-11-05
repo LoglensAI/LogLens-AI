@@ -247,7 +247,7 @@ Scoop, code-signing notes, and environment toggles.
 
 ```bash
 # Analyze a log file
-loglens analyze --source app.log
+loglens analyze app.log
 
 # Use the optimized high-throughput detector
 loglens analyze --source app.log --turbo
