@@ -239,10 +239,6 @@ class _Signals:
     group_surge: np.ndarray
 
 
-# Above this many distinct templates, DBSCAN in this dimensionality is O(n^2) in
-# time and memory and would exhaust RAM. Real logs collapse to far fewer templates
-# (BGL ~10); exceeding this means almost every line is unique, where clustering is
-# meaningless anyway — so we skip it and let rarity/severity/keywords carry it.
 MAX_CLUSTER_GROUPS = 40_000
 
 
