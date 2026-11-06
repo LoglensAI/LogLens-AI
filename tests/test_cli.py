@@ -350,3 +350,19 @@ def test_bench_routineness_download_is_ephemeral(tmp_path, monkeypatch):
     after = set(glob.glob("/tmp/loglens_bench_*"))
     assert result.exit_code == 0
     assert after == before  # fetched data deleted — nothing left on disk
+
+
+def test_explain_flag_does_not_swallow_next_option(tmp_path):
+    log = _write_log(tmp_path)
+    result = runner.invoke(
+        app, ["analyze", "--source", log, "--explain", "--format", "json", "--no-model"]
+    )
+    assert result.exit_code == 0, result.output
+
+
+def test_explain_top_limits_entries(tmp_path):
+    log = _write_log(tmp_path)
+    result = runner.invoke(
+        app, ["analyze", "--source", log, "--explain", "--explain-top", "3", "--no-model"]
+    )
+    assert result.exit_code == 0, result.output
