@@ -148,6 +148,9 @@ supervised model's verdict.
 
 ```bash
 # Basic -fast mode, format auto-detected
+loglens analyze app.log
+
+# The equivalent explicit option form (also accepts '-' for stdin)
 loglens analyze --source app.log
 
 # Huge file, maximum speed

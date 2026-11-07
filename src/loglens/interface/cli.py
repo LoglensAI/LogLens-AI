@@ -856,10 +856,12 @@ def _run_parallel(
 @app.command()
 def analyze(
     path: str = typer.Argument(
-        None, help="Log source: file path, URL, or stdin (same as --source)"
+        None, help="Log source path, URL, or '-' for stdin. Use this or --source."
     ),
     source: str = typer.Option(
-        "", "--source", help="Log source: file path, URL, or stdin; can also be given positionally"
+        "",
+        "--source",
+        help="Alternative log source path, URL, or '-' for stdin; takes precedence over PATH.",
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Stop after ingestion, show stats only"),
     verbose: bool = typer.Option(False, "--verbose", help="Show sample parsed entry"),
@@ -981,7 +983,9 @@ def analyze(
     source = source or path or ""
     if not source:
         console.print(
-            "[bold red][LogLens][/bold red] give a path: loglens analyze <path> or --source <path>"
+            "[bold red][LogLens][/bold red] provide a log source using either command form:\n"
+            "  `loglens analyze <path>`\n"
+            "  `loglens analyze --source <path>`"
         )
         raise typer.Exit(code=1)
     _run_start = time.perf_counter()
