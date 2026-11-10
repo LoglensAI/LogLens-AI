@@ -151,12 +151,51 @@ def test_analyze_accepts_positional_source(tmp_path):
     assert data["lines_parsed"] >= 30
 
 
+def test_analyze_accepts_stdin_source(tmp_path):
+    import json
+
+    log = _write_log(tmp_path)
+    with open(log, encoding="utf-8") as log_file:
+        log_contents = log_file.read()
+    result = runner.invoke(
+        app, ["analyze", "-", "--format", "json", "--no-model", "--no-learn"], input=log_contents
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["source"] == "-"
+    assert data["lines_parsed"] >= 30
+
+
+def test_analyze_source_option_takes_precedence_over_positional(tmp_path):
+    import json
+
+    positional_log = _write_log(tmp_path)
+    source_log = tmp_path / "source.log"
+    source_log.write_text("2024-01-01 12:00:00 api INFO source option selected\n", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            positional_log,
+            "--source",
+            str(source_log),
+            "--format",
+            "json",
+            "--no-model",
+            "--no-learn",
+        ],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["source"] == str(source_log)
+
+
 def test_analyze_without_source_shows_both_forms():
     result = runner.invoke(app, ["analyze"])
     assert result.exit_code != 0
     out = strip_ansi(result.output)
     assert "loglens analyze <path>" in out
-    assert "--source <path>" in out
+    assert "loglens analyze --source <path>" in out
 
 
 def test_analyze_json_d12_fields(tmp_path):
