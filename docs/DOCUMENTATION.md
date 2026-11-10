@@ -96,7 +96,8 @@ loglens analyze --source <PATH|URL|-> [OPTIONS]
 | `--turbo` | flag | off | Fast multiprocess scan for huge files (byte-range + template dedup, skips embeddings). |
 | `--limit` | int | 20 | Max anomaly **families** to display. |
 | `--sort-by` | string | `severity` | Sort anomalies by `severity`, `time`, or `service`. |
-| `--explain` | int | 0 | Show top-N scored entries (flagged or not) with score + reasons -for debugging near-misses. |
+| `--explain` | flag | off | Show the top-scored entries (flagged or not) with score + reasons -for debugging near-misses. |
+| `--explain-top` | int | 10 | How many entries `--explain` shows. |
 | `--rca` | flag | off | Run AI root-cause analysis on detected anomalies (requires an LLM key). |
 | `--provider` | string | env | LLM provider: `openai`, `azure`, or `groq`. |
 | `--llm-model` | string | env | LLM model name / Azure deployment name. |
@@ -163,7 +164,7 @@ loglens analyze --source app.log --deep
 loglens analyze --source app.log --limit 5 --sort-by service
 
 # Debug why something almost got flagged
-loglens analyze --source app.log --explain 15
+loglens analyze --source app.log --explain --explain-top 15
 
 # Just count/ingest, no detection
 loglens analyze --source app.log --dry-run
@@ -629,7 +630,7 @@ loglens bench sample.log --modes fast,turbo,deep --out BENCHMARK.md
 **5. Debug a near-miss (why wasn't X flagged?)**
 
 ```bash
-loglens analyze --source app.log --explain 20
+loglens analyze --source app.log --explain --explain-top 20
 ```
 
 ---
