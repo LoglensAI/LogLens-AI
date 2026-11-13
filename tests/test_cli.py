@@ -141,6 +141,68 @@ def test_analyze_format_json_is_valid(tmp_path):
         assert all(isinstance(n, int) and n >= 1 for n in a["line_numbers"])
 
 
+def test_analyze_explain_is_standalone_flag(tmp_path):
+    log = _write_log(tmp_path)
+    result = runner.invoke(
+        app, ["analyze", "--source", log, "--explain", "--no-model", "--no-learn"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "TOP 10 SCORED ENTRIES" in strip_ansi(result.output)
+
+
+def test_analyze_explain_flag_before_json_format(tmp_path):
+    import json
+
+    log = _write_log(tmp_path)
+    result = runner.invoke(
+        app,
+        ["analyze", "--source", log, "--explain", "--format", "json", "--no-model", "--no-learn"],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["schema"] == "loglens.v1"
+
+
+def test_analyze_explain_top_limits_displayed_entries(tmp_path):
+    log = _write_log(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--source",
+            log,
+            "--explain",
+            "--explain-top",
+            "5",
+            "--no-model",
+            "--no-learn",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "TOP 5 SCORED ENTRIES" in strip_ansi(result.output)
+
+
+def test_analyze_explain_is_disabled_by_default(tmp_path):
+    log = _write_log(tmp_path)
+    result = runner.invoke(app, ["analyze", "--source", log, "--no-model", "--no-learn"])
+    assert result.exit_code == 0, result.output
+    assert "SCORED ENTRIES" not in strip_ansi(result.output)
+
+    top_only = runner.invoke(
+        app, ["analyze", "--source", log, "--explain-top", "5", "--no-model", "--no-learn"]
+    )
+    assert top_only.exit_code == 0, top_only.output
+    assert "SCORED ENTRIES" not in strip_ansi(top_only.output)
+
+
+def test_analyze_explain_top_rejects_invalid_values(tmp_path):
+    log = _write_log(tmp_path)
+    for value in ("not-an-integer", "0"):
+        result = runner.invoke(
+            app, ["analyze", "--source", log, "--explain-top", value, "--no-model"]
+        )
+        assert result.exit_code != 0
+
+
 def test_analyze_accepts_positional_source(tmp_path):
     import json
 

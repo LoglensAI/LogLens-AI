@@ -908,10 +908,16 @@ def analyze(
         help="Line estimate above which auto-scale switches a single file to the fast "
         "parallel scan (0 = default 500k).",
     ),
-    explain: int = typer.Option(
-        0,
+    explain: bool = typer.Option(
+        False,
         "--explain",
-        help="Show top-N scored entries (flagged or not) with score and reasons — for debugging near-misses",
+        help="Show scored entries with score and reasons for debugging near-misses.",
+    ),
+    explain_top: int = typer.Option(
+        10,
+        "--explain-top",
+        min=1,
+        help="Maximum scored entries to show with --explain (default: 10).",
     ),
     model: str = typer.Option(
         "",
@@ -1405,7 +1411,7 @@ def analyze(
 
         if explain:
             ranked = sorted(entries, key=lambda e: getattr(e, "anomaly_score", 0.0), reverse=True)[
-                :explain
+                :explain_top
             ]
             console.print()
             console.print(
