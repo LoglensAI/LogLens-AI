@@ -1411,7 +1411,7 @@ def analyze(
 
         if explain:
             ranked = sorted(entries, key=lambda e: getattr(e, "anomaly_score", 0.0), reverse=True)[
-                :explain_top
+                : max(1, explain_top)
             ]
             console.print()
             console.print(
