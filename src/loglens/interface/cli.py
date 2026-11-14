@@ -911,12 +911,13 @@ def analyze(
     explain: bool = typer.Option(
         False,
         "--explain",
-        help="Show the top-scored entries (flagged or not) with score and reasons — for debugging near-misses",
+        help="Show scored entries with score and reasons for debugging near-misses.",
     ),
     explain_top: int = typer.Option(
         10,
         "--explain-top",
-        help="How many entries --explain shows (default: 10)",
+        min=1,
+        help="Maximum scored entries to show with --explain (default: 10).",
     ),
     model: str = typer.Option(
         "",
