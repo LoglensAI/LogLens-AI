@@ -1,5 +1,7 @@
+from pathlib import Path
 import re
 
+from pytest import CaptureFixture, MonkeyPatch
 from typer.testing import CliRunner
 
 from loglens import __version__
@@ -104,7 +106,7 @@ def _write_log(tmp_path):
     return str(p)
 
 
-def test_analyze_format_json_is_valid(tmp_path):
+def test_analyze_format_json_is_valid(tmp_path: Path):
     import json
 
     log = _write_log(tmp_path)
@@ -141,7 +143,7 @@ def test_analyze_format_json_is_valid(tmp_path):
         assert all(isinstance(n, int) and n >= 1 for n in a["line_numbers"])
 
 
-def test_analyze_explain_is_standalone_flag(tmp_path):
+def test_analyze_explain_is_standalone_flag(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(
         app, ["analyze", "--source", log, "--explain", "--no-model", "--no-learn"]
@@ -150,7 +152,7 @@ def test_analyze_explain_is_standalone_flag(tmp_path):
     assert "TOP 10 SCORED ENTRIES" in strip_ansi(result.output)
 
 
-def test_analyze_explain_flag_before_json_format(tmp_path):
+def test_analyze_explain_flag_before_json_format(tmp_path: Path):
     import json
 
     log = _write_log(tmp_path)
@@ -162,7 +164,7 @@ def test_analyze_explain_flag_before_json_format(tmp_path):
     assert json.loads(result.output)["schema"] == "loglens.v1"
 
 
-def test_analyze_explain_top_limits_displayed_entries(tmp_path):
+def test_analyze_explain_top_limits_displayed_entries(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(
         app,
@@ -181,7 +183,7 @@ def test_analyze_explain_top_limits_displayed_entries(tmp_path):
     assert "TOP 5 SCORED ENTRIES" in strip_ansi(result.output)
 
 
-def test_analyze_explain_is_disabled_by_default(tmp_path):
+def test_analyze_explain_is_disabled_by_default(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(app, ["analyze", "--source", log, "--no-model", "--no-learn"])
     assert result.exit_code == 0, result.output
@@ -194,7 +196,7 @@ def test_analyze_explain_is_disabled_by_default(tmp_path):
     assert "SCORED ENTRIES" not in strip_ansi(top_only.output)
 
 
-def test_analyze_explain_top_rejects_invalid_values(tmp_path):
+def test_analyze_explain_top_rejects_invalid_values(tmp_path: Path):
     log = _write_log(tmp_path)
     for value in ("not-an-integer", "0"):
         result = runner.invoke(
@@ -203,7 +205,7 @@ def test_analyze_explain_top_rejects_invalid_values(tmp_path):
         assert result.exit_code != 0
 
 
-def test_analyze_accepts_positional_source(tmp_path):
+def test_analyze_accepts_positional_source(tmp_path: Path):
     import json
 
     log = _write_log(tmp_path)
@@ -213,7 +215,7 @@ def test_analyze_accepts_positional_source(tmp_path):
     assert data["lines_parsed"] >= 30
 
 
-def test_analyze_accepts_stdin_source(tmp_path):
+def test_analyze_accepts_stdin_source(tmp_path: Path):
     import json
 
     log = _write_log(tmp_path)
@@ -228,7 +230,7 @@ def test_analyze_accepts_stdin_source(tmp_path):
     assert data["lines_parsed"] >= 30
 
 
-def test_analyze_source_option_takes_precedence_over_positional(tmp_path):
+def test_analyze_source_option_takes_precedence_over_positional(tmp_path: Path):
     import json
 
     positional_log = _write_log(tmp_path)
@@ -260,7 +262,7 @@ def test_analyze_without_source_shows_both_forms():
     assert "loglens analyze --source <path>" in out
 
 
-def test_analyze_json_d12_fields(tmp_path):
+def test_analyze_json_d12_fields(tmp_path: Path):
     import json
 
     log = _write_log(tmp_path)
@@ -283,7 +285,7 @@ def test_analyze_json_d12_fields(tmp_path):
         assert ids and all(i.startswith("inc_") for i in ids)
 
 
-def test_analyze_json_d12_deterministic(tmp_path):
+def test_analyze_json_d12_deterministic(tmp_path: Path):
     import json
 
     log = _write_log(tmp_path)
@@ -292,7 +294,7 @@ def test_analyze_json_d12_deterministic(tmp_path):
     assert json.loads(a1) == json.loads(a2)  # incident_id + scores stable run-to-run
 
 
-def test_analyze_json_d13_incidents_and_origin(tmp_path):
+def test_analyze_json_d13_incidents_and_origin(tmp_path: Path):
     import json
 
     log = _write_log(tmp_path)
@@ -312,7 +314,7 @@ def test_analyze_json_d13_incidents_and_origin(tmp_path):
         assert inc["id"] in stamped
 
 
-def test_analyze_json_d14_alert_budget(tmp_path):
+def test_analyze_json_d14_alert_budget(tmp_path: Path):
     import json
 
     log = _write_log(tmp_path)
@@ -329,7 +331,7 @@ def test_analyze_json_d14_alert_budget(tmp_path):
     assert data["anomaly_count"] == len(data["anomalies"])
 
 
-def test_analyze_format_json_turbo(tmp_path):
+def test_analyze_format_json_turbo(tmp_path: Path):
     import json
 
     log = _write_log(tmp_path)
@@ -339,26 +341,26 @@ def test_analyze_format_json_turbo(tmp_path):
     assert data["mode"] == "turbo"
 
 
-def test_fail_on_trips_on_critical(tmp_path):
+def test_fail_on_trips_on_critical(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(app, ["analyze", "--source", log, "--fail-on", "critical", "--no-model"])
     assert result.exit_code == 2  # gate tripped → CI build should fail
 
 
-def test_fail_on_default_does_not_gate(tmp_path):
+def test_fail_on_default_does_not_gate(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(app, ["analyze", "--source", log, "--no-model"])
     assert result.exit_code == 0
 
 
-def test_fail_on_unknown_threshold_does_not_gate(tmp_path):
+def test_fail_on_unknown_threshold_does_not_gate(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(app, ["analyze", "--source", log, "--fail-on", "bogus", "--no-model"])
     assert result.exit_code == 0  # a typo must never silently fail (or pass) a build wrongly
 
 
 # --- P1.5: determinism --------------------------------------------------------- #
-def test_analyze_is_deterministic(tmp_path):
+def test_analyze_is_deterministic(tmp_path: Path):
     # same input + same seed + same baseline -> byte-identical JSON. --no-learn pins
     # the baseline (self-learning is intentionally stateful; see test_selflearn).
     log = _write_log(tmp_path)
@@ -379,7 +381,7 @@ def test_analyze_is_deterministic(tmp_path):
     assert first.output == second.output
 
 
-def test_selflearn_writes_baseline(tmp_path):
+def test_selflearn_writes_baseline(tmp_path: Path):
     # analyze learns a baseline for the source by default (zero-touch memory)
     import glob
     import os
@@ -396,7 +398,7 @@ def test_selflearn_writes_baseline(tmp_path):
     assert b["total"] >= 30 and b["learned_runs"] == 1
 
 
-def test_no_learn_writes_nothing(tmp_path):
+def test_no_learn_writes_nothing(tmp_path: Path):
     import glob
     import os
 
@@ -423,7 +425,7 @@ def test_grouping_sort_is_total_order():
     assert order == sorted(order)  # tiebreak sorts by service when score/count tie
 
 
-def test_bench_routineness_cli_json(tmp_path):
+def test_bench_routineness_cli_json(tmp_path: Path):
     import json
 
     # a tiny labeled suite: benign spread templates + concentrated fault bursts
@@ -454,7 +456,7 @@ def test_bench_routineness_cli_json(tmp_path):
     assert fr["best_auc"] is not None
 
 
-def test_bench_routineness_download_is_ephemeral(tmp_path, monkeypatch):
+def test_bench_routineness_download_is_ephemeral(tmp_path: Path, monkeypatch: MonkeyPatch):
     import glob
     import io
     import shutil
@@ -486,7 +488,7 @@ def test_bench_routineness_download_is_ephemeral(tmp_path, monkeypatch):
     assert after == before  # fetched data deleted — nothing left on disk
 
 
-def test_explain_flag_does_not_swallow_next_option(tmp_path):
+def test_explain_flag_does_not_swallow_next_option(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(
         app, ["analyze", "--source", log, "--explain", "--format", "json", "--no-model"]
@@ -494,9 +496,30 @@ def test_explain_flag_does_not_swallow_next_option(tmp_path):
     assert result.exit_code == 0, result.output
 
 
-def test_explain_top_limits_entries(tmp_path):
+def test_explain_top_limits_entries(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(
         app, ["analyze", "--source", log, "--explain", "--explain-top", "3", "--no-model"]
-    )
-    assert result.exit_code == 0, result.output
+
+
+def test_warn_model_found_nothing(capsys: CaptureFixture[str]):
+    """The model-mismatch hint fires only for an explicit model that found nothing."""
+    import io
+
+    from rich.console import Console
+
+    import loglens.interface.cli as cli
+
+    def _emit(model, used_default, count):
+        buf = io.StringIO()
+        saved = cli.console
+        cli.console = Console(file=buf, force_terminal=False)
+        try:
+            cli._warn_model_found_nothing(model, used_default, count)
+        finally:
+            cli.console = saved
+        return buf.getvalue()
+
+    assert "flagged 0 anomalies" in _emit("my_model.pkl", False, 0)  # explicit + none → warn
+    assert _emit("/x/default_model.pkl", True, 0) == ""  # bundled default → silent
+    assert _emit("", False, 0) == ""  # no model → silent

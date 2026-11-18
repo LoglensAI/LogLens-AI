@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -239,7 +240,22 @@ class _Signals:
     group_surge: np.ndarray
 
 
-MAX_CLUSTER_GROUPS = 40_000
+def _env_positive_int(name: str, default: int) -> int:
+    """Read a positive int from the environment, falling back to ``default`` for
+    a missing, non-integer, or non-positive value."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+# Cap DBSCAN clustering groups to bound its O(n^2) behaviour on high-cardinality
+# logs. Override with the LOGLENS_MAX_CLUSTER_GROUPS env var.
+MAX_CLUSTER_GROUPS = _env_positive_int("LOGLENS_MAX_CLUSTER_GROUPS", 40_000)
 
 
 def _cluster_from_group_vectors(

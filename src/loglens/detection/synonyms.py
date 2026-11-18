@@ -232,7 +232,22 @@ def _corpus_fingerprint(messages: list[str]) -> str:
     return h.hexdigest()
 
 
-_MAX_SYNONYM_VOCAB = 2000
+def _env_positive_int(name: str, default: int) -> int:
+    """Read a positive int from the environment, falling back to ``default`` for
+    a missing, non-integer, or non-positive value."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+# Cap the synonym-learning vocabulary to bound its O(vocab^2) search on
+# high-cardinality logs. Override with the LOGLENS_MAX_SYNONYM_VOCAB env var.
+_MAX_SYNONYM_VOCAB = _env_positive_int("LOGLENS_MAX_SYNONYM_VOCAB", 2000)
 
 
 class SynonymLearner:

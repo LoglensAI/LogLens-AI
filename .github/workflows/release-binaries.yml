@@ -148,6 +148,30 @@ jobs:
             ${{ matrix.asset }}.msi
             loglens_*_amd64.deb
 
+      - name: Attach to GitHub Release (manual dispatch)
+        # A manual "Run workflow" is not a `release` event, so the step above is
+        # skipped and the built binaries would only live as workflow artifacts —
+        # which means `/releases/latest/download/<asset>` 404s and the one-line
+        # installers fail. Here we ensure a release exists for this version and
+        # upload the assets to it, so a manual run produces an installable release.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.ver.outputs.version }}
+        shell: bash
+        run: |
+          tag="v${V}"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+              --title "$tag" \
+              --notes "Automated build from a manual workflow_dispatch run."
+          fi
+          shopt -s nullglob
+          files=( "${{ matrix.asset }}.tar.gz" "${{ matrix.asset }}.zip" "${{ matrix.asset }}.msi" loglens_*_amd64.deb )
+          if [ ${#files[@]} -gt 0 ]; then
+            gh release upload "$tag" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          fi
+
   # --------------------------------------------------------------------------- #
   publish-apt:
     name: publish .deb + .rpm to Cloudsmith

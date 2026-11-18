@@ -28,6 +28,25 @@ jobs:
       - name: Verify Windows command streaming and process cleanup
         run: pytest tests/test_sdk.py -k "windows_powershell_streams_and_stops or terminate_kills_process_tree" -q
 
+  install-ps1-lint:
+    name: Lint install.ps1 (PSScriptAnalyzer)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run PSScriptAnalyzer on the Windows installer
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force
+          $results = Invoke-ScriptAnalyzer -Path scripts/install.ps1 -Severity Warning,Error
+          if ($results) {
+            $results | Format-Table -AutoSize | Out-String | Write-Host
+            Write-Error "PSScriptAnalyzer found $($results.Count) issue(s) in scripts/install.ps1"
+            exit 1
+          }
+          Write-Host "install.ps1: no PSScriptAnalyzer warnings or errors."
+
   test:
     name: tests (py${{ matrix.python }})
     runs-on: ubuntu-latest

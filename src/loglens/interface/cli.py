@@ -668,6 +668,21 @@ def _resolve_model_path(
     return "", False
 
 
+def _warn_model_found_nothing(model: str, used_default: bool, family_count: int) -> None:
+    """Hint when an explicit (non-default) supervised model flags zero anomalies.
+
+    A model trained on one log shape often predicts all-normal on a different one,
+    which looks like "nothing is wrong" rather than a model/format mismatch.
+    """
+    if model and not used_default and family_count == 0:
+        console.print(
+            "[yellow][LogLens][/yellow] The supervised model flagged 0 anomalies. "
+            "If you expected some, it may have been trained on a different log "
+            "format — try [bold]--no-model[/bold] for unsupervised detection, or "
+            "retrain a model on logs like these."
+        )
+
+
 def _run_parallel(
     source: str,
     *,
@@ -808,6 +823,7 @@ def _run_parallel(
         f"· [bold]{result['anomaly_lines']:,}[/bold] flagged lines{inc}",
         highlight=False,
     )
+    _warn_model_found_nothing(model, used_default, result["family_count"])
     fams = result["families"][: result.get("display_limit", limit)]
     if fams:
         table = Table(
@@ -1648,6 +1664,7 @@ def analyze(
                 )
         else:
             console.print("\n[bold green] No anomalies detected![/bold green]")
+            _warn_model_found_nothing(model_path, used_default, 0)
 
         # --- recommend the supervised head (second opinion) when we ran unsupervised ---
         # Fire on the zero-config path (no explicit model requested). Gate on the
