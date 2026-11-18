@@ -495,11 +495,14 @@ def test_explain_flag_does_not_swallow_next_option(tmp_path: Path):
     )
     assert result.exit_code == 0, result.output
 
-
 def test_explain_top_limits_entries(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(
-        app, ["analyze", "--source", log, "--explain", "--explain-top", "3", "--no-model"]
+        app,
+        ["analyze", "--source", log, "--explain", "--explain-top", "3", "--no-model"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "TOP 3 SCORED ENTRIES" in strip_ansi(result.output)
 
 
 def test_warn_model_found_nothing(capsys: CaptureFixture[str]):
