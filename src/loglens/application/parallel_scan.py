@@ -221,7 +221,8 @@ def parallel_analyze_file(
         total += r["lines"]
         incident = incident or r["incident"]
         for k, v in r["by_level"].items():
-            by_level[k] = by_level.get(k, 0) + v
+            count = int(v)
+            by_level[k] = by_level.get(k, 0) + count
         top_lines.extend(r["top_lines"])
         min_epoch = _ep_min(min_epoch, r.get("min_epoch"))
         max_epoch = _ep_max(max_epoch, r.get("max_epoch"))

@@ -1,5 +1,5 @@
-from pathlib import Path
 import re
+from pathlib import Path
 
 from pytest import CaptureFixture, MonkeyPatch
 from typer.testing import CliRunner
@@ -494,6 +494,7 @@ def test_explain_flag_does_not_swallow_next_option(tmp_path: Path):
         app, ["analyze", "--source", log, "--explain", "--format", "json", "--no-model"]
     )
     assert result.exit_code == 0, result.output
+
 
 def test_explain_top_limits_entries(tmp_path: Path):
     log = _write_log(tmp_path)
