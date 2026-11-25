@@ -137,7 +137,6 @@ def analyze_entries(
     return _wrap(entries, det, fmt)
 
 
-
 DEFAULT_HEAD_PROTECT_SCORE = 0.90
 DEFAULT_HEAD_RARE_ERROR_SHARE = 0.10
 
@@ -158,7 +157,7 @@ def default_head_protected(entries: list[LogEntry], scores) -> np.ndarray:
 def apply_supervised_head(
     res: AnalysisResult, model_path: str, *, is_default: bool = False
 ) -> AnalysisResult:
-   
+
     from loglens.detection.benchmark import SupervisedHead, build_feature_matrix
 
     head = SupervisedHead.load(model_path)
