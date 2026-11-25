@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -11,6 +10,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 
 from loglens.detection.cooccurrence import cooccurrence_boost
+from loglens.detection.limits import DEFAULT_MAX_CLUSTER_GROUPS, max_cluster_groups
 from loglens.detection.parameters import parameter_anomaly_scores
 from loglens.detection.rate import rate_burst_scores
 from loglens.detection.safety_floor import safety_floor
@@ -240,22 +240,9 @@ class _Signals:
     group_surge: np.ndarray
 
 
-def _env_positive_int(name: str, default: int) -> int:
-    """Read a positive int from the environment, falling back to ``default`` for
-    a missing, non-integer, or non-positive value."""
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        return default
-    return value if value > 0 else default
-
-
-# Cap DBSCAN clustering groups to bound its O(n^2) behaviour on high-cardinality
-# logs. Override with the LOGLENS_MAX_CLUSTER_GROUPS env var.
-MAX_CLUSTER_GROUPS = _env_positive_int("LOGLENS_MAX_CLUSTER_GROUPS", 40_000)
+# Default cap on DBSCAN clustering groups; the effective value comes from
+# limits.max_cluster_groups() (flag / LOGLENS_MAX_CLUSTER_GROUPS / auto).
+MAX_CLUSTER_GROUPS = DEFAULT_MAX_CLUSTER_GROUPS
 
 
 def _cluster_from_group_vectors(
@@ -266,7 +253,7 @@ def _cluster_from_group_vectors(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[int, float], float]:
     group_vectors = normalize(group_vectors, norm="l2")
     n = len(group_vectors)
-    if n > MAX_CLUSTER_GROUPS:
+    if n > max_cluster_groups():
         # Pathologically high-cardinality input: skip the quadratic clustering.
         noise_labels = np.full(n, -1, dtype=int)
         noise_sizes = {-1: float(np.asarray(group_counts, dtype=np.float64).sum())}

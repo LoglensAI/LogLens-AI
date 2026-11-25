@@ -168,3 +168,108 @@ def test_bad_token_is_rejected(daemon):
     finally:
         sock.close()
     assert resp == {"ok": False, "error": "unauthorized"}
+
+
+# --- health / repair (issue #16) --------------------------------------------
+
+
+def test_health_running_reports_latency(daemon):
+    h = d.health()
+    assert h["status"] == "running"
+    assert h["version"] == d.__version__
+    assert h["latency_ms"] >= 0
+
+
+def test_health_stopped_without_state(tmp_path, monkeypatch):
+    monkeypatch.setattr(d, "_runtime_dir", lambda: str(tmp_path))
+    assert d.health() == {"status": "stopped"}
+
+
+def _write_dead_state(tmp_path, monkeypatch, pid: int) -> None:
+    monkeypatch.setattr(d, "_runtime_dir", lambda: str(tmp_path))
+    d._write_state(
+        {
+            "transport": "unix" if d._USE_UNIX else "tcp",
+            "path": str(tmp_path / "gone.sock"),
+            "port": 1,  # nothing listens on port 1
+            "pid": pid,
+            "token": "x",
+            "version": d.__version__,
+            "started": time.time(),
+        }
+    )
+
+
+def test_health_stale_when_socket_is_dead(tmp_path, monkeypatch):
+    import os
+
+    # Our own pid is alive but nothing answers on the recorded socket.
+    _write_dead_state(tmp_path, monkeypatch, pid=os.getpid())
+    h = d.health()
+    assert h["status"] == "stale"
+    assert h["pid_alive"] is True
+
+
+def test_health_outdated_version(daemon, monkeypatch):
+    monkeypatch.setattr(d, "__version__", "0.0.0-other")
+    h = d.health()
+    assert h["status"] == "outdated"
+    assert h["expected_version"] == "0.0.0-other"
+
+
+def test_repair_discards_stale_state_and_respawns(tmp_path, monkeypatch):
+    import os
+
+    _write_dead_state(tmp_path, monkeypatch, pid=os.getpid())
+    d._set_cooldown()  # an earlier failed start must not block an explicit repair
+    calls = []
+    monkeypatch.setattr(d, "local_ipc_viable", lambda: True)
+    monkeypatch.setattr(
+        d, "ensure_running", lambda spawn=True, wait=3.0: calls.append(spawn) or True
+    )
+    assert d.repair() is True
+    assert calls == [True]
+    assert d._read_state() is None
+    assert not d._in_cooldown()
+
+
+def test_repair_not_attempted_where_ipc_unavailable(tmp_path, monkeypatch):
+    import os
+
+    _write_dead_state(tmp_path, monkeypatch, pid=os.getpid())
+    monkeypatch.setattr(d, "local_ipc_viable", lambda: False)
+    assert d.repair() is False
+
+
+def test_status_cli_respawns_stale_daemon(tmp_path, monkeypatch):
+    import os
+
+    from typer.testing import CliRunner
+
+    _write_dead_state(tmp_path, monkeypatch, pid=os.getpid())
+    monkeypatch.setattr(d, "repair", lambda wait=5.0: True)
+    healthy = {
+        "status": "running",
+        "pid": 1,
+        "version": "x",
+        "transport": "unix",
+        "started": time.time(),
+        "latency_ms": 0.4,
+    }
+    seq = iter([d.health(), healthy])
+    monkeypatch.setattr(d, "health", lambda: next(seq))
+    r = CliRunner().invoke(cli.app, ["daemon", "status"])
+    assert r.exit_code == 0, r.output
+    assert "stale" in r.output and "running" in r.output
+
+
+def test_status_cli_no_repair_only_reports(tmp_path, monkeypatch):
+    import os
+
+    from typer.testing import CliRunner
+
+    _write_dead_state(tmp_path, monkeypatch, pid=os.getpid())
+    monkeypatch.setattr(d, "repair", lambda wait=5.0: pytest.fail("must not repair"))
+    r = CliRunner().invoke(cli.app, ["daemon", "status", "--no-repair"])
+    assert r.exit_code == 1
+    assert "stale" in r.output

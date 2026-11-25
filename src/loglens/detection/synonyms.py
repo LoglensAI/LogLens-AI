@@ -11,6 +11,8 @@ from collections.abc import Iterable
 
 import platformdirs
 
+from loglens.detection.limits import DEFAULT_MAX_SYNONYM_VOCAB, max_synonym_vocab
+
 logger = logging.getLogger("loglens.synonyms")
 
 BASE_SYNONYMS: dict[str, str] = {
@@ -232,22 +234,9 @@ def _corpus_fingerprint(messages: list[str]) -> str:
     return h.hexdigest()
 
 
-def _env_positive_int(name: str, default: int) -> int:
-    """Read a positive int from the environment, falling back to ``default`` for
-    a missing, non-integer, or non-positive value."""
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        return default
-    return value if value > 0 else default
-
-
-# Cap the synonym-learning vocabulary to bound its O(vocab^2) search on
-# high-cardinality logs. Override with the LOGLENS_MAX_SYNONYM_VOCAB env var.
-_MAX_SYNONYM_VOCAB = _env_positive_int("LOGLENS_MAX_SYNONYM_VOCAB", 2000)
+# Default synonym-vocabulary cap; the effective value comes from
+# limits.max_synonym_vocab() (flag / LOGLENS_MAX_SYNONYM_VOCAB).
+_MAX_SYNONYM_VOCAB = DEFAULT_MAX_SYNONYM_VOCAB
 
 
 class SynonymLearner:
@@ -312,7 +301,8 @@ class SynonymLearner:
 
     def fit(self, messages: Iterable[str]) -> None:
         messages = list(messages)
-        fingerprint = _corpus_fingerprint(messages)
+        # The cap changes which synonyms are learned, so it is part of the cache key.
+        fingerprint = f"{_corpus_fingerprint(messages)}:cap={max_synonym_vocab()}"
         if self._load_cache(fingerprint):
             return
 
@@ -340,11 +330,12 @@ class SynonymLearner:
         # vocabulary is that large, restrict the search to the most frequent
         # tokens — rare, near-unique tokens are never good synonym targets anyway.
         # Small corpora keep the exact previous behaviour (iteration order and all).
-        if len(self.word_freq) <= _MAX_SYNONYM_VOCAB:
+        vocab_cap = max_synonym_vocab()
+        if len(self.word_freq) <= vocab_cap:
             rare_candidates: list[str] = sorted(self.cooccurrence)
             common_candidates: list[str] = sorted(self.word_freq)
         else:
-            top = sorted(self.word_freq, key=lambda t: (-self.word_freq[t], t))[:_MAX_SYNONYM_VOCAB]
+            top = sorted(self.word_freq, key=lambda t: (-self.word_freq[t], t))[:vocab_cap]
             rare_candidates = top
             common_candidates = top
         for rare in rare_candidates:

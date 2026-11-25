@@ -8,6 +8,23 @@ on:
       version:
         description: "Optional version override. Leave blank to use src/loglens/_version.py."
         required: false
+      ref:
+        description: "Optional git ref to build, e.g. v0.13.1 to re-attach a past release's assets. Leave blank for the branch you run from."
+        required: false
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to build (no leading v)."
+        type: string
+        required: true
+      ref:
+        description: "Git ref to build from (the release tag)."
+        type: string
+        required: true
+      publish:
+        description: "Run the release-only jobs (taps, installer scripts)."
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -34,6 +51,15 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || '' }}
+
+      # The installer users run is always main's scripts/install.ps1, so smoke-test
+      # that one (from this workflow's commit), even when building an older tag.
+      - uses: actions/checkout@v4
+        with:
+          path: _wf
+          sparse-checkout: scripts
 
       - uses: actions/setup-python@v5
         with:
@@ -45,7 +71,7 @@ jobs:
         run: |
           # Source of truth is src/loglens/_version.py, so the .deb version always
           # matches what `loglens version` reports. A tag or manual input overrides it.
-          V="${{ github.event.inputs.version }}"
+          V="${{ inputs.version }}"
           [ -z "$V" ] && V="${GITHUB_REF_NAME#v}"
           case "$V" in ""|refs/*|main|master)
             V="$(python -c "import runpy; print(runpy.run_path('src/loglens/_version.py')['__version__'])")"
@@ -101,6 +127,22 @@ jobs:
             tar -czf "../${{ matrix.asset }}.tar.gz" loglens
           fi
 
+      - name: Smoke test install.ps1 with the built zip (Windows only)
+        # Installs the zip we just packaged through the real installer script, then
+        # runs the installed binary, so a broken installer or archive layout fails
+        # the release build instead of reaching users.
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'loglens-install-test'
+          ./_wf/scripts/install.ps1 -ZipPath "${{ matrix.asset }}.zip" -InstallDir $dir
+          $out = & (Join-Path $dir 'loglens.exe') version
+          if ($LASTEXITCODE -ne 0) { throw "installed loglens.exe version exited $LASTEXITCODE" }
+          Write-Host $out
+          if ($out -notmatch 'LogLens AI version ${{ steps.ver.outputs.version }}') {
+            throw "installed binary reports '$out', expected version ${{ steps.ver.outputs.version }}"
+          }
+
       - name: Build MSI (Windows only)
         if: runner.os == 'Windows'
         shell: bash
@@ -154,14 +196,19 @@ jobs:
         # which means `/releases/latest/download/<asset>` 404s and the one-line
         # installers fail. Here we ensure a release exists for this version and
         # upload the assets to it, so a manual run produces an installable release.
-        if: github.event_name == 'workflow_dispatch'
+        # Also used when called from release.yml (uploads to its draft release).
+        if: github.event_name != 'release'
         env:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.ver.outputs.version }}
         shell: bash
         run: |
           tag="v${V}"
-          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          # List via REST (includes drafts) so we upload to release.yml's draft
+          # instead of creating a second release for the same tag.
+          existing="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
+            --jq ".[] | select(.tag_name == \"${tag}\") | .id" | head -1)"
+          if [ -z "$existing" ]; then
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
               --title "$tag" \
               --notes "Automated build from a manual workflow_dispatch run."
@@ -189,7 +236,7 @@ jobs:
       - name: Resolve version
         id: ver
         run: |
-          V="${{ github.event.inputs.version }}"
+          V="${{ inputs.version }}"
           [ -z "$V" ] && V="${GITHUB_REF_NAME#v}"
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
@@ -257,7 +304,7 @@ jobs:
   update-taps:
     name: update Homebrew tap + Scoop bucket
     needs: build
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || inputs.publish
     runs-on: ubuntu-22.04
     # `secrets` can't be used directly in an `if:` expression, so expose it as an
     # env var here and gate the step on that instead.
@@ -265,11 +312,13 @@ jobs:
       TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || '' }}
 
       - name: Resolve version
         id: ver
         run: |
-          V="${{ github.event.inputs.version }}"
+          V="${{ inputs.version }}"
           [ -z "$V" ] && V="${GITHUB_REF_NAME#v}"
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
@@ -340,13 +389,57 @@ jobs:
   # --------------------------------------------------------------------------- #
   attach-installers:
     name: attach install scripts to release
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || inputs.publish
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Attach install.sh + install.ps1
-        uses: softprops/action-gh-release@v2
         with:
-          files: |
-            scripts/install.sh
-            scripts/install.ps1
+          ref: ${{ inputs.ref || '' }}
+      - name: Attach install.sh + install.ps1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ inputs.version }}"
+          [ -z "$V" ] && V="${GITHUB_REF_NAME#v}"
+          gh release upload "v${V#v}" scripts/install.sh scripts/install.ps1 \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+  # --------------------------------------------------------------------------- #
+  verify-assets:
+    name: verify release assets
+    # Fails the run if any installer asset is missing from the release, so a
+    # half-attached release is loud instead of a silent 404 for users. Runs even
+    # when a build leg failed (that is exactly the case it must report).
+    # When called from release.yml the release is still a draft here; release.yml
+    # runs the full check (including PyPI) after publishing it.
+    needs: [build, attach-installers]
+    if: ${{ always() && !inputs.publish }}
+    runs-on: ubuntu-22.04
+    steps:
+      # This workflow's own commit (not inputs.ref): an older tag may predate
+      # scripts/verify_release.sh.
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          V="${{ inputs.version }}"
+          REF="${{ inputs.ref }}"
+          if [ -z "$V" ] && [[ "$REF" =~ ^v?[0-9] ]]; then V="${REF#v}"; fi
+          if [ -z "$V" ] && [ -n "$REF" ]; then
+            git fetch -q --depth 1 origin "$REF"
+            V="$(git show FETCH_HEAD:src/loglens/_version.py | python3 -c "import re,sys; print(re.search(r'__version__\s*=\s*[\"\']([^\"\']+)', sys.stdin.read()).group(1))")"
+          fi
+          [ -z "$V" ] && V="${GITHUB_REF_NAME#v}"
+          case "$V" in ""|refs/*|main|master)
+            V="$(python3 -c "import runpy; print(runpy.run_path('src/loglens/_version.py')['__version__'])")"
+          ;; esac
+          echo "version=${V#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check every installer asset is on the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          extra=""
+          [ "${{ github.event_name }}" = "release" ] && extra="--installers"
+          bash scripts/verify_release.sh "${{ steps.ver.outputs.version }}" $extra --retries 3

@@ -104,6 +104,8 @@ loglens analyze --source <PATH|URL|-> [OPTIONS]
 | `--api-key` | string | env | LLM API key (prefer the environment variable). |
 | `--rca-out` | string | -| Save the RCA narrative to a markdown file (e.g. `rca.md`). |
 | `--html` | string | -| Save a standalone offline HTML report (e.g. `report.html`). Includes RCA if `--rca` is set. |
+| `--max-cluster-groups` | int or `auto` | 40000 | Above this many distinct templates, skip template clustering (O(n²)). `auto` scales with free RAM. Env: `LOGLENS_MAX_CLUSTER_GROUPS`. See [Detection caps](#detection-caps). |
+| `--max-synonym-vocab` | int | 2000 | Only search the N most frequent tokens when learning synonyms (O(n²)). Env: `LOGLENS_MAX_SYNONYM_VOCAB`. See [Detection caps](#detection-caps). |
 
 ### Modes
 
@@ -144,6 +146,23 @@ supervised model's verdict.
 > became analysable entries). fast/deep also show the raw read count
 > (`Lines: 59 read → 57 parsed`); turbo reports the parsed count directly. Blank and
 > unparseable lines are dropped, so parsed ≤ read.
+
+### Detection caps
+
+Two steps get expensive on very high-cardinality logs (unique ids, hex addresses,
+per-request values), so they are capped. Logs below the caps are unaffected.
+
+| Cap | Default | What happens above it | Raise it when | Lower it when |
+|---|---|---|---|---|
+| `--max-cluster-groups` / `LOGLENS_MAX_CLUSTER_GROUPS` | 40,000 templates | Template clustering (DBSCAN, O(n²) time and memory) is skipped; each template is scored on its own | You have RAM to spare and want rare-template clusters on huge, varied logs | Runs on huge logs are slow or memory-bound |
+| `--max-synonym-vocab` / `LOGLENS_MAX_SYNONYM_VOCAB` | 2,000 tokens | Synonym learning (O(n²) time) only searches the most frequent tokens | You want more typo/abbreviation merges on big vocabularies | Analysis of large logs spends too long learning synonyms |
+
+- **Precedence:** command-line flag > environment variable > default.
+- **`auto`** (clustering only): scales the default by √(free RAM ÷ 8 GiB), clamped
+  to between 10,000 and 160,000 groups. Synonym learning is bounded by CPU time,
+  not memory, so it has no `auto`.
+- **Accuracy:** on `benchmarks/BGL_2k.log`, default, `auto` and raised caps all
+  give F1 0.426; see [docs/BENCHMARKS.md](BENCHMARKS.md#7-detection-caps).
 
 ### Examples
 
@@ -200,7 +219,8 @@ permissions; loopback TCP guarded by a random token on Windows). It never leaves
 ```bash
 loglens daemon start      # warm it up (starts detached)
 loglens analyze --source app.log   # now sub-second
-loglens daemon status     # running? which pid/version?
+loglens daemon status     # health check; respawns a stale/outdated daemon
+loglens daemon status --no-repair   # report only (exit 1 if not healthy)
 loglens daemon stop
 loglens daemon restart    # after upgrading LogLens
 ```
@@ -211,6 +231,7 @@ loglens daemon restart    # after upgrading LogLens
 | **Output** | byte-identical to a direct run (same code path, same JSON, same exit codes) |
 | **Safety** | if the daemon is down, unreachable, or a different version, the CLI silently runs in-process - nothing regresses |
 | **Lifecycle** | idle-shuts-down after 30 min (`--idle-timeout`) |
+| **Self-healing** | `analyze` respawns a crashed or outdated daemon on its own; `daemon status` reports `running` / `stale` / `outdated` / `not running` and respawns the first two |
 
 **Turning it on.** It's **off by default** for `pip` installs (no surprise
 background process). Set `LOGLENS_DAEMON=1` to opt in (`=0` to force off).

@@ -257,6 +257,57 @@ def status() -> dict[str, Any] | None:
     return resp
 
 
+def health() -> dict[str, Any]:
+    """Classify the daemon, for ``loglens daemon status``.
+
+    ``status`` is one of:
+
+    * ``running``  - answers ping with this CLI's version (adds ``latency_ms``)
+    * ``outdated`` - answers ping, but is a different LogLens version
+    * ``stale``    - a state file exists but nothing answers on its socket
+      (crashed or killed daemon, deleted socket, hung process)
+    * ``stopped``  - no daemon and no state file
+    """
+    state = _read_state()
+    if state is None:
+        return {"status": "stopped"}
+    pid = int(state.get("pid", 0) or 0)
+    t0 = time.perf_counter()
+    resp = _request("ping", timeout=3.0)
+    latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+    if resp and resp.get("ok"):
+        info = {**resp, "latency_ms": latency_ms}
+        if resp.get("version") != __version__:
+            return {**info, "status": "outdated", "expected_version": __version__}
+        return {**info, "status": "running"}
+    return {
+        "status": "stale",
+        "pid": pid,
+        "pid_alive": _pid_alive(pid),
+        "transport": state.get("transport", "?"),
+    }
+
+
+def repair(wait: float = 5.0) -> bool:
+    """Replace a stale or outdated daemon with a fresh one.
+
+    The old state/socket is discarded and a new daemon is spawned. A recent
+    failed-start cooldown is ignored, since the user asked for this explicitly.
+    A hung process from the stale state is not killed (its pid may since have
+    been reused by an unrelated process); the new daemon binds a fresh socket.
+    """
+    if not local_ipc_viable():
+        return False
+    h = health()
+    if h["status"] == "running":
+        return True
+    if h["status"] == "outdated":
+        stop()
+    _remove_state()
+    _clear_cooldown()
+    return ensure_running(spawn=True, wait=wait)
+
+
 def stop() -> bool:
     resp = _request("shutdown", timeout=3.0)
     ok = bool(resp and resp.get("ok"))

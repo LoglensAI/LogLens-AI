@@ -18,11 +18,22 @@
   Pin a version / change location:
     $env:LOGLENS_VERSION="0.13.1"; irm .../install.ps1 | iex
     powershell -File install.ps1 -Version 0.13.1 -InstallDir "C:\Tools\LogLens"
+
+  Install from a zip you already have (used by CI to test a freshly built binary):
+    powershell -File install.ps1 -ZipPath .\loglens-windows-x86_64.zip
+
+  Keep this file ASCII-only: Windows PowerShell 5.1 reads BOM-less scripts as
+  ANSI, so any non-ASCII character is garbled when run with -File.
 #>
+# Write-Host is deliberate: this installer is usually run as `irm ... | iex`,
+# where coloured, unbuffered console output is what the user should see, and
+# nothing consumes its pipeline output.
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Justification = 'Interactive installer output')]
 [CmdletBinding()]
 param(
   [string]$Version    = $env:LOGLENS_VERSION,
-  [string]$InstallDir = $(if ($env:LOGLENS_INSTALL_DIR) { $env:LOGLENS_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\LogLens' })
+  [string]$InstallDir = $(if ($env:LOGLENS_INSTALL_DIR) { $env:LOGLENS_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\LogLens' }),
+  [string]$ZipPath    = $env:LOGLENS_ZIP
 )
 
 $ErrorActionPreference = 'Stop'
@@ -81,16 +92,16 @@ function Get-WorkingPython {
 }
 
 function Install-FromPyPI {
-  Warn 'Trying a PyPI install (pip install loglensai)…'
+  Warn 'Trying a PyPI install (pip install loglensai)...'
 
-  # pipx first (isolated, manages PATH) — only exists if Python already does.
+  # pipx first (isolated, manages PATH) - only exists if Python already does.
   $pipx = Get-Command pipx -ErrorAction SilentlyContinue
   if ($pipx) {
-    Info 'Installing with pipx…'
+    Info 'Installing with pipx...'
     $r = Invoke-Native $pipx.Source @('install', '--force', $PyPI)
     if ($r.Out) { Write-Host $r.Out }
     if ($r.Code -eq 0) { Info 'Installed via pipx. Open a NEW terminal, then:  loglens version'; return }
-    Warn 'pipx did not succeed; trying pip…'
+    Warn 'pipx did not succeed; trying pip...'
   }
 
   $py = Get-WorkingPython
@@ -115,7 +126,7 @@ Pick one:
   $ver = (Invoke-Native $exe (@($pyArgs) + '--version')).Out.Trim()
   Info "Using Python: $ver"
 
-  Info "Installing $PyPI from PyPI (user site)…"
+  Info "Installing $PyPI from PyPI (user site)..."
   $r = Invoke-Native $exe (@($pyArgs) + @('-m', 'pip', 'install', '--user', '--upgrade', $PyPI))
   if ($r.Out) { Write-Host $r.Out }
   if ($r.Code -ne 0) { Fail "pip install $PyPI failed. Try inside a venv:  pip install $PyPI" }
@@ -145,13 +156,19 @@ New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 $zip = Join-Path $tmp $Asset
 
 try {
-  Info "Downloading $Asset…"
   $downloaded = $true
-  try {
-    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
-  } catch {
-    $downloaded = $false
-    Warn "No prebuilt zip at: $url"
+  if ($ZipPath) {
+    if (-not (Test-Path $ZipPath)) { Fail "Zip not found: $ZipPath" }
+    Info "Using local zip $ZipPath..."
+    Copy-Item -Path $ZipPath -Destination $zip
+  } else {
+    Info "Downloading $Asset..."
+    try {
+      Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+    } catch {
+      $downloaded = $false
+      Warn "No prebuilt zip at: $url"
+    }
   }
 
   if (-not $downloaded) {
@@ -159,12 +176,12 @@ try {
     return
   }
 
-  Info 'Unpacking…'
+  Info 'Unpacking...'
   Expand-Archive -Path $zip -DestinationPath $tmp -Force
   $src = Join-Path $tmp 'loglens'
   if (-not (Test-Path $src)) { Fail 'Unexpected archive layout (no loglens\ directory).' }
 
-  Info "Installing to $InstallDir…"
+  Info "Installing to $InstallDir..."
   if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir }
   New-Item -ItemType Directory -Force -Path (Split-Path $InstallDir) | Out-Null
   Move-Item $src $InstallDir

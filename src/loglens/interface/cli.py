@@ -668,6 +668,27 @@ def _resolve_model_path(
     return "", False
 
 
+def _apply_cap_flags(max_cluster_groups: str, max_synonym_vocab: str) -> None:
+    """Apply --max-cluster-groups / --max-synonym-vocab for this run.
+
+    They are passed on as the environment variables the detectors read at call
+    time, so they also reach parallel workers. Precedence: flag > env > default.
+    """
+    from loglens.detection import limits
+
+    for raw, env, flag, allow_auto in (
+        (max_cluster_groups, limits.ENV_MAX_CLUSTER_GROUPS, "--max-cluster-groups", True),
+        (max_synonym_vocab, limits.ENV_MAX_SYNONYM_VOCAB, "--max-synonym-vocab", False),
+    ):
+        if not raw:
+            continue
+        value = limits.parse_cap(raw)
+        if value is None or (value == "auto" and not allow_auto):
+            expected = "a positive integer or 'auto'" if allow_auto else "a positive integer"
+            raise typer.BadParameter(f"expected {expected}, got {raw!r}", param_hint=flag)
+        os.environ[env] = str(value)
+
+
 def _warn_model_found_nothing(model: str, used_default: bool, family_count: int) -> None:
     """Hint when an explicit (non-default) supervised model flags zero anomalies.
 
@@ -1000,8 +1021,23 @@ def analyze(
         "--alert-budget",
         help="Target alerts/day/service for the calibrated budget report (default 5). Report-only.",
     ),
+    max_cluster_groups: str = typer.Option(
+        "",
+        "--max-cluster-groups",
+        help="Skip template clustering above this many distinct templates (default 40000; "
+        "'auto' scales with free RAM). Higher = fuller analysis of very high-cardinality "
+        "logs, more time/memory. Env: LOGLENS_MAX_CLUSTER_GROUPS.",
+    ),
+    max_synonym_vocab: str = typer.Option(
+        "",
+        "--max-synonym-vocab",
+        help="Only search the N most frequent tokens for learned synonyms (default 2000). "
+        "Higher = more synonym merges on huge vocabularies, slower. "
+        "Env: LOGLENS_MAX_SYNONYM_VOCAB.",
+    ),
 ):
     """Analyze a log file for anomalies (fast / turbo / deep, with CI/CD gating)."""
+    _apply_cap_flags(max_cluster_groups, max_synonym_vocab)
     source = source or path or ""
     if not source:
         console.print(
@@ -3342,22 +3378,66 @@ def daemon_stop():
 
 
 @daemon_app.command("status")
-def daemon_status():
-    """Show whether the LogLens daemon is running."""
+def daemon_status(
+    repair: bool = typer.Option(
+        True,
+        "--repair/--no-repair",
+        help="Respawn a daemon that is stale (not answering) or from another "
+        "LogLens version. --no-repair only reports.",
+    ),
+):
+    """Show the LogLens daemon's health; respawn it if it is stale.
+
+    Exit code: 0 when a healthy daemon is running (including after a repair),
+    1 when none is running or it could not be repaired.
+    """
     import time as _time
 
     from loglens.application import daemon as d
 
-    st = d.status()
-    if not st:
+    def _print_running(st: dict) -> None:
+        uptime = int(_time.time() - float(st.get("started", _time.time())))
+        console.print(
+            f"[bold green][LogLens][/bold green] daemon: [bold]running[/bold]  "
+            f"pid [bold]{st.get('pid', '?')}[/bold] · v{st.get('version', '?')} · "
+            f"{st.get('transport', '?')} · up {uptime}s · "
+            f"ping {st.get('latency_ms', '?')} ms"
+        )
+
+    h = d.health()
+    status = h["status"]
+    if status == "running":
+        _print_running(h)
+        return
+    if status == "stopped":
         console.print("[dim][LogLens] daemon: [bold]not running[/bold].[/dim]")
         raise typer.Exit(code=1)
-    uptime = int(_time.time() - float(st.get("started", _time.time())))
+
+    if status == "stale":
+        why = "process is gone" if not h.get("pid_alive") else "process is not answering"
+        console.print(
+            f"[yellow][LogLens][/yellow] daemon: [bold]stale[/bold]  "
+            f"pid {h.get('pid', '?')} {why} on its {h.get('transport', '?')} socket."
+        )
+    else:  # outdated
+        console.print(
+            f"[yellow][LogLens][/yellow] daemon: [bold]outdated[/bold]  "
+            f"running v{h.get('version', '?')}, this CLI is v{h.get('expected_version', '?')}."
+        )
+
+    if not repair:
+        console.print("[dim][LogLens] run [bold]loglens daemon status[/bold] to respawn it.[/dim]")
+        raise typer.Exit(code=1)
+
+    console.print("[dim][LogLens] respawning daemon…[/dim]")
+    if d.repair():
+        _print_running(d.health())
+        return
     console.print(
-        f"[bold green][LogLens][/bold green] daemon: [bold]running[/bold]  "
-        f"pid [bold]{st.get('pid', '?')}[/bold] · v{st.get('version', '?')} · "
-        f"{st.get('transport', '?')} · up {uptime}s"
+        "[bold red][LogLens][/bold red] could not respawn the daemon; "
+        "commands will keep running in-process."
     )
+    raise typer.Exit(code=1)
 
 
 @daemon_app.command("restart")

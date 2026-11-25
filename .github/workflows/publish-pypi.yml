@@ -7,6 +7,12 @@ on:
         description: "Git tag to publish (e.g. v0.13.0). Leave blank for latest commit."
         required: false
         default: ""
+  workflow_call:
+    inputs:
+      tag:
+        description: "Git tag to publish (e.g. v0.13.2)."
+        type: string
+        required: true
 
 permissions:
   contents: read

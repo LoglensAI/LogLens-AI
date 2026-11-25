@@ -47,6 +47,35 @@ jobs:
           }
           Write-Host "install.ps1: no PSScriptAnalyzer warnings or errors."
 
+  install-ps1-pypi-fallback:
+    name: install.ps1 PyPI fallback (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run install.ps1 with no release zip available
+        shell: pwsh
+        env:
+          LOGLENS_VERSION: "0.0.0"
+        run: ./scripts/install.ps1
+
+      - name: Installed CLI runs
+        shell: pwsh
+        run: |
+          # The installer adds to the *user* PATH, which only new shells see.
+          $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                      [Environment]::GetEnvironmentVariable('Path', 'User')
+          $pipxBin = (pipx environment --value PIPX_BIN_DIR 2>$null)
+          if ($pipxBin) { $env:Path += ";$pipxBin" }
+          $out = loglens version
+          if ($LASTEXITCODE -ne 0) { throw "loglens version exited $LASTEXITCODE" }
+          Write-Host $out
+          if ($out -notmatch 'LogLens AI version \d') { throw "unexpected output: $out" }
+
   test:
     name: tests (py${{ matrix.python }})
     runs-on: ubuntu-latest

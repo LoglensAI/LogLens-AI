@@ -200,8 +200,15 @@ repeat runs near-instant. Full details for every platform are in
 | **Windows** (PowerShell) | `irm https://raw.githubusercontent.com/LoglensAI/LogLens-AI/main/scripts/install.ps1 \| iex` |
 | **Windows** (installer) | Download **`loglens-windows-x86_64.msi`** from the [latest release](https://github.com/LoglensAI/LogLens-AI/releases/latest) and double-click. |
 
-These pull the self-contained binary straight from GitHub Releases (Apple Silicon
-+ Intel, Linux x86-64, Windows x64) and need no Homebrew/winget.
+These pull the self-contained binary straight from GitHub Releases (Apple Silicon,
+Linux x86-64, Windows x64) and need no Homebrew/winget. Intel Macs: use `pipx
+install loglensai` (see [Python (pip)](#python-pip)).
+
+> The one-liners download from the **latest published GitHub Release**, so they
+> only work once that release has its binaries attached. If an installer reports
+> that no prebuilt binary was found, `install.ps1` falls back to PyPI when Python
+> is present; otherwise use [pip](#python-pip). Maintainers: see
+> [RELEASING.md](RELEASING.md), whose release workflow verifies every asset.
 
 **Via a package manager** (auto-updates with `brew upgrade` / `winget upgrade` / `sudo apt upgrade`):
 

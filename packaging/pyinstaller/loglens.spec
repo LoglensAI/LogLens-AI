@@ -84,6 +84,19 @@ a = Analysis(
     noarchive=False,
 )
 
+# Drop build-time-only torch files (C++ test executables, headers, protoc,
+# test libraries) that collect_data_files("torch") sweeps in. Saves ~175 MB
+# uncompressed / ~49 MB in the Linux tarball; nothing here is loaded at runtime.
+# See prune.py and docs/BENCHMARKS.md.
+import sys  # noqa: E402
+
+sys.path.insert(0, _here)
+from prune import prune  # noqa: E402
+
+a.datas, _pruned_datas = prune(a.datas)
+a.binaries, _pruned_bins = prune(a.binaries)
+print(f"[loglens.spec] pruned {_pruned_datas + _pruned_bins} build-only torch files")
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
