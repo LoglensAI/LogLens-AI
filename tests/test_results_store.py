@@ -119,3 +119,16 @@ def test_time_windows_menu_complete():
     labels = [lbl for lbl, _ in TIME_WINDOWS]
     assert "Last 1 hour" in labels and "Last 1 year" in labels
     assert len(TIME_WINDOWS) == 12
+
+
+def test_default_results_path_is_outside_the_log_dir(tmp_path, monkeypatch):
+    from loglens.application.results_store import default_results_path
+
+    monkeypatch.setenv("LOGLENS_RESULTS_DIR", str(tmp_path / "results"))
+    log = tmp_path / "logs" / "app.log"
+    log.parent.mkdir()
+    log.write_text("x\n", encoding="utf-8")
+    out = default_results_path(str(log))
+    assert out.startswith(str(tmp_path / "results"))
+    assert out.endswith(".loglens.json") and "app.log" in out
+    assert not out.startswith(str(log.parent))

@@ -12,6 +12,7 @@ from loglens.detection.detector import DetectionResult
 from loglens.detection.ingestion import stream_command, stream_lines
 from loglens.detection.parser import StreamParser
 from loglens.detection.run import RunConfig, run
+from loglens.detection.textio import open_text
 from loglens.domain.models import Anomaly, LogEntry, _to_anomaly
 from loglens.infrastructure.llm import save_report
 
@@ -136,8 +137,28 @@ def analyze_entries(
     return _wrap(entries, det, fmt)
 
 
-def apply_supervised_head(res: AnalysisResult, model_path: str) -> AnalysisResult:
 
+DEFAULT_HEAD_PROTECT_SCORE = 0.90
+DEFAULT_HEAD_RARE_ERROR_SHARE = 0.10
+
+
+def default_head_protected(entries: list[LogEntry], scores) -> np.ndarray:
+    from loglens.domain.severity import get_severity
+
+    n = len(entries)
+    if n == 0:
+        return np.zeros(0, dtype=bool)
+    err_sev = get_severity("ERROR")
+    is_err = np.fromiter((get_severity(e.level) <= err_sev for e in entries), bool, n)
+    if is_err.mean() > DEFAULT_HEAD_RARE_ERROR_SHARE:
+        return np.zeros(n, dtype=bool)
+    return is_err & (np.asarray(scores, dtype=float) >= DEFAULT_HEAD_PROTECT_SCORE)
+
+
+def apply_supervised_head(
+    res: AnalysisResult, model_path: str, *, is_default: bool = False
+) -> AnalysisResult:
+   
     from loglens.detection.benchmark import SupervisedHead, build_feature_matrix
 
     head = SupervisedHead.load(model_path)
@@ -146,12 +167,12 @@ def apply_supervised_head(res: AnalysisResult, model_path: str) -> AnalysisResul
     scores = np.asarray(det.scores, dtype=float)
     if len(entries) == 0:
         return res
-    preds = head.predict(build_feature_matrix(entries, scores))
+    keep = np.asarray(head.predict(build_feature_matrix(entries, scores)), dtype=bool)
+    if is_default:
+        keep |= default_head_protected(entries, scores)
     order = np.argsort(-scores, kind="stable")
     anomalies = [
-        _to_anomaly(entries[i], det.scores[i], det.reasons[i], int(i))
-        for i in order
-        if int(preds[i]) == 1
+        _to_anomaly(entries[i], det.scores[i], det.reasons[i], int(i)) for i in order if keep[i]
     ]
     return AnalysisResult(
         anomalies=anomalies,
@@ -239,7 +260,7 @@ def analyze(
         entries, detected = _parse(lines, fmt)
         return analyze_entries(entries, cfg, baseline, fmt or detected)
     if cmd is None and source is not None and not _needs_loop(source):
-        with open(source, encoding="utf-8", errors="replace") as f:
+        with open_text(source) as f:
             entries, detected = _parse((ln.rstrip("\n") for ln in f), fmt)
         return analyze_entries(entries, cfg, baseline, fmt or detected)
 

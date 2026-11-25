@@ -142,10 +142,22 @@ _PLAINTEXT_LEVEL_MAP = {
 }
 
 
+# Lines that carry no level word but always mean a process or host died:
+# kernel OOM killer, segfaults, core dumps, panics.
+_CRASH_RE = re.compile(
+    r"kernel panic|\bpanic(?:ked)?\b|segmentation fault|\bsegfault|\bsigsegv\b|core dumped"
+    r"|out of memory|\boom[- _]?kill|killed process|kernel bug|stack overflow"
+    r"|double free|bus error|illegal instruction|fatal signal|watchdog timeout",
+    re.IGNORECASE,
+)
+
+
 def infer_level(text: str) -> str:
     m = _PLAINTEXT_LEVEL_RE.search(text)
     if m:
         return _PLAINTEXT_LEVEL_MAP.get(m.group(1).lower(), "INFO")
+    if _CRASH_RE.search(text):
+        return "CRITICAL"
     return "INFO"
 
 
@@ -193,7 +205,9 @@ _LEVEL_TOKENS = {
     "trace",
 }
 
-_LOGFMT_PAIR = re.compile(r"(\w[\w.\-]*)=(\"(?:[^\"\\]|\\.)*\"|'[^']*'|\S+)")
+# Keys only start at a token boundary: without the lookbehind, findall retries
+# from every character of a long word run, which is quadratic in line length.
+_LOGFMT_PAIR = re.compile(r"(?<![\w.\-])(\w[\w.\-]*)=(\"(?:[^\"\\]|\\.)*\"|'[^']*'|\S+)")
 _LOGFMT_KEYS = {
     "level",
     "lvl",
@@ -234,7 +248,7 @@ def _looks_like_component(tok: str) -> bool:
 
 
 def detect_format(line: str) -> str:
-    line = line.strip()
+    line = clip_line(line).strip()
     if not line:
         return "UNKNOWN"
     probe = _PRI_RE.sub("", line)
@@ -344,8 +358,19 @@ def _parse_generic(line: str, layout: dict | None = None) -> LogEntry | None:
     )
 
 
+MAX_LINE_CHARS = 65_536
+
+
+def clip_line(line: str) -> str:
+    """Cap one log line so a pathological line (a dumped blob, minified bundle)
+    can't swamp parsing, output or memory. Marks how much was dropped."""
+    if len(line) <= MAX_LINE_CHARS:
+        return line
+    return f"{line[:MAX_LINE_CHARS]} …[+{len(line) - MAX_LINE_CHARS:,} chars]"
+
+
 def parse_line(line: str, fmt: str, layout: dict | None = None) -> LogEntry | None:
-    line = line.strip()
+    line = clip_line(line).strip()
     if not line:
         return None
     try:
@@ -599,9 +624,29 @@ _CONTINUATION_RE = re.compile(
     r"|\.\.\.\s*\d+\s+more"
     r"|Traceback \(most recent call last\)"
     r"|File \")"
+    # The exception line that ends a Python trace or heads a Java one, e.g.
+    # "ZeroDivisionError: division by zero", "java.lang.NullPointerException: x".
+    r"|^(?:[A-Za-z_][\w$]*\.)*[A-Za-z_][\w$]*(?:Error|Exception|Exit|Interrupt|Throwable)"
+    r"(?::\s|:?$)"
+    r"|^During handling of the above exception"
+    r"|^The above exception was the direct cause"
 )
 
 _MAX_CONTINUATION = 200
+
+
+def is_continuation(line: str) -> bool:
+    """True for a line that continues the previous entry (stack frame, exception
+    line, indented detail) rather than starting a new one."""
+    return bool(_CONTINUATION_RE.match(line))
+
+
+def attach_continuation(entry: LogEntry, line: str, *, into_message: bool = True) -> None:
+    """Join a continuation line to ``entry``. ``into_message=False`` keeps the
+    message as the clean one-line summary and adds the line to ``raw`` only."""
+    if into_message:
+        entry.message += " | " + line.strip()
+    entry.raw += "\n" + line.rstrip("\n")
 
 
 class StreamParser:
@@ -660,8 +705,7 @@ class StreamParser:
             and self._pending_continuations < _MAX_CONTINUATION
             and _CONTINUATION_RE.match(line)
         ):
-            self._pending.message += " | " + line.strip()
-            self._pending.raw += "\n" + line.rstrip("\n")
+            attach_continuation(self._pending, line)
             self._pending_continuations += 1
             self.stats["continuations"] += 1
             return None

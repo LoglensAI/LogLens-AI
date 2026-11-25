@@ -40,6 +40,19 @@ def auto_workers(
     return int(max(1, min(cpu, mem_workers, file_workers, max_cap)))
 
 
+def _mp_context():
+    """forkserver (or spawn): never fork, which is unsafe from a threaded process.
+    Mirrors infrastructure.workerpool.mp_context; detection may not import it."""
+    import multiprocessing as mp
+
+    for method in ("forkserver", "spawn"):
+        try:
+            return mp.get_context(method)
+        except ValueError:
+            continue
+    return mp.get_context()
+
+
 def split_chunks(path: str, n: int) -> list[tuple[int, int]]:
     size = os.path.getsize(path)
     if n <= 1 or size == 0:
@@ -61,12 +74,14 @@ def _process_range(args) -> dict[tuple[str, str], list]:
     path, start, end = args
     local: dict[tuple[str, str], list] = {}
     fmt: str | None = None
-    with open(path, encoding="utf-8", errors="replace") as f:
+    # Binary mode keeps pos an exact byte offset (text mode turns CRLF into LF,
+    # so slices overlapped and double-counted lines on Windows-style files).
+    with open(path, "rb") as f:
         f.seek(start)
         pos = start
-        for line in f:
-            pos += len(line.encode("utf-8", "replace"))
-            stripped = line.rstrip("\n")
+        for raw in f:
+            pos += len(raw)
+            stripped = raw.decode("utf-8", "replace").rstrip("\r\n")
             if stripped:
                 if fmt is None:
                     fmt = detect_format(stripped)
@@ -155,6 +170,9 @@ def score_templates(
 def scan_file(
     path: str, workers: int | None = None, sensitivity: str = "normal", **auto_kw
 ) -> ScanResult:
+    from loglens.detection.textio import as_plain_utf8
+
+    path = as_plain_utf8(path)  # byte-range slicing needs plain UTF-8
     size = os.path.getsize(path)
     w = workers or auto_workers(size, **auto_kw)
     chunks = split_chunks(path, w)
@@ -165,9 +183,9 @@ def scan_file(
         merged = _process_range((path, chunks[0][0], chunks[0][1]))
     else:
         try:
-            import multiprocessing as mp
-
-            with mp.Pool(w) as pool:
+            # Not the platform default: on Linux that is fork, and scan_file runs in
+            # an event-loop worker thread, so forking here could deadlock the child.
+            with _mp_context().Pool(w) as pool:
                 for local in pool.imap(_process_range, [(path, s, e) for s, e in chunks]):
                     for k, v in local.items():
                         slot = merged.get(k)

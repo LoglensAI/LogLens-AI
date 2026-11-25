@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -73,6 +74,16 @@ def canonical_bucket(level: str) -> str:
         if up in members:
             return bucket
     return up
+
+
+def default_results_path(source: str) -> str:
+    from loglens.application.baseline_store import baseline_key
+
+    base = os.environ.get("LOGLENS_RESULTS_DIR") or os.path.join(
+        os.path.expanduser("~"), ".loglens", "results"
+    )
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, f"{baseline_key(source)}.loglens.json")
 
 
 def save_results(path: str, result: dict[str, Any]) -> str:

@@ -1,0 +1,91 @@
+name: Beta feedback / testimonial
+description: Tried LogLens on your logs? Tell us how it went (2 minutes).
+title: "[Beta feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing LogLens AI! Honest answers help most, including "it missed things".
+        Please **never paste secrets or private log lines**; describe them instead.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Your setup
+      description: Filled in automatically if you opened this page with `loglens feedback`.
+      placeholder: "LogLens 0.13.x (pip), Ubuntu 24.04, Python 3.12"
+    validations:
+      required: false
+  - type: input
+    id: logs
+    attributes:
+      label: What did you analyse?
+      description: Kind of logs and roughly how big.
+      placeholder: "nginx + a Django app, ~2M lines; k8s pod logs from a failed deploy"
+    validations:
+      required: true
+  - type: dropdown
+    id: found-it
+    attributes:
+      label: Did LogLens find the real problem?
+      options:
+        - "Yes, it pointed straight at it"
+        - "Partly: it found some of it"
+        - "No, it missed it"
+        - "There was no real problem in my logs"
+    validations:
+      required: true
+  - type: dropdown
+    id: noise
+    attributes:
+      label: How many false alarms did you get?
+      options:
+        - "None or almost none"
+        - "A few, easy to ignore"
+        - "Too many to be useful"
+    validations:
+      required: true
+  - type: dropdown
+    id: speed
+    attributes:
+      label: How was the speed?
+      options:
+        - "Fast enough"
+        - "Slow but acceptable"
+        - "Too slow"
+    validations:
+      required: true
+  - type: textarea
+    id: liked
+    attributes:
+      label: What worked well?
+    validations:
+      required: false
+  - type: textarea
+    id: improve
+    attributes:
+      label: What should we fix or add first?
+    validations:
+      required: false
+  - type: textarea
+    id: testimonial
+    attributes:
+      label: Testimonial (optional)
+      description: One or two sentences we could quote, in your own words.
+      placeholder: "LogLens found the OOM that took our checkout down in seconds, without sending a single log line off the box."
+    validations:
+      required: false
+  - type: input
+    id: attribution
+    attributes:
+      label: How should we credit you? (optional)
+      placeholder: "Priya S., SRE at Acme  /  @handle  /  anonymous"
+    validations:
+      required: false
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Permission to quote
+      options:
+        - label: LogLens may quote my testimonial publicly (website, README, social) with the credit above.
+          required: false

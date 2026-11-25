@@ -12,6 +12,7 @@ from loglens.detection.detector import DetectionResult
 from loglens.detection.ingestion import stream_command, stream_lines
 from loglens.detection.parser import StreamParser
 from loglens.detection.run import RunConfig, run
+from loglens.detection.textio import open_text
 from loglens.domain.models import Anomaly, LogEntry, _to_anomaly
 from loglens.infrastructure.llm import save_report
 
@@ -233,7 +234,7 @@ def analyze(
         entries, detected = _parse(lines, fmt)
         return analyze_entries(entries, cfg, baseline, fmt or detected)
     if cmd is None and source is not None and not _needs_loop(source):
-        with open(source, encoding="utf-8", errors="replace") as f:
+        with open_text(source) as f:
             entries, detected = _parse((ln.rstrip("\n") for ln in f), fmt)
         return analyze_entries(entries, cfg, baseline, fmt or detected)
 

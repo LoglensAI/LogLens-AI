@@ -64,10 +64,17 @@ def test_rejects_known_binary_extensions(tmp_path, name, frag):
         check_source(str(p))
 
 
-def test_compressed_gives_decompress_hint(tmp_path):
+def test_archive_gives_extract_hint(tmp_path):
+    p = tmp_path / "logs.zip"
+    p.write_bytes(b"PK\x03\x04")
+    with pytest.raises(InvalidSourceError, match="Extract the log file"):
+        check_source(str(p))
+
+
+def test_truncated_gzip_is_reported_as_corrupt(tmp_path):
     p = tmp_path / "logs.gz"
     p.write_bytes(b"\x1f\x8b\x08\x00")
-    with pytest.raises(InvalidSourceError, match="Decompress"):
+    with pytest.raises(InvalidSourceError, match="truncated or corrupt"):
         check_source(str(p))
 
 

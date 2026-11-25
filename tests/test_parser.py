@@ -188,3 +188,53 @@ def test_plain_json_still_works():
     assert entry.service == "auth"
     assert entry.level == "ERROR"
     assert "provider" not in entry.metadata
+
+
+# --- crash lines without a level, and exception lines in stack traces ---------
+
+
+def test_levelless_crash_lines_are_critical():
+    from loglens.detection.parser import infer_level
+
+    for text in (
+        "Out of memory: Killed process 4242 (java)",
+        "Segmentation fault (core dumped)",
+        "kernel: BUG: soft lockup - watchdog timeout",
+        "invoked oom-killer: gfp_mask=0x100cca",
+    ):
+        assert infer_level(text) == "CRITICAL", text
+    assert infer_level("worker ready") == "INFO"
+    assert infer_level("WARN disk at 80%") == "WARN"  # explicit level still wins
+
+
+def test_python_exception_line_stays_with_its_traceback():
+    from loglens.detection.parser import StreamParser
+
+    lines = [
+        "2026-01-01 10:00:00 INFO app: ok",
+        "2026-01-01 10:01:00 ERROR app: crash",
+        "Traceback (most recent call last):",
+        '  File "app.py", line 3, in <module>',
+        "    main()",
+        "ZeroDivisionError: division by zero",
+        "2026-01-01 10:02:00 INFO app: recovered",
+    ]
+    es = list(StreamParser().parse_all(lines))
+    assert [e.level for e in es] == ["INFO", "ERROR", "INFO"]
+    assert "ZeroDivisionError: division by zero" in es[1].message
+
+
+def test_java_exception_header_stays_with_its_error():
+    from loglens.detection.parser import StreamParser
+
+    lines = [
+        "2026-01-01 10:02:00,001 ERROR [main] c.e.App - Unhandled exception",
+        "java.lang.NullPointerException: user is null",
+        "\tat com.example.Service.get(Service.java:42)",
+        "Caused by: java.io.IOException: boom",
+        "\t... 3 more",
+        "2026-01-01 10:02:01,000 INFO  [main] c.e.App - next",
+    ]
+    es = list(StreamParser().parse_all(lines))
+    assert len(es) == 2
+    assert es[0].level == "ERROR" and "NullPointerException" in es[0].message

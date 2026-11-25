@@ -11,7 +11,7 @@ Complete guide to every LogLens command, flag, and workflow.
 1. [Installation](#installation)
 2. [Global usage](#global-usage)
 3. [`version`](#version)
-4. [`hello`](#hello)
+4. [`demo` and `feedback`](#demo-and-feedback) -try it on a bundled incident; send feedback
 5. [`analyze`](#analyze) -the main command
 6. [`watch`](#watch) -live log watching (docker, kubernetes, servers)
 7. [Using LogLens inside Python](#using-loglens-inside-python-the-sdk) -the SDK
@@ -50,7 +50,7 @@ loglens --help
 loglens [COMMAND] --help
 ```
 
-Available commands: `version`, `hello`, `analyze`, `watch`, `ask`, `benchmark`, `bench`.
+Main commands: `demo`, `analyze`, `explain`, `watch`, `ask`, `analyze-multi`, `explore`, `train`, `benchmark`, `bench`, `daemon`, `feedback`, `version`. Run `loglens --help` for the full list.
 
 ---
 
@@ -64,13 +64,22 @@ loglens version
 
 ---
 
-## `hello`
+## `demo` and `feedback`
 
-Health-check command that confirms LogLens is installed and runnable.
+`loglens demo` runs `analyze` on a bundled example incident (a web app's log with a
+payment-gateway timeout, a crash loop, a config error and a database running out
+of memory), then suggests the next commands to try. It needs no log file and
+doesn't touch your learned baselines. Add `--html demo.html` to also save the
+offline report.
 
 ```bash
-loglens hello
+loglens demo
+loglens demo --html demo.html
 ```
+
+`loglens feedback` prints your LogLens version, install type and OS (never log
+content) and a link to the beta feedback form with those details pre-filled. Use
+`loglens version` for a quick install check.
 
 ---
 
@@ -87,7 +96,7 @@ loglens analyze --source <PATH|URL|-> [OPTIONS]
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `SOURCE` | string | - | Log source as a positional argument: file path, URL, or `-` for stdin. |
+| `SOURCE` | string | - | Log source as a positional argument: file path, URL, or `-` for stdin. Files may be gzip/bz2/xz-compressed (`syslog.2.gz`) or UTF-16 (e.g. Windows PowerShell `>` redirects); LogLens decodes them itself. |
 | `--source` | string | - | Alternative to `SOURCE`: file path, URL, or `-` for stdin. |
 | `--dry-run` | flag | off | Stop after ingestion; show stats only (no detection). |
 | `--verbose` | flag | off | Show a sample parsed entry (field breakdown). |
@@ -348,6 +357,8 @@ print(result.summary())
 
 Each anomaly tells you: how bad (`level`), how confident (`score`, 0–1), what happened (`message`), where (`service`), and why it was flagged (`reasons`, in plain words).
 
+`result.incident` is `True` when a large share of the whole log is severe (the detector switched to incident mode). It is not the same as the CLI's `⚠ INCIDENT` badge, which appears as soon as any CRITICAL/FATAL family is found. To fail on a single critical problem, check the levels: `any(a.level in ("CRITICAL", "FATAL") for a in result.anomalies)`.
+
 **Use it when:** you want a script that checks last night's logs, a small dashboard, a daily report - anything where you have logs and want answers programmatically. Inside async apps (like FastAPI) use `await analyze_async(...)` - same thing, doesn't block your app.
 
 ### 2) `LogLensHandler` - your app raises its own alarm
@@ -491,6 +502,7 @@ That "likely cause" line is the point: whoever sees the alert instantly knows *w
 Ask a free-form question about a log file. LogLens detects anomalies locally, then sends only grouped anomaly summaries to the LLM to answer your question.
 
 ```bash
+loglens ask <PATH> "<QUESTION>" [OPTIONS]
 loglens ask "<QUESTION>" --source <PATH> [OPTIONS]
 ```
 

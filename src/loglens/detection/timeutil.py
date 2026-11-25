@@ -23,6 +23,22 @@ _DUR_SECS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
 _SPARK = "▁▂▃▄▅▆▇█"
 
 
+def _parse_yearless(core: str, fmt: str) -> datetime | None:
+    """Syslog-style stamps ("Jan  1 10:00:00") carry no year. Assume the current
+    year, stepping back when that would land in the future (a December log read
+    in January) or the day doesn't exist (Feb 29). Parsing without a year fails
+    on leap days and is deprecated (changes in Python 3.15)."""
+    now = datetime.now()
+    for year in range(now.year, now.year - 5, -1):
+        try:
+            dt = datetime.strptime(f"{year} {core}", f"%Y {fmt}")
+        except ValueError:
+            continue
+        if dt <= now + timedelta(days=1):
+            return dt
+    return None
+
+
 def parse_ts(value: str) -> datetime | None:
 
     if not value:
@@ -38,6 +54,11 @@ def parse_ts(value: str) -> datetime | None:
             return None
     core = _ISO_TZ.sub("", s).strip()
     for fmt in _TS_PATTERNS:
+        if "%Y" not in fmt:
+            dt = _parse_yearless(core, fmt)
+            if dt is not None:
+                return dt
+            continue
         try:
             return datetime.strptime(core, fmt)
         except ValueError:

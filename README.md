@@ -252,8 +252,19 @@ Scoop, code-signing notes, and environment toggles.
 
 ## Quick Start
 
+**Try it in 60 seconds** (no log file needed):
+
 ```bash
-# Analyze a log file
+pip install loglensai
+loglens demo
+```
+
+`loglens demo` runs LogLens on a bundled incident log, a web app with a payment
+timeout, a crash loop, a config error and a database running out of memory hidden
+in normal traffic, and shows what it finds and why. Then point it at your own logs:
+
+```bash
+# Analyze a log file (plain, .gz/.bz2/.xz, or UTF-16 from Windows)
 loglens analyze app.log
 
 # Use the optimized high-throughput detector
@@ -277,6 +288,21 @@ loglens ask "why did the payment service start timing out?" --source app.log
 # Run the reproducible benchmark
 loglens benchmark labeled.log --min-f1 0.90
 ```
+
+---
+
+### Testing LogLens? Tell us how it went
+
+We are collecting feedback from early users. After you've tried it on real logs, run:
+
+```bash
+loglens feedback
+```
+
+It prints your version and OS (nothing from your logs) and a link to a two-minute
+[feedback form](https://github.com/LoglensAI/LogLens-AI/issues/new?template=beta_feedback.yml):
+did it find the real problem, how noisy was it, and, if you like, a testimonial we
+may quote. Bugs go to the [bug report form](https://github.com/LoglensAI/LogLens-AI/issues/new?template=bug_report.yml).
 
 ---
 

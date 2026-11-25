@@ -8,9 +8,12 @@ _JAVA = re.compile(r"at (?P<func>[\w$.<>]+)\((?P<file>[\w$.]+\.\w+):(?P<line>\d+
 _NODE = re.compile(
     r"at (?:(?P<func>[^\s(]+) )?\(?(?P<file>(?:/|\.|[A-Za-z]:\\)[^\s():]+):(?P<line>\d+)(?::\d+)?\)?"
 )
-_GO = re.compile(r"(?P<file>[\w./-]+\.go):(?P<line>\d+)")
+# Path patterns start only at a path-run boundary (same matches); otherwise a long
+# run of path characters is rescanned from every position, which is quadratic.
+_GO = re.compile(r"(?<![\w./-])(?P<file>[\w./-]+\.go):(?P<line>\d+)")
 _GENERIC = re.compile(
-    r"(?P<file>(?:[\w./\\-]+[/\\])?[\w.-]+\.(?:py|js|ts|go|rb|java|rs|c|cc|cpp|h|hpp|php|cs|kt|scala|swift|ex|exs)):(?P<line>\d+)"
+    r"(?<![\w./\\-])"
+    r"(?P<file>(?:[\w./\\-]*[/\\])?[\w.-]+\.(?:py|js|ts|go|rb|java|rs|c|cc|cpp|h|hpp|php|cs|kt|scala|swift|ex|exs)):(?P<line>\d+)"
 )
 _FRAME_HINT = re.compile(r'^\s*(?:at |File ")|^\s*\.{3}|Traceback|Caused by:')
 _LIB_HINT = re.compile(

@@ -11,11 +11,19 @@ from typing import Any
 logger = logging.getLogger("loglens.workerpool")
 
 
-def _ctx():
-    try:
-        return mp.get_context("spawn")
-    except ValueError:
-        return mp.get_context()
+def mp_context():
+    """Start method for worker processes: never fork, which is unsafe once the
+    parent has threads (asyncio executors, BLAS). forkserver forks from a clean
+    single-threaded server, so it is safe and faster than spawn where available."""
+    for method in ("forkserver", "spawn"):
+        try:
+            return mp.get_context(method)
+        except ValueError:
+            continue
+    return mp.get_context()
+
+
+_ctx = mp_context
 
 
 @dataclass(slots=True)

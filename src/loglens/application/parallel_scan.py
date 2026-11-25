@@ -27,12 +27,12 @@ def _analyze_slice(payload: dict[str, Any]) -> dict[str, Any]:
 
     t0 = time.monotonic()
     entries = []
-    with open(path, encoding="utf-8", errors="replace") as fh:
+    with open(path, "rb") as fh:
         fh.seek(start)
         pos = start
-        for line in fh:
-            pos += len(line.encode("utf-8", "replace"))
-            s = line.rstrip("\n")
+        for raw in fh:
+            pos += len(raw)
+            s = raw.decode("utf-8", "replace").rstrip("\r\n")
             if s:
                 e = parse_line(s, fmt, layout)
                 if e is not None:
@@ -56,7 +56,9 @@ def _analyze_slice(payload: dict[str, Any]) -> dict[str, Any]:
     if model_path:
         from loglens.application.api import apply_supervised_head
 
-        res = apply_supervised_head(res, model_path)
+        res = apply_supervised_head(
+            res, model_path, is_default=bool(payload.get("model_is_default"))
+        )
 
     hist: dict[str, dict[int, int]] = {}
     min_ep: float | None = None
@@ -149,6 +151,7 @@ def parallel_analyze_file(
     fmt: str | None = None,
     limit: int = 20,
     model: str | None = None,
+    model_is_default: bool = False,
     on_progress=None,
     on_event=None,
 ) -> dict[str, Any]:
@@ -159,7 +162,11 @@ def parallel_analyze_file(
     one jump at the end.
     """
     from loglens.detection.parser import sniff_format
+    from loglens.detection.textio import as_plain_utf8
     from loglens.detection.turbo import split_chunks
+
+    display_path = path
+    path = as_plain_utf8(path)  # byte-range slicing needs plain UTF-8
 
     for v in _THREAD_VARS:
         os.environ[v] = "1"
@@ -186,6 +193,7 @@ def parallel_analyze_file(
             "sensitivity": sensitivity,
             "threshold": threshold,
             "model": model or "",
+            "model_is_default": model_is_default,
         }
         for s, e in chunks
     ]
@@ -259,7 +267,7 @@ def parallel_analyze_file(
     flagged_lines = sum(f["count"] for f in families)
     return {
         "schema": "loglens.parallel.v2",
-        "source": path,
+        "source": display_path,
         "mode": mode,
         "supervised": bool(model),
         "model": model or "",

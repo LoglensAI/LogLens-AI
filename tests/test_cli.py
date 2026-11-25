@@ -353,10 +353,12 @@ def test_fail_on_default_does_not_gate(tmp_path: Path):
     assert result.exit_code == 0
 
 
-def test_fail_on_unknown_threshold_does_not_gate(tmp_path: Path):
+def test_fail_on_unknown_threshold_is_rejected(tmp_path: Path):
     log = _write_log(tmp_path)
     result = runner.invoke(app, ["analyze", "--source", log, "--fail-on", "bogus", "--no-model"])
-    assert result.exit_code == 0  # a typo must never silently fail (or pass) a build wrongly
+    # A typo used to print "Not gating" and exit 0, silently disabling the CI gate.
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output
 
 
 # --- P1.5: determinism --------------------------------------------------------- #

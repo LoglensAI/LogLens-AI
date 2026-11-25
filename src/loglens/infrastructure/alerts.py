@@ -217,7 +217,7 @@ class AlertDispatcher:
     def _key(a: Anomaly) -> str:
         import re
 
-        masked = re.sub(r"\S*\d\S*", "<id>", a.message.lower())
+        masked = re.sub(r"(?<!\S)\S*\d\S*", "<id>", a.message.lower())
         return f"{a.level.upper()}|{a.service}|{masked[:120]}"
 
     def _allowed(self, a: Anomaly) -> bool:

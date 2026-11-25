@@ -104,7 +104,7 @@ def test_run_parallel_total_failure_retries_then_exits(monkeypatch, tmp_path, ca
 
     calls = []
 
-    def fake(path, *, mode, workers, limit, model, on_progress=None, on_event=None):
+    def fake(path, *, mode, workers, limit, model, on_progress=None, on_event=None, **_kw):
         calls.append(workers)
         if on_progress:
             on_progress(workers, workers)

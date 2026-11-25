@@ -27,10 +27,7 @@ _REJECT_EXT = {
     ".mov": "a video file",
     ".avi": "a video file",
     ".zip": "a compressed archive",
-    ".gz": "a compressed archive",
     ".tgz": "a compressed archive",
-    ".bz2": "a compressed archive",
-    ".xz": "a compressed archive",
     ".7z": "a compressed archive",
     ".rar": "a compressed archive",
     ".tar": "an archive",
@@ -45,7 +42,7 @@ _REJECT_EXT = {
     ".db": "a database file",
 }
 
-_COMPRESSED_EXT = {".gz", ".tgz", ".bz2", ".xz", ".7z", ".rar", ".zip"}
+_COMPRESSED_EXT = {".tgz", ".7z", ".rar", ".zip"}
 
 
 class InvalidSourceError(Exception):
@@ -95,16 +92,30 @@ def check_source(source: str) -> None:
         label = _REJECT_EXT[ext]
         hint = ""
         if ext in _COMPRESSED_EXT:
-            hint = " Decompress it first (e.g. `gunzip` / `unzip`) and pass the plain-text log."
+            hint = (
+                " Extract the log file first (single-file .gz, .bz2 and .xz logs are"
+                " read directly)."
+            )
         raise InvalidSourceError(
             f"'{source}' looks like {label}, which LogLens can't parse. "
             f"LogLens reads plain-text logs.{hint}"
         )
 
+    from loglens.detection.textio import head_text
+
     try:
-        with open(source, "rb") as f:
-            sample = f.read(_SNIFF_BYTES)
-    except OSError as e:
+        # Decompressed and decoded (gzip/bz2/xz, UTF-16/32), re-encoded as UTF-8.
+        sample, _enc = head_text(source, _SNIFF_BYTES)
+    except EOFError as e:
+        raise InvalidSourceError(
+            f"'{source}' looks like a truncated or corrupt compressed file. "
+            "Check the download/copy, or decompress it yourself to see the error."
+        ) from e
+    except (OSError, ValueError) as e:
+        if "gzip" in str(e).lower() or "compressed" in str(e).lower():
+            raise InvalidSourceError(
+                f"'{source}' looks like a truncated or corrupt compressed file: {e}"
+            ) from e
         raise InvalidSourceError(f"Can't read '{source}': {e}") from e
 
     if _looks_binary(sample):

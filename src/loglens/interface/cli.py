@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markup import escape as escape_markup
 from rich.panel import Panel
 from rich.table import Table
 
@@ -48,6 +49,9 @@ _CLEAN_ERRORS: tuple[type[BaseException], ...] = (
 def _print_clean_error(msg: str) -> None:
     """Print a user-facing error as a clean one-liner (no traceback)."""
     first, _, rest = msg.partition("\n")
+    if console.quiet:  # JSON mode mutes the console; errors must still show
+        sys.stderr.write(f"[LogLens] {msg}\n")
+        return
     try:
         console.print(f"[bold red][LogLens][/bold red] {first}")
         if rest:
@@ -149,8 +153,10 @@ INFO_KEYWORDS = {"error", "fail", "timeout", "refused", "crash", "panic", "oom",
 # Severity a --fail-on threshold maps to (fail if any anomaly is this bad or worse).
 _FAIL_ON_RANK = {
     "emergency": 0,
-    "fatal": 1,
     "alert": 1,
+    # The parser normalises FATAL to CRITICAL, so "fatal" must gate at that level
+    # or it could never trip on a log that says FATAL.
+    "fatal": 2,
     "critical": 2,
     "error": 3,
     "warning": 4,
@@ -233,12 +239,28 @@ async def _collect_entries(
     of falling back to ``service=unknown``. Returns
     ``(entries, line_count, fmt, confidence, layout)``.
     """
+    from loglens.detection.parser import _MAX_CONTINUATION, attach_continuation, is_continuation
+
     line_count = 0
     entries: list[Any] = []
     sample_buf: list[str] = []
     fmt: str | None = None
     confidence = 0.0
     layout: dict[str, Any] = {}
+    run = 0  # continuation lines attached to the current entry
+
+    def _add(raw_line: str) -> None:
+        # Stack frames and exception lines join the entry they belong to, so an
+        # ERROR keeps its trace and frames don't become separate INFO entries.
+        nonlocal run
+        if entries and run < _MAX_CONTINUATION and is_continuation(raw_line):
+            attach_continuation(entries[-1], raw_line, into_message=False)
+            run += 1
+            return
+        e = parse_line(raw_line, fmt or "PLAINTEXT", layout)
+        if e is not None:
+            entries.append(e)
+            run = 0
 
     async for line in stream_lines(source):
         line_count += 1
@@ -247,21 +269,15 @@ async def _collect_entries(
             if len(sample_buf) >= sniff_n:
                 fmt, confidence, layout = sniff_format(sample_buf)
                 for buffered in sample_buf:
-                    e = parse_line(buffered, fmt, layout)
-                    if e is not None:
-                        entries.append(e)
+                    _add(buffered)
                 sample_buf = []
             continue
-        e = parse_line(line, fmt, layout)
-        if e is not None:
-            entries.append(e)
+        _add(line)
 
     if fmt is None:  # source smaller than the sniff window
         fmt, confidence, layout = sniff_format(sample_buf)
         for buffered in sample_buf:
-            e = parse_line(buffered, fmt, layout)
-            if e is not None:
-                entries.append(e)
+            _add(buffered)
 
     return entries, line_count, fmt or "PLAINTEXT", confidence, layout
 
@@ -445,6 +461,57 @@ def _emit_json(
     print(json.dumps(payload, indent=2))
 
 
+_SORT_CHOICES = ("recent", "severity", "time", "service")
+_FORMAT_CHOICES = ("terminal", "text", "json")
+
+
+def _require_source(source: str, command: str, example: str = "") -> str:
+    """Exit with a usage hint when a command got no log source."""
+    if source:
+        return source
+    tail = f" {example}" if example else ""
+    console.print(
+        f"[bold red][LogLens][/bold red] provide a log source: "
+        f"`loglens {command} <path>{tail}` or `loglens {command} --source <path>{tail}`"
+    )
+    raise typer.Exit(code=1)
+
+
+def _validate_analyze_options(sort_by: str, output_format: str, fail_on: str) -> None:
+    """Reject bad option values up front instead of silently ignoring them.
+
+    A mistyped --fail-on used to print "Not gating" and exit 0, so a CI gate
+    could pass a broken build without anyone noticing.
+    """
+    if sort_by.strip().lower() not in _SORT_CHOICES:
+        raise typer.BadParameter(
+            f"{sort_by!r} is not one of: {', '.join(_SORT_CHOICES)}", param_hint="--sort-by"
+        )
+    if output_format.strip().lower() not in _FORMAT_CHOICES:
+        raise typer.BadParameter(
+            f"{output_format!r} is not one of: terminal, json", param_hint="--format"
+        )
+    key = (fail_on or "").strip().lower()
+    if key and key != "none" and key not in _FAIL_ON_RANK:
+        raise typer.BadParameter(
+            f"{fail_on!r} is not one of: {', '.join(sorted(_FAIL_ON_RANK))}",
+            param_hint="--fail-on",
+        )
+
+
+def _report_error(msg: str, as_json: bool) -> None:
+    """Show an error even when JSON mode has muted the console.
+
+    Always goes to stderr; in JSON mode stdout also gets a loglens.v1 error
+    document, so a pipeline parsing stdout sees why there is no result.
+    """
+    if as_json:
+        print(json.dumps({"schema": "loglens.v1", "version": __version__, "error": msg}))
+        sys.stderr.write(f"[LogLens] {msg}\n")
+    else:
+        console.print(f"[bold red][LogLens][/bold red] {msg}")
+
+
 def _apply_fail_on(fail_on: str, items: list[dict[str, Any]]) -> None:
     """Exit non-zero if any anomaly meets/exceeds the --fail-on severity.
 
@@ -626,6 +693,75 @@ def version(
         )
 
 
+_FEEDBACK_URL = "https://github.com/LoglensAI/LogLens-AI/issues/new"
+
+
+@app.command()
+def demo(
+    html_out: str = typer.Option(
+        "", "--html", help="Also save the offline HTML report, e.g. --html demo.html"
+    ),
+):
+    """See LogLens on a bundled example incident: no log file or setup needed."""
+    from importlib.resources import as_file, files
+
+    console.print(
+        Panel(
+            "A web app's log: two quiet minutes of normal traffic, then a payment\n"
+            "gateway timeout, a crash loop, a config error and a database running out\n"
+            "of memory, buried in 155 lines. Watch LogLens find them.",
+            title="[bold cyan]LogLens demo[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+    argv = ["analyze", "", "--no-learn"]
+    if html_out:
+        argv += ["--html", html_out]
+    with as_file(files("loglens") / "assets" / "demo_incident.log") as demo_log:
+        argv[1] = str(demo_log)
+        app(argv, standalone_mode=False)
+    console.print(
+        Panel(
+            "[bold]Now try it on your own logs[/bold]\n"
+            "  loglens analyze /path/to/app.log         find what went wrong\n"
+            "  loglens explain /path/to/app.log         incident cards with timelines\n"
+            '  loglens watch "docker logs -f my-api"    flag problems live\n'
+            "  loglens analyze app.log --fail-on error  gate a CI/CD build\n\n"
+            "Compressed (.gz) and Windows UTF-16 logs work as-is.\n"
+            "[bold]Tell us how it went:[/bold] loglens feedback",
+            border_style="green",
+        )
+    )
+
+
+@app.command()
+def feedback():
+    """Report a bug, share feedback or a testimonial (prints details to paste)."""
+    import platform
+    from urllib.parse import urlencode
+
+    info = _build_info()
+    install = "native binary" if getattr(sys, "frozen", False) else "pip / source"
+    env = (
+        f"LogLens {info['version']} ({install}, commit {info['commit']})\n"
+        f"{platform.system()} {platform.release()} {platform.machine()} · "
+        f"Python {platform.python_version()}"
+    )
+    url = f"{_FEEDBACK_URL}?{urlencode({'template': 'beta_feedback.yml', 'environment': env})}"
+    console.print(
+        Panel(
+            f"[bold]Your setup[/bold] (already filled in on the form):\n{escape_markup(env)}\n\n"
+            "[bold]Share feedback or a testimonial:[/bold]\n"
+            f"[link={url}]{_FEEDBACK_URL}[/link]  (choose [italic]Beta feedback[/italic])\n\n"
+            "[dim]Found a bug? The same page has a bug report form. Please never paste "
+            "secrets or private log lines.[/dim]",
+            title="[bold cyan]Thanks for testing LogLens[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+    print(url)
+
+
 @app.command("help")
 def help_command(ctx: typer.Context):
     """Show the list of commands (same as `loglens --help`)."""
@@ -772,6 +908,7 @@ def _run_parallel(
             workers=nw,
             limit=limit,
             model=model,
+            model_is_default=used_default,
             on_progress=progress,
             on_event=None,
         )
@@ -872,9 +1009,9 @@ def _run_parallel(
     )
 
     try:
-        from loglens.application.results_store import save_results
+        from loglens.application.results_store import default_results_path, save_results
 
-        out = source + ".loglens.json"
+        out = default_results_path(source)
         save_results(out, result)
         console.print(
             f"[bold cyan][LogLens][/bold cyan] results saved → explore them with "
@@ -1037,13 +1174,15 @@ def analyze(
     ),
 ):
     """Analyze a log file for anomalies (fast / turbo / deep, with CI/CD gating)."""
+    _validate_analyze_options(sort_by, output_format, fail_on)
     _apply_cap_flags(max_cluster_groups, max_synonym_vocab)
     source = source or path or ""
     if not source:
-        console.print(
-            "[bold red][LogLens][/bold red] provide a log source using either command form:\n"
+        _report_error(
+            "provide a log source using either command form:\n"
             "  `loglens analyze <path>`\n"
-            "  `loglens analyze --source <path>`"
+            "  `loglens analyze --source <path>`",
+            output_format.strip().lower() == "json",
         )
         raise typer.Exit(code=1)
     _run_start = time.perf_counter()
@@ -1061,7 +1200,7 @@ def analyze(
     try:
         check_source(source)
     except InvalidSourceError as _e:
-        console.print(f"[bold red][LogLens][/bold red] {_e}")
+        _report_error(str(_e), as_json)
         raise typer.Exit(code=1) from None
 
     # --- self-tuning load distribution -----------------------------------
@@ -1292,7 +1431,15 @@ def analyze(
             return
 
         if not entries:
-            console.print("[bold red]No valid log entries found.[/bold red]")
+            if as_json:
+                _emit_json(
+                    source, "deep" if deep else "fast", line_count, 0, False, [], alert_budget
+                )
+            else:
+                console.print(
+                    "[bold yellow][LogLens][/bold yellow] No log entries found "
+                    "(the source is empty or has only blank lines)."
+                )
             return
 
         if deep:
@@ -1443,7 +1590,12 @@ def analyze(
             try:
                 head = SupervisedHead.load(model_path)
             except Exception as exc:
-                console.print(f"[bold red]Could not load model '{model_path}': {exc}[/bold red]")
+                why = (
+                    "file not found"
+                    if isinstance(exc, FileNotFoundError)
+                    else "not a LogLens model file (create one with `loglens train`)"
+                )
+                _report_error(f"Could not load model '{model_path}': {why}", as_json)
                 raise typer.Exit(code=1) from exc
             if used_default:
                 console.print(
@@ -1458,8 +1610,20 @@ def analyze(
                     f"[magenta]{model_path}[/magenta] [dim](supervised head)[/dim]"
                 )
             _scores = _np.array([getattr(e, "anomaly_score", 0.0) for e in entries], dtype=float)
-            _preds = head.predict(build_feature_matrix(entries, _scores))
-            anomalies = [e for e, p in zip(entries, _preds, strict=False) if int(p) == 1]
+            _keep = _np.asarray(head.predict(build_feature_matrix(entries, _scores)), dtype=bool)
+            if used_default:
+                from loglens.application.api import default_head_protected
+
+                _protected = default_head_protected(entries, _scores)
+                _rescued = int((_protected & ~_keep).sum())
+                _keep |= _protected
+                if _rescued:
+                    console.print(
+                        f"[dim][LogLens] Kept {_rescued} high-confidence error(s) the bundled "
+                        "model would have filtered (errors are rare in this log, so each one "
+                        "counts)[/dim]"
+                    )
+            anomalies = [e for e, k in zip(entries, _keep, strict=False) if k]
 
         if explain:
             ranked = sorted(entries, key=lambda e: getattr(e, "anomaly_score", 0.0), reverse=True)[
@@ -1682,7 +1846,11 @@ def analyze(
                 window_seconds=_window,
             )
             _over = [b for b in _budgets if not b.within_budget]
-            if _over:
+            # A daily rate extrapolated from under an hour of log is noise, not a
+            # signal; stay quiet (the JSON report still carries the numbers).
+            if _window is not None and _window < 3600:
+                pass
+            elif _over:
                 parts = [
                     f"[yellow]{b.service}[/yellow] ~{b.measured_per_day:g}/day" for b in _over[:4]
                 ]
@@ -1716,7 +1884,7 @@ def analyze(
                     "[dim][LogLens] 🤖 A supervised head trained on your usage is ready — "
                     "rerun with [magenta]--model auto[/magenta] for a second opinion.[/dim]"
                 )
-            elif groups:
+            elif groups and learn:
                 console.print(
                     "[dim][LogLens] Not the results you expected? LogLens is auto-building a "
                     "supervised head from your usage (use it later with [magenta]--model auto"
@@ -1806,7 +1974,10 @@ def _explain_frames_str(frames: list) -> str:
 
 @app.command()
 def explain(
-    source: str = typer.Option(..., "--source", help="Log source: file path, URL, or stdin"),
+    path: str = typer.Argument(
+        None, help="Log source path, URL, or '-' for stdin. Use this or --source."
+    ),
+    source: str = typer.Option("", "--source", help="Log source: file path, URL, or stdin"),
     last: str = typer.Option(
         "24h",
         "--last",
@@ -1848,6 +2019,7 @@ def explain(
     """Explain anomalies as descriptive incident cards — when it happened, how often
     (frequency + timeline), and where (polished stack trace / source location) —
     within a time window (default: the last 24h of the log)."""
+    source = _require_source(source or path or "", "explain")
     import datetime as _dt
 
     from rich.markup import escape
@@ -2238,10 +2410,14 @@ def explain(
 
 @app.command()
 def ask(
-    question: str = typer.Argument(
-        ..., help='Free-form question about the log, e.g. "why did db-service degrade?"'
+    first: str = typer.Argument(
+        ...,
+        metavar="[PATH] QUESTION",
+        help='Log path then question: loglens ask app.log "why did db degrade?" '
+        "(or just the question with --source).",
     ),
-    source: str = typer.Option(..., help="Log source: file path"),
+    second: str = typer.Argument(None, hidden=True),
+    source: str = typer.Option("", "--source", help="Log source: file path"),
     deep: bool = typer.Option(False, "--deep", help="Use neural embeddings for detection"),
     provider: str = typer.Option("", "--provider", help="LLM provider: openai | azure | groq"),
     llm_model: str = typer.Option("", "--llm-model", help="LLM model / Azure deployment name"),
@@ -2250,7 +2426,18 @@ def ask(
     ),
 ):
     """Ask a natural-language question about a log (AI, needs an LLM key)."""
+    if second is not None:
+        path, question = first, second
+    else:
+        path, question = "", first
+    source = _require_source(source or path, "ask", example='"why did db degrade?"')
     _load()
+    try:  # fail fast on a missing LLM setup, before spending time on detection
+        LLMConfig.from_env(provider=provider, model=llm_model, api_key=api_key)
+    except LLMError as e:
+        console.print(f"[bold red][LogLens][/bold red] {e}")
+        _print_llm_config_hint()
+        raise typer.Exit(code=1) from None
 
     async def _run():
         console.print(f"\n[bold cyan][LogLens][/bold cyan] Source: [yellow]{source}[/yellow]")
@@ -3012,8 +3199,11 @@ def watch(
 
 @app.command("analyze-multi")
 def analyze_multi(
+    paths: list[str] = typer.Argument(
+        None, help="Log sources (same forms as --source). Use these and/or --source."
+    ),
     source: list[str] = typer.Option(
-        ...,
+        [],
         "--source",
         help="A log source (repeatable). Forms: PATH, ID=PATH, ID=cmd:CMD, ID=https://URL. "
         "Each source gets its own pipeline; a noisy source can't distort another's baseline.",
@@ -3056,6 +3246,14 @@ def analyze_multi(
     from loglens.application.multisource import analyze_sources
     from loglens.application.pipeline import OverflowPolicy
     from loglens.application.sources import parse_sources
+
+    source = [*(paths or []), *(source or [])]
+    if not source:
+        console.print(
+            "[bold red][LogLens][/bold red] give at least one source: "
+            "`loglens analyze-multi app.log db.log` (or repeat --source)"
+        )
+        raise typer.Exit(code=1)
 
     as_json = output_format.lower() == "json"
     console.quiet = as_json

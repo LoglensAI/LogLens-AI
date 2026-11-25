@@ -31,7 +31,9 @@ _MASKS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\b\d+(\.\d+)?\b"), "<num>"),
     (re.compile(r'"[^"]*"'), "<str>"),
     (re.compile(r"'[^']*'"), "<str>"),
-    (re.compile(r"\S*\d\S*"), "<id>"),
+    # Anchored to token starts (same matches): unanchored, a long digit-free run
+    # is rescanned from every character, which is quadratic.
+    (re.compile(r"(?<!\S)\S*\d\S*"), "<id>"),
 ]
 
 _WS = re.compile(r"\s+")
