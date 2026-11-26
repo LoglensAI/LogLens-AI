@@ -63,8 +63,9 @@ def test_summary_empty_is_clean(gh):
 def test_annotations_map_severity(gh, capsys):
     gh._emit_annotations(_DATA)
     out = capsys.readouterr().out
-    assert "::error title=LogLens: CRITICAL in db::" in out
-    assert "::warning title=LogLens: WARNING in api::" in out
+    # ":" in a property is escaped as %3A; GitHub shows it as ":" again.
+    assert "::error title=LogLens%3A CRITICAL in db::" in out
+    assert "::warning title=LogLens%3A WARNING in api::" in out
 
 
 def test_emoji(gh):

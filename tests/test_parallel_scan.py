@@ -26,7 +26,7 @@ def test_runs_and_groups_into_families_single_worker():
 
 
 def test_multi_slice_covers_all_lines():
-    r = parallel_analyze_file(_log("rate_burst.log"), mode="fast", workers=4, oversplit=3)
+    r = parallel_analyze_file(_log("rate_burst.log"), mode="fast", workers=4, slice_lines=50)
     # byte-range split is a partition → every line counted once
     assert r["lines_parsed"] == 410
     assert r["slices"] >= 4
@@ -38,12 +38,12 @@ def test_progress_fires_many_steps():
         _log("hdfs_sessions.log"),
         mode="fast",
         workers=2,
-        oversplit=4,
+        slice_lines=50,
         on_progress=lambda done, total: seen.append((done, total)),
     )
     assert seen, "progress never fired"
     assert seen[-1][0] == seen[-1][1]  # completes to total
-    # oversplit → more steps than workers, so ETA can appear early
+    # many small slices → many progress steps, so an ETA can appear early
     assert seen[-1][1] >= 4
 
 
@@ -54,8 +54,8 @@ def test_thread_caps_are_set():
 
 
 def test_deterministic():
-    a = parallel_analyze_file(_log("service_outage.log"), mode="fast", workers=2, oversplit=2)
-    b = parallel_analyze_file(_log("service_outage.log"), mode="fast", workers=2, oversplit=2)
+    a = parallel_analyze_file(_log("service_outage.log"), mode="fast", workers=2, slice_lines=50)
+    b = parallel_analyze_file(_log("service_outage.log"), mode="fast", workers=2, slice_lines=50)
     assert a["family_count"] == b["family_count"]
     assert a["families"] == b["families"]
     assert a["lines_parsed"] == b["lines_parsed"]

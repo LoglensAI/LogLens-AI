@@ -6,6 +6,17 @@ reproducible with the commands below. Algorithms in `fast` / `turbo` modes are
 written from scratch (no ML anomaly libraries); `deep` mode adds AI semantic
 embeddings.
 
+> **Status (2026-11-25): re-verification pending.** The 500k BGL figures on
+> this page were measured on the 2026-07-11 build. An independent QA run of the
+> commands below on v0.13.1 measured **F1 0.305** at threshold 0.8339 (recall
+> 0.258), with the best F1 of a threshold sweep at **0.820** (threshold 0.572).
+> Two later changes affect this run: the parameter-anomaly detector added on
+> 2026-09-30 (its false positives on BGL are fixed on `main`; on the 2k sample
+> this restored the July sweep results exactly), and the detection caps added on
+> 2026-10-08 (`LOGLENS_MAX_CLUSTER_GROUPS`, `LOGLENS_MAX_SYNONYM_VOCAB`), which
+> only apply to large files. These figures will be re-measured before the next
+> release; until then treat them as historical.
+
 ## Headline
 
 > On **500,000 lines** of real supercomputer logs (Loghub BGL), LogLens AI

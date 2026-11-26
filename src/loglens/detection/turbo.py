@@ -68,12 +68,38 @@ def split_chunks(path: str, n: int) -> list[tuple[int, int]]:
     return [(bounds[i], bounds[i + 1]) for i in range(len(bounds) - 1) if bounds[i] < bounds[i + 1]]
 
 
+def file_format(path: str) -> str | None:
+    """The format every chunk of ``path`` is parsed with: the one detected from
+    the file's first non-empty line, as a single-worker scan has always used.
+
+    Detecting it per chunk from each chunk's first line made results depend on
+    where chunk boundaries fell, i.e. on the worker count: a chunk starting on a
+    stack-trace or other continuation line was parsed as PLAINTEXT, changing
+    every template key in it, and one starting on a JSON line read ERROR lines
+    as INFO. Using one format for the whole file gives every worker count the
+    single-worker result.
+    """
+    from loglens.detection.parser import detect_format
+
+    with open(path, "rb") as f:
+        for raw in f:
+            s = raw.decode("utf-8", "replace").rstrip("\r\n")
+            if s:
+                return detect_format(s)
+    return None
+
+
 def _process_range(args) -> dict[tuple[str, str], list]:
     from loglens.detection.parser import detect_format, parse_line
 
-    path, start, end = args
+    # (path, start, end, fmt). The 3-tuple form is kept for callers that
+    # predate whole-file format detection; it detects per chunk.
+    if len(args) == 4:
+        path, start, end, fmt = args
+    else:
+        path, start, end = args
+        fmt = None
     local: dict[tuple[str, str], list] = {}
-    fmt: str | None = None
     # Binary mode keeps pos an exact byte offset (text mode turns CRLF into LF,
     # so slices overlapped and double-counted lines on Windows-style files).
     with open(path, "rb") as f:
@@ -177,16 +203,20 @@ def scan_file(
     w = workers or auto_workers(size, **auto_kw)
     chunks = split_chunks(path, w)
     w = len(chunks)
+    # One format for the whole file, so the result does not depend on where
+    # chunk boundaries fall (i.e. on the worker count).
+    fmt = file_format(path)
+    jobs = [(path, s, e, fmt) for s, e in chunks]
 
     merged: dict[tuple[str, str], list] = {}
     if w == 1:
-        merged = _process_range((path, chunks[0][0], chunks[0][1]))
+        merged = _process_range(jobs[0])
     else:
         try:
             # Not the platform default: on Linux that is fork, and scan_file runs in
             # an event-loop worker thread, so forking here could deadlock the child.
             with _mp_context().Pool(w) as pool:
-                for local in pool.imap(_process_range, [(path, s, e) for s, e in chunks]):
+                for local in pool.imap(_process_range, jobs):
                     for k, v in local.items():
                         slot = merged.get(k)
                         if slot is None:
@@ -202,8 +232,8 @@ def scan_file(
                 exc,
             )
             merged = {}
-            for s, e in chunks:
-                for k, v in _process_range((path, s, e)).items():
+            for job in jobs:
+                for k, v in _process_range(job).items():
                     slot = merged.get(k)
                     if slot is None:
                         merged[k] = v

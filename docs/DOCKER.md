@@ -41,6 +41,8 @@ Traditional log platforms hand you a score and an invoice. LogLens AI hands you 
 
 Measured on real, labeled production logs (Loghub **BGL: 500,000 lines, 206,847 alerts**). Fully reproducible with the built-in `benchmark` command - don't trust us, verify it.
 
+> Measured on the 2026-07-11 build; re-verification on v0.13.x is pending — see [BENCHMARK.md](BENCHMARK.md).
+
 | Mode | Precision | Recall | **F1** | Speed | Missed alerts |
 |------|:---------:|:------:|:------:|:-----:|:-------------:|
 | ⚡ **fast** | 0.901 | **1.000** | 0.948 | ~6,700 l/s | **0** |

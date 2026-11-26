@@ -77,7 +77,6 @@ if TYPE_CHECKING:
     from loglens.detection.speedbench import bench_file, to_markdown
     from loglens.detection.templates import TemplateRegistry
     from loglens.detection.turbo import scan_file as turbo_scan
-    from loglens.detection.worker import run_worker_pool
     from loglens.infrastructure.llm import LLMConfig, LLMError, run_ask, run_rca, save_report
     from loglens.infrastructure.output.html_report import render_html_report
 
@@ -106,7 +105,6 @@ def _load():
     from loglens.detection.speedbench import bench_file, to_markdown  # noqa: F401
     from loglens.detection.templates import TemplateRegistry  # noqa: F401
     from loglens.detection.turbo import scan_file as turbo_scan  # noqa: F401
-    from loglens.detection.worker import run_worker_pool  # noqa: F401
     from loglens.infrastructure.output.html_report import render_html_report  # noqa: F401
 
     try:
@@ -1693,31 +1691,11 @@ def analyze(
                 f"[{color}]{lvl:<10}[/{color}] : [bold]{level_counts[lvl]:,}[/bold]"
             )
 
-        # --- worker pool ---
-        progress = LiveProgress(total=len(entries))
-        processed_count = 0
-
-        def process_fn(entry):
-            nonlocal processed_count
-            processed_count += 1
-            if not as_json:
-                progress.update(processed_count)
-
-        if not as_json:
-            progress.start()
-
-        async def entry_stream():
-            for e in entries:
-                yield e
-
-        stats = await run_worker_pool(
-            entry_stream(),
-            process_fn,
-            num_workers=(workers or 4),  # 0 = auto → the classic default
-        )
-
-        if not as_json:
-            progress.stop()
+        # Every entry has been parsed, embedded and scored by this point; this is
+        # only the tally shown to the user. It used to push each entry through a
+        # thread pool just to count it (~100 µs per entry, about a third of an
+        # exact-mode run on 100k lines).
+        stats = {"processed": len(entries), "skipped": 0}
 
         console.print(
             f"\n[bold cyan][LogLens][/bold cyan] Processed: [bold green]{stats['processed']:,}[/bold green]"

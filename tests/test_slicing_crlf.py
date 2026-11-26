@@ -24,5 +24,5 @@ def test_turbo_counts_every_crlf_line_once(crlf_log, workers):
 
 
 def test_parallel_counts_every_crlf_line_once(crlf_log):
-    res = parallel_analyze_file(crlf_log, workers=2, oversplit=4)
+    res = parallel_analyze_file(crlf_log, workers=2, slice_lines=500)
     assert res["lines_parsed"] == N + 1

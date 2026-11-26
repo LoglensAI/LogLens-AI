@@ -127,8 +127,10 @@ jobs:
       - name: CLI smoke (help / version)
         run: python scripts/ci_accuracy_gate.py
 
+      # 0.496 since the parameter-detector fix (was 0.426 after it regressed
+      # from 0.501). The floor sits just below so a real drop fails the PR.
       - name: Unsupervised min-F1 gate (CLI)
-        run: loglens benchmark benchmarks/BGL_2k.log --format bgl --min-f1 0.42
+        run: loglens benchmark benchmarks/BGL_2k.log --format bgl --min-f1 0.48
 
       - name: Synthetic suite micro-F1 gate (G1 — fails PR on any accuracy drop)
         run: loglens bench-suite --dir testlogs --exclude big.log --min-f1 0.99

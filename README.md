@@ -433,13 +433,15 @@ The current benchmark evaluates 500,000 BGL log lines containing 206,847 labeled
 
 These figures are benchmark results on the specified dataset and configuration; they should not be interpreted as universal performance guarantees.
 
+> **Status (2026-11-25):** the 500k figures above were measured on the 2026-07-11 build and are being re-verified on v0.13.x. Two later changes affect this run: the parameter-anomaly detector (whose false positives on BGL are now fixed — see below) and the detection caps added in October, which only apply to large files. See [docs/BENCHMARK.md](docs/BENCHMARK.md) for details.
+
 **Reproduce it yourself** (don't take our word for it):
 
 ```bash
 loglens benchmark path/to/BGL.log --format bgl --supervised
 ```
 
-On the bundled 2,000-line sample (`benchmarks/BGL_2k.log`), the supervised head scores **F1 0.932** (precision 0.902, recall 0.965) and the unsupervised path reaches **1.000 recall** - see [BENCHMARKS.md](docs/BENCHMARKS.md) for the full measured baseline (accuracy, throughput, memory).
+On the bundled 2,000-line sample (`benchmarks/BGL_2k.log`), the unsupervised path reaches **1.000 recall** with no training (precision 0.329, F1 0.496), and the supervised head scores **F1 0.941 ± 0.038** in 5-fold cross-validation (`loglens train benchmarks/BGL_2k.log --format bgl`) - see [BENCHMARKS.md](docs/BENCHMARKS.md) for the full measured baseline (accuracy, throughput, memory).
 
 The complete methodology and reproduction instructions are available in [BENCHMARKS.md](docs/BENCHMARKS.md).
 

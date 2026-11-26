@@ -47,8 +47,8 @@ def _reserved_cores(cores: int, headroom: int | None) -> int:
     return min(max(0, headroom), cores - 1)
 
 
-# Oversplit factor the parallel scan uses (workers * oversplit slices).
-_OVERSPLIT = 4
+# Worst-case average line length used to bound one slice's size in memory.
+_MAX_AVG_LINE_BYTES = 1024
 
 
 def _mem_available_bytes() -> int | None:
@@ -72,7 +72,11 @@ def mem_capped_workers(workers: int, size_bytes: int) -> int:
     avail = _mem_available_bytes()
     if not avail:
         return workers
-    slice_bytes = size_bytes / max(1, workers * _OVERSPLIT)
+    from loglens.application.parallel_scan import DEFAULT_SLICE_LINES
+
+    # Slices have a fixed size (they no longer grow when there are fewer
+    # workers), so each worker holds at most one slice of about this size.
+    slice_bytes = min(size_bytes, DEFAULT_SLICE_LINES * _MAX_AVG_LINE_BYTES)
     per_worker = max(768 * 1024 * 1024, int(slice_bytes * 3))  # ≥0.75 GB headroom
     cap = max(2, int(avail * 0.60 / per_worker))
     return max(1, min(workers, cap))

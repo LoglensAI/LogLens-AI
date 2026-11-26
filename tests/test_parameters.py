@@ -80,3 +80,49 @@ def test_detector_integration_flags_parameter_spike():
     flagged = {i for i, f in enumerate(result.flagged) if f}
     assert all(i in flagged for i in spike_idx)
     assert "parameter_note" in result.meta
+
+
+# --- Real-log false positives (Stage 1 QA audit, Loghub BGL) -------------------
+# The detector was added in 0a071fe and dropped unsupervised BGL_2k F1 from 0.501
+# to 0.356: every one of its flags on BGL was a false positive, all on kernel
+# counters such as "<N> floating point alignment exceptions".
+
+
+def _counter_corpus(values):
+    return [
+        LogEntry(
+            level="INFO",
+            service="kernel",
+            message=f"{v} floating point alignment exceptions",
+        )
+        for v in values
+    ]
+
+
+def test_heavy_tailed_counter_not_flagged():
+    """Counters spread over many orders of magnitude are normal; their long
+    right tail is not an outlier (BGL: 5 ... 1.4e9 on normal lines)."""
+    import numpy as np
+
+    rng = np.random.default_rng(7)
+    values = [int(10 ** rng.uniform(0.7, 9.1)) for _ in range(120)]
+    scores, _r, _n = parameter_anomaly_scores(_counter_corpus(values))
+    assert (scores < 0.70).all()
+
+
+def test_bimodal_counter_not_flagged():
+    """Usually 5-15 but 2.35M on a third of the lines: two normal modes, not
+    a 1-in-3 anomaly rate (BGL flagged 39 such lines)."""
+    small = [5, 8, 15, 8, 5, 8, 15, 8, 5, 8] * 8  # 80 lines
+    big = [2354412, 640404, 2354412, 1005, 2354412] * 8  # 40 lines
+    scores, _r, _n = parameter_anomaly_scores(_counter_corpus(small + big))
+    assert (scores < 0.70).all()
+
+
+def test_rare_spike_still_flagged_among_many():
+    """The fix keeps the real case: a few huge latencies in a large group."""
+    normal = [8, 16, 38, 39, 22, 31, 12, 27, 19, 35] * 19  # 190 lines, 8-39ms
+    entries, spike_idx = _latency_corpus(normal, [8764, 8884, 9522, 10336, 10858])
+    scores, _r, _n = parameter_anomaly_scores(entries)
+    assert all(scores[i] >= 0.70 for i in spike_idx)
+    assert all(scores[i] < 0.70 for i in range(len(normal)))

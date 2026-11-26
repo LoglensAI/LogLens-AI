@@ -94,6 +94,20 @@ def _write_summary(data: dict, limit: int = 25) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _escape_data(s: str) -> str:
+    """Escape a workflow-command message (GitHub's escapeData rules).
+
+    Log text is untrusted: a raw newline would end this annotation and let the
+    rest of the line run as a new workflow command (e.g. ``::add-mask::``).
+    """
+    return s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _escape_property(s: str) -> str:
+    """Escape a workflow-command property value (GitHub's escapeProperty rules)."""
+    return _escape_data(s).replace(":", "%3A").replace(",", "%2C")
+
+
 def _emit_annotations(data: dict, limit: int = 20) -> None:
     """Emit GitHub inline annotations for the top anomalies."""
     for a in data.get("anomalies", [])[:limit]:
@@ -104,8 +118,9 @@ def _emit_annotations(data: dict, limit: int = 20) -> None:
         msg = str(a.get("message", ""))[:180]
         why = "; ".join(a.get("reasons", []) or [])
         body = f"{msg}  —  {why}" if why else msg
-        # Annotations without a file attach to the run; safe and always valid.
-        print(f"::{level} title={title}::{body}")
+        # Annotations without a file attach to the run. Both parts are escaped
+        # because service names and messages come from the (untrusted) log.
+        print(f"::{level} title={_escape_property(title)}::{_escape_data(body)}")
 
 
 def _expand_sources(source: str) -> list[str]:

@@ -171,7 +171,7 @@ per-request values), so they are capped. Logs below the caps are unaffected.
   to between 10,000 and 160,000 groups. Synonym learning is bounded by CPU time,
   not memory, so it has no `auto`.
 - **Accuracy:** on `benchmarks/BGL_2k.log`, default, `auto` and raised caps all
-  give F1 0.426; see [docs/BENCHMARKS.md](BENCHMARKS.md#7-detection-caps).
+  give F1 0.496; see [docs/BENCHMARKS.md](BENCHMARKS.md#7-detection-caps).
 
 ### Examples
 

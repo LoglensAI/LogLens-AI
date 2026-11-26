@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import time
 from typing import Any
@@ -140,6 +141,21 @@ def _analyze_slice(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Each slice runs the full detector on its own, so the slice size decides what
+# "rare" means. It must not depend on the worker count, or the same file gives
+# different answers on different machines. Workers only set how many slices
+# run at once.
+DEFAULT_SLICE_LINES = 25_000
+
+
+def plan_slice_count(size_bytes: int, avg_line_bytes: float, slice_lines: int) -> int:
+    """Number of slices for a file, from its size alone (never from workers)."""
+    if size_bytes <= 0 or avg_line_bytes <= 0 or slice_lines <= 0:
+        return 1
+    est_lines = size_bytes / avg_line_bytes
+    return max(1, math.ceil(est_lines / slice_lines))
+
+
 def parallel_analyze_file(
     path: str,
     *,
@@ -147,7 +163,7 @@ def parallel_analyze_file(
     sensitivity: str = "normal",
     threshold: float | None = None,
     workers: int,
-    oversplit: int = 4,
+    slice_lines: int = DEFAULT_SLICE_LINES,
     fmt: str | None = None,
     limit: int = 20,
     model: str | None = None,
@@ -157,9 +173,9 @@ def parallel_analyze_file(
 ) -> dict[str, Any]:
     """Analyse ``path`` in parallel slices; merge into families + top lines.
 
-    ``oversplit`` cuts more slices than workers (``workers * oversplit``) so the
-    progress bar advances in many small steps and an ETA appears early, instead of
-    one jump at the end.
+    The file is cut into slices of about ``slice_lines`` lines each, estimated
+    from the average line length of the first lines. The slice layout depends
+    only on the file, so the result is the same for any ``workers`` value.
     """
     from loglens.detection.parser import sniff_format
     from loglens.detection.textio import as_plain_utf8
@@ -172,15 +188,18 @@ def parallel_analyze_file(
         os.environ[v] = "1"
 
     head: list[str] = []
-    with open(path, encoding="utf-8", errors="replace") as fh:
-        for line in fh:
-            head.append(line.rstrip("\n"))
+    head_bytes = 0
+    with open(path, "rb") as fh:
+        for raw_line in fh:
+            head_bytes += len(raw_line)
+            head.append(raw_line.decode("utf-8", "replace").rstrip("\r\n"))
             if len(head) >= 200:
                 break
     detected, _conf, layout = sniff_format(head)
     fmt = fmt or detected
 
-    n_slices = max(1, workers) * max(1, oversplit)
+    avg_line_bytes = head_bytes / len(head) if head else 0.0
+    n_slices = plan_slice_count(os.path.getsize(path), avg_line_bytes, slice_lines)
     chunks = split_chunks(path, n_slices)
     payloads = [
         {

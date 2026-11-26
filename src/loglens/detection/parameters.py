@@ -48,6 +48,7 @@ def parameter_anomaly_scores(
     z_cutoff: float = 5.0,
     min_ratio: float = 3.0,
     flag_at: float = 0.70,
+    max_outlier_frac: float = 0.20,
     template_keys: Sequence[str] | None = None,
 ) -> tuple[np.ndarray, list[list[str]], str]:
 
@@ -80,23 +81,40 @@ def parameter_anomaly_scores(
         for slot in range(common):
             vals = np.array([slotlists[i][slot] for i in members], dtype=np.float64)
             med = float(np.median(vals))
-            mad = float(np.median(np.abs(vals - med)))
-            if mad <= 0:  # a steady/constant slot — nothing to flag
+            # Spread is measured on a log scale. Counts, sizes and latencies are
+            # multiplicative: a counter whose normal values run from 5 to 1e9 has
+            # a long right tail, and a linear-scale MAD flags that whole tail
+            # (it made every alert on Loghub BGL's "N alignment exceptions"
+            # counters a false positive). A real spike such as 20ms -> 9800ms is
+            # still dozens of MADs out on the log scale. Slot values are >= 0.
+            logs = np.log1p(vals)
+            log_med = float(np.median(logs))
+            log_mad = float(np.median(np.abs(logs - log_med)))
+            if log_mad <= 0:  # a steady/constant slot — nothing to flag
                 continue
+            outliers: list[tuple[int, float, float]] = []
             for i in members:
                 x = slotlists[i][slot]
-                z = 0.6745 * abs(x - med) / mad
+                z = 0.6745 * abs(float(np.log1p(x)) - log_med) / log_mad
                 ratio = abs(x - med) / max(abs(med), 1.0)
                 if z >= z_cutoff and ratio >= min_ratio:
-                    score = min(1.0, 0.7 + 0.3 * min(1.0, (z - z_cutoff) / z_cutoff))
-                    if score > scores[i]:
-                        scores[i] = score
-                    reasons[i].append(
-                        f"parameter anomaly: value {_fmt(x)} vs typical "
-                        f"{_fmt(med)} for this template (robust z={z:.0f})"
-                    )
-                    if score >= flag_at:
-                        flagged += 1
+                    outliers.append((i, x, z))
+            # Outliers are rare by definition. When a big share of a template's
+            # lines would be "outliers", the slot is simply multi-modal (e.g. a
+            # counter that is usually 5-15 but 2.3M on a third of the nodes) and
+            # none of them is anomalous.
+            if len(outliers) > max_outlier_frac * len(members):
+                continue
+            for i, x, z in outliers:
+                score = min(1.0, 0.7 + 0.3 * min(1.0, (z - z_cutoff) / z_cutoff))
+                if score > scores[i]:
+                    scores[i] = score
+                reasons[i].append(
+                    f"parameter anomaly: value {_fmt(x)} vs typical "
+                    f"{_fmt(med)} for this template (robust z={z:.0f})"
+                )
+                if score >= flag_at:
+                    flagged += 1
 
     note = f"parameters: {flagged} value outlier(s) across {len(groups)} templates"
     return scores, reasons, note
